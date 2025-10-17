@@ -5,6 +5,26 @@ app_description = "USD-only cash and installment management for ERPNext"
 app_email = "asadbek.backend@gmail.com"
 app_license = "mit"
 
+doc_events = {
+    "Item": {
+        "before_save": "cash_flow_app.cash_flow_management.overrides.item_hooks.before_save_item",
+        "validate": "cash_flow_app.cash_flow_management.overrides.item_hooks.validate_item"
+    },
+    "Payment Entry": {
+        "autoname": "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.autoname_payment_entry",
+        "onload": "cash_flow_app.cash_flow_management.overrides.payment_entry_defaults.onload_payment_entry",
+        "validate": [
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.validate_payment_entry",
+            "cash_flow_app.cash_flow_management.custom.payment_validations.validate_negative_balance",
+            "cash_flow_app.cash_flow_management.custom.payment_validations.warn_on_overdue_payments"
+        ],
+        "on_submit": "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_payment_entry",
+        "on_cancel": "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry"
+    },
+    "Sales Order": {
+        "validate": "cash_flow_app.cash_flow_management.custom.payment_validations.validate_payment_schedule_paid_amount"
+    }
+}
 # Apps
 # ------------------
 
@@ -43,7 +63,10 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+    "Sales Order": "public/js/sales_order.js",
+    "Payment Entry": "public/js/payment_entry.js"
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -83,6 +106,76 @@ app_license = "mit"
 # ------------
 
 # before_install = "cash_flow_app.install.before_install"
+
+# Fixtures
+# --------
+
+fixtures = [
+    {
+        "dt": "Property Setter",
+        "filters": [
+            [
+                "name", "in", [
+                    # Customer fields
+                    "Customer-salutation-hidden",
+                    "Customer-auto_repeat_detail-hidden",
+                    "Customer-customer_group-hidden",
+                    "Customer-territory-hidden",
+                    "Customer-sales_team-hidden",
+                    "Customer-account_manager-hidden",
+                    "Customer-default_currency-hidden",
+                    "Customer-default_bank_account-hidden",
+                    "Customer-default_price_list-hidden",
+                    "Customer-internal_customer-hidden",
+                    "Customer-represents_company-hidden",
+                    "Customer-companies-hidden",
+                    "Customer-default_company-hidden",
+                    "Customer-internal_customer_section-hidden",
+                    "Customer-more_info-hidden",
+                    "Customer-lead_name-hidden",
+                    "Customer-opportunity_name-hidden",
+                    "Customer-prospect_name-hidden",
+                    "Customer-custom_auto_debit-hidden",
+                    # Item fields - tabs
+                    "Item-dashboard_tab-hidden",
+                    "Item-inventory_section-hidden",
+                    "Item-variants_section-hidden",
+                    "Item-accounting-hidden",
+                    "Item-purchasing_tab-hidden",
+                    "Item-sales_details-hidden",
+                    "Item-item_tax_section_break-hidden",
+                    "Item-quality_tab-hidden",
+                    # Item fields - hide ALL default fields
+                    "Item-naming_series-hidden",
+                    "Item-item_code-hidden",
+                    "Item-item_name-hidden",
+                    "Item-item_group-hidden",
+                    "Item-stock_uom-hidden",
+                    "Item-disabled-hidden",
+                    "Item-allow_alternative_item-hidden",
+                    "Item-is_stock_item-hidden",
+                    "Item-has_variants-hidden",
+                    "Item-opening_stock-hidden",
+                    "Item-valuation_rate-hidden",
+                    "Item-standard_rate-hidden",
+                    "Item-is_fixed_asset-hidden",
+                    "Item-auto_create_assets-hidden",
+                    "Item-is_grouped_asset-hidden",
+                    "Item-asset_category-hidden",
+                    "Item-asset_naming_series-hidden",
+                    "Item-over_delivery_receipt_allowance-hidden",
+                    "Item-over_billing_allowance-hidden",
+                    "Item-image-hidden",
+                    "Item-section_break_11-hidden",
+                    "Item-description-hidden",
+                    "Item-brand-hidden",
+                    "Item-unit_of_measure_conversion-hidden",
+                    "Item-uoms-hidden"
+                ]
+            ]
+        ]
+    }
+]
 # after_install = "cash_flow_app.install.after_install"
 
 # Uninstallation

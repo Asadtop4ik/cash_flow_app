@@ -1,0 +1,23 @@
+[
+  {
+    "doctype": "Mode of Payment",
+    "name": "Naqd",
+    "mode_of_payment": "Naqd",
+    "enabled": 1,
+    "type": "Cash"
+  },
+  {
+    "doctype": "Mode of Payment",
+    "name": "Click",
+    "mode_of_payment": "Click",
+    "enabled": 1,
+    "type": "Bank"
+  },
+  {
+    "doctype": "Mode of Payment",
+    "name": "Terminal",
+    "mode_of_payment": "Terminal",
+    "enabled": 1,
+    "type": "Bank"
+  }
+]

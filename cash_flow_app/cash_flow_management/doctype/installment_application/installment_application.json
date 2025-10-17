@@ -1,0 +1,320 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-10-13 10:06:34.573279",
+ "doctype": "DocType",
+ "document_type": "Document",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "section_break_customer",
+  "customer",
+  "customer_name",
+  "column_break_3",
+  "transaction_date",
+  "cost_center",
+  "section_break_items",
+  "items",
+  "section_break_payment",
+  "total_amount",
+  "downpayment_amount",
+  "column_break_payment",
+  "finance_amount",
+  "monthly_payment",
+  "installment_months",
+  "section_break_interest",
+  "custom_start_date",
+  "custom_monthly_payment_day",
+  "column_break_interest",
+  "custom_total_interest",
+  "custom_profit_percentage",
+  "custom_finance_profit_percentage",
+  "custom_grand_total_with_interest",
+  "section_break_schedule",
+  "calculate_schedule_button",
+  "payment_schedule",
+  "section_break_notes",
+  "notes",
+  "section_break_status",
+  "sales_order",
+  "status",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "default": "INST-APP-.YYYY.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "INST-APP-.YYYY.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_customer",
+   "fieldtype": "Section Break",
+   "label": "Customer Details"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "customer.customer_name",
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "label": "Customer Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "now",
+   "fieldname": "transaction_date",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Yetkazib Beruvchi (Postavshik)",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "section_break_items",
+   "fieldtype": "Section Break",
+   "label": "Items"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Installment Application Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_payment",
+   "fieldtype": "Section Break",
+   "label": "Payment Terms"
+  },
+  {
+   "fieldname": "total_amount",
+   "fieldtype": "Currency",
+   "label": "Tan Narxi (USD)",
+   "description": "Mahsulotlarning umumiy narxi",
+   "options": "USD",
+   "read_only": 1
+  },
+  {
+   "fieldname": "downpayment_amount",
+   "fieldtype": "Currency",
+   "label": "Boshlang'ich To'lov (USD)",
+   "description": "Qo'lda kiriting: masalan 850",
+   "options": "USD",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_payment",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "finance_amount",
+   "fieldtype": "Currency",
+   "label": "Qolgan Summa (USD)",
+   "description": "Umumiy narx - Boshlang'ich to'lov",
+   "options": "USD",
+   "read_only": 1
+  },
+  {
+   "fieldname": "monthly_payment",
+   "fieldtype": "Currency",
+   "label": "Oylik To'lov (USD)",
+   "description": "Qo'lda kiriting: masalan 106",
+   "options": "USD",
+   "reqd": 1
+  },
+  {
+   "default": "6",
+   "fieldname": "installment_months",
+   "fieldtype": "Int",
+   "label": "Necha Oy",
+   "description": "Masalan: 6 yoki 12",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_interest",
+   "fieldtype": "Section Break",
+   "label": "Foiz Hisoblash"
+  },
+  {
+   "fieldname": "custom_start_date",
+   "fieldtype": "Date",
+   "label": "Birinchi To'lov Sanasi",
+   "description": "Qaysi kundan to'lovlar boshlanadi",
+   "reqd": 1,
+   "default": "Today"
+  },
+  {
+   "fieldname": "custom_monthly_payment_day",
+   "fieldtype": "Int",
+   "label": "Har Oy Qaysi Sana To'lanadi",
+   "description": "Masalan: 5 (har oyning 5-sanasi)",
+   "reqd": 1,
+   "default": "5"
+  },
+  {
+   "fieldname": "column_break_interest",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "custom_total_interest",
+   "fieldtype": "Currency",
+   "label": "Foyda Summasi (USD)",
+   "description": "Avtomatik: (Oylik × Oylar) - Qolgan",
+   "options": "USD",
+   "read_only": 1,
+   "bold": 1
+  },
+  {
+   "fieldname": "custom_profit_percentage",
+   "fieldtype": "Percent",
+   "label": "Marja Foiz (%)",
+   "description": "Avtomatik: (Foyda / Jami To'lov) × 100%",
+   "read_only": 1,
+   "bold": 1,
+   "precision": "0"
+  },
+  {
+   "fieldname": "custom_finance_profit_percentage",
+   "fieldtype": "Percent",
+   "label": "Foydani Chiqarish Foiz (%)",
+   "description": "Avtomatik: (Foyda / Qolgan Summa) × 100%",
+   "read_only": 1,
+   "bold": 1,
+   "precision": "0"
+  },
+  {
+   "fieldname": "custom_grand_total_with_interest",
+   "fieldtype": "Currency",
+   "label": "Jami To'lov (USD)",
+   "description": "Avtomatik: Boshlang'ich + (Oylik × Oylar)",
+   "options": "USD",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_schedule",
+   "fieldtype": "Section Break",
+   "label": "To'lov Jadvali"
+  },
+  {
+   "fieldname": "calculate_schedule_button",
+   "fieldtype": "Button",
+   "label": "Calculate Payment Schedule"
+  },
+  {
+   "fieldname": "payment_schedule",
+   "fieldtype": "Table",
+   "label": "Payment Schedule",
+   "options": "Payment Schedule",
+   "description": "Oylik to'lov jadvali - har oy qachon to'lash kerak"
+  },
+  {
+   "fieldname": "section_break_notes",
+   "fieldtype": "Section Break",
+   "label": "Izoh"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_status",
+   "fieldtype": "Section Break",
+   "label": "Status"
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "label": "Sales Order",
+   "options": "Sales Order",
+   "read_only": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nPending\nApproved\nSales Order Created\nCancelled",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Installment Application",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-10-13 10:06:34.573279",
+ "modified_by": "Administrator",
+ "module": "Cash Flow Management",
+ "name": "Installment Application",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Operator",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

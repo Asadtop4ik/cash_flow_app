@@ -1,0 +1,198 @@
+{% set is_receipt = doc.payment_type == "Receive" %}
+{% set payment_label = "KASSA KIRIM" if is_receipt else "KASSA CHIQIM" %}
+{% set color = "#28a745" if is_receipt else "#dc3545" %}
+
+<div class="kvitansiya-print" style="font-family: Arial, sans-serif; padding: 15px; max-width: 800px; margin: 0 auto;">
+	
+	<!-- Header with Letter Head -->
+	{% if letter_head %}
+		{{ letter_head }}
+	{% endif %}
+	
+	<!-- Title -->
+	<div style="text-align: center; margin: 20px 0; padding: 15px; background-color: {{ color }}; color: white; border-radius: 5px;">
+		<h2 style="margin: 0; font-size: 24px; font-weight: bold;">
+			{{ payment_label }}
+		</h2>
+		<p style="margin: 5px 0 0 0; font-size: 14px;">
+			Kvitansiya № {{ doc.name }}
+		</p>
+	</div>
+	
+	<!-- Receipt Info -->
+	<div style="margin-bottom: 20px; border: 2px solid {{ color }}; border-radius: 5px; padding: 20px;">
+		<table style="width: 100%; border-collapse: collapse;">
+			<tr>
+				<td style="width: 30%; padding: 10px 0; font-weight: bold; font-size: 14px;">Sana:</td>
+				<td style="padding: 10px 0; font-size: 14px;">{{ frappe.utils.formatdate(doc.posting_date, 'dd.MM.yyyy') }}</td>
+			</tr>
+			<tr>
+				<td style="padding: 10px 0; font-weight: bold; font-size: 14px;">Vaqt:</td>
+				<td style="padding: 10px 0; font-size: 14px;">{{ frappe.utils.now_datetime().strftime('%H:%M') }}</td>
+			</tr>
+			<tr style="border-top: 1px solid #eee;">
+				<td style="padding: 10px 0; font-weight: bold; font-size: 14px;">
+					{% if is_receipt %}Kimdan qabul qilindi:{% else %}Kimga to'landi:{% endif %}
+				</td>
+				<td style="padding: 10px 0; font-size: 14px;">
+					{% if doc.party_name %}
+						{{ doc.party_name }}
+					{% elif doc.party %}
+						{{ doc.party }}
+					{% else %}
+						-
+					{% endif %}
+				</td>
+			</tr>
+			{% if doc.get("custom_counterparty_category") %}
+			<tr>
+				<td style="padding: 10px 0; font-weight: bold; font-size: 14px;">Kategoriya:</td>
+				<td style="padding: 10px 0; font-size: 14px;">{{ doc.custom_counterparty_category }}</td>
+			</tr>
+			{% endif %}
+			<tr>
+				<td style="padding: 10px 0; font-weight: bold; font-size: 14px;">To'lov turi:</td>
+				<td style="padding: 10px 0; font-size: 14px;">
+					{% if doc.mode_of_payment %}
+						<span style="padding: 4px 12px; background-color: #f0f0f0; border-radius: 3px; font-weight: bold;">
+							{{ doc.mode_of_payment }}
+						</span>
+					{% else %}
+						-
+					{% endif %}
+				</td>
+			</tr>
+			{% if doc.get("custom_contract_reference") %}
+			<tr>
+				<td style="padding: 10px 0; font-weight: bold; font-size: 14px;">Shartnoma:</td>
+				<td style="padding: 10px 0; font-size: 14px;">{{ doc.custom_contract_reference }}</td>
+			</tr>
+			{% endif %}
+			{% if doc.cost_center %}
+			<tr>
+				<td style="padding: 10px 0; font-weight: bold; font-size: 14px;">Filial:</td>
+				<td style="padding: 10px 0; font-size: 14px;">{{ doc.cost_center }}</td>
+			</tr>
+			{% endif %}
+		</table>
+	</div>
+	
+	<!-- Amount (Big Display) -->
+	<div style="text-align: center; margin: 30px 0; padding: 30px; background-color: #f9f9f9; border-radius: 5px; border: 3px solid {{ color }};">
+		<p style="margin: 0 0 10px 0; font-size: 16px; color: #666;">SUMMA</p>
+		<h1 style="margin: 0; font-size: 48px; font-weight: bold; color: {{ color }};">
+			{{ "{:,.2f}".format(doc.paid_amount) }}
+		</h1>
+		<p style="margin: 10px 0 0 0; font-size: 20px; font-weight: bold; color: #333;">USD</p>
+	</div>
+	
+	<!-- Amount in Words -->
+	<div style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border-left: 4px solid {{ color }}; border-radius: 3px;">
+		<p style="margin: 0; font-size: 14px; line-height: 1.6;">
+			<strong>So'zlar bilan:</strong> 
+			{{ frappe.utils.money_in_words(doc.paid_amount, "USD") }}
+		</p>
+	</div>
+	
+	<!-- Remarks -->
+	{% if doc.remarks %}
+	<div style="margin: 20px 0;">
+		<p style="margin: 0 0 5px 0; font-weight: bold; font-size: 14px;">Izoh:</p>
+		<p style="margin: 0; padding: 10px; background-color: #f9f9f9; border-radius: 3px; font-size: 14px; line-height: 1.6;">
+			{{ doc.remarks }}
+		</p>
+	</div>
+	{% endif %}
+	
+	<!-- Reference Info -->
+	{% if doc.references %}
+	<div style="margin: 20px 0;">
+		<p style="margin: 0 0 10px 0; font-weight: bold; font-size: 14px;">Bog'langan hujjatlar:</p>
+		<table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+			<thead>
+				<tr style="background-color: #f5f5f5;">
+					<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Hujjat turi</th>
+					<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Hujjat raqami</th>
+					<th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Summa (USD)</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for ref in doc.references %}
+				<tr>
+					<td style="border: 1px solid #ddd; padding: 8px;">{{ ref.reference_doctype }}</td>
+					<td style="border: 1px solid #ddd; padding: 8px;">{{ ref.reference_name }}</td>
+					<td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{{ "{:,.2f}".format(ref.allocated_amount) }}</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+	{% endif %}
+	
+	<!-- Accounts Summary (for accounting reference) -->
+	<div style="margin: 30px 0; padding: 15px; background-color: #f9f9f9; border-radius: 5px;">
+		<p style="margin: 0 0 10px 0; font-weight: bold; font-size: 14px;">Hisob ma'lumotlari:</p>
+		<table style="width: 100%; font-size: 13px;">
+			{% if is_receipt %}
+			<tr>
+				<td style="padding: 5px 0; width: 40%;">Debet (Qayerdan):</td>
+				<td style="padding: 5px 0; font-weight: bold;">{{ doc.paid_from }}</td>
+			</tr>
+			<tr>
+				<td style="padding: 5px 0;">Kredit (Qayerga):</td>
+				<td style="padding: 5px 0; font-weight: bold;">{{ doc.paid_to }}</td>
+			</tr>
+			{% else %}
+			<tr>
+				<td style="padding: 5px 0; width: 40%;">Debet (Qayerdan):</td>
+				<td style="padding: 5px 0; font-weight: bold;">{{ doc.paid_from }}</td>
+			</tr>
+			<tr>
+				<td style="padding: 5px 0;">Kredit (Qayerga):</td>
+				<td style="padding: 5px 0; font-weight: bold;">{{ doc.paid_to }}</td>
+			</tr>
+			{% endif %}
+		</table>
+	</div>
+	
+	<!-- Signatures -->
+	<div style="margin-top: 50px;">
+		<table style="width: 100%;">
+			<tr>
+				<td style="width: 45%; vertical-align: bottom;">
+					<div style="border-top: 1px solid #333; padding-top: 5px; margin-top: 40px;">
+						<strong>{% if is_receipt %}Qabul qildi{% else %}To'ladi{% endif %}:</strong><br>
+						<small>{{ doc.owner }} / Imzo</small>
+					</div>
+				</td>
+				<td style="width: 10%;"></td>
+				<td style="width: 45%; vertical-align: bottom;">
+					<div style="border-top: 1px solid #333; padding-top: 5px; margin-top: 40px;">
+						<strong>Kassir:</strong><br>
+						<small>F.I.O / Imzo</small>
+					</div>
+				</td>
+			</tr>
+		</table>
+	</div>
+	
+	<!-- Footer -->
+	<div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed #ccc; text-align: center; font-size: 11px; color: #666;">
+		<p style="margin: 5px 0;">Tizim raqami: {{ doc.name }}</p>
+		<p style="margin: 5px 0;">Chop etildi: {{ frappe.utils.now_datetime().strftime('%d.%m.%Y %H:%M:%S') }}</p>
+		<p style="margin: 5px 0;">Bu kvitansiya elektron tizimda tasdiqlangan</p>
+	</div>
+	
+</div>
+
+<style>
+@media print {
+	.kvitansiya-print {
+		padding: 0;
+	}
+	@page {
+		size: A5 portrait;
+		margin: 10mm;
+	}
+}
+</style>

@@ -1,0 +1,1 @@
+# Kassa Kvitansiya Print Format
