@@ -187,21 +187,21 @@
   },
   {
    "fieldname": "custom_profit_percentage",
-   "fieldtype": "Percent",
+   "fieldtype": "Float",
    "label": "Marja Foiz (%)",
    "description": "Avtomatik: (Foyda / Jami To'lov) × 100%",
    "read_only": 1,
    "bold": 1,
-   "precision": "0"
+   "precision": "2"
   },
   {
    "fieldname": "custom_finance_profit_percentage",
-   "fieldtype": "Percent",
-   "label": "Foydani Chiqarish Foiz (%)",
+   "fieldtype": "Float",
+   "label": "Ustama Foiz (%)",
    "description": "Avtomatik: (Foyda / Qolgan Summa) × 100%",
    "read_only": 1,
    "bold": 1,
-   "precision": "0"
+   "precision": "2"
   },
   {
    "fieldname": "custom_grand_total_with_interest",

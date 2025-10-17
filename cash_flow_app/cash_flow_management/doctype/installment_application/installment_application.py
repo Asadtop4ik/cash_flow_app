@@ -44,15 +44,15 @@ class InstallmentApplication(Document):
         # Bu ko'rsatadi: oylik to'lovlarning qancha qismi foyda
         if total_installments > 0:
             profit_percentage = (total_interest / total_installments) * 100
-            self.custom_profit_percentage = round(profit_percentage)
+            self.custom_profit_percentage = round(profit_percentage, 2)  # 2 raqam verguldan keyin
         else:
             self.custom_profit_percentage = 0
         
-        # Foydani Chiqarish Foiz (%) = (Foyda / Qolgan Summa) × 100%
+        # Ustama Foiz (%) = (Foyda / Qolgan Summa) × 100%
         # Bu ko'rsatadi: qolgan summadan qancha foiz foyda
         if flt(self.finance_amount) > 0:
             finance_profit_percentage = (total_interest / flt(self.finance_amount)) * 100
-            self.custom_finance_profit_percentage = round(finance_profit_percentage)
+            self.custom_finance_profit_percentage = round(finance_profit_percentage, 2)  # 2 raqam verguldan keyin
         else:
             self.custom_finance_profit_percentage = 0
         
@@ -139,12 +139,39 @@ class InstallmentApplication(Document):
             "payment_amount": flt(self.downpayment_amount)
         })
         
-        # Monthly payment schedules
+        # Monthly payment schedules with custom payment day
         monthly_portion = (flt(self.monthly_payment) / so_grand_total) * 100
+        payment_day = int(self.custom_monthly_payment_day) if self.custom_monthly_payment_day else getdate(start_date).day
         
-        for month in range(1, int(self.installment_months) + 1):
+        # Get start date components
+        start_date_obj = getdate(start_date)
+        current_year = start_date_obj.year
+        current_month = start_date_obj.month
+        
+        for i in range(1, int(self.installment_months) + 1):
+            # Calculate next month
+            target_month = current_month + i
+            target_year = current_year
+            
+            # Handle year overflow
+            while target_month > 12:
+                target_month -= 12
+                target_year += 1
+            
+            # Create date with specific payment_day
+            from datetime import date
+            from calendar import monthrange
+            
+            try:
+                # Try to create date with payment_day
+                due_date = date(target_year, target_month, payment_day)
+            except ValueError:
+                # If day doesn't exist in month (e.g., Feb 30), use last day
+                last_day = monthrange(target_year, target_month)[1]
+                due_date = date(target_year, target_month, last_day)
+            
             so.append("payment_schedule", {
-                "due_date": add_months(start_date, month),
+                "due_date": due_date,
                 "invoice_portion": monthly_portion,
                 "payment_amount": flt(self.monthly_payment)
             })
@@ -221,6 +248,15 @@ class InstallmentApplication(Document):
                 "custom_counterparty_category": "Klient - Mijozlardan tushgan to'lovlar",
                 "custom_contract_reference": sales_order_name,
                 "remarks": f"Boshlang'ich to'lov - Shartnoma {sales_order_name}\nInstallment Application: {self.name}"
+            })
+            
+            # Add reference to Sales Order (IMPORTANT for linking!)
+            pe.append("references", {
+                "reference_doctype": "Sales Order",
+                "reference_name": sales_order_name,
+                "total_amount": flt(self.custom_grand_total_with_interest),
+                "outstanding_amount": flt(self.custom_grand_total_with_interest),
+                "allocated_amount": flt(self.downpayment_amount)
             })
             
             # Insert as Draft (operator will submit)

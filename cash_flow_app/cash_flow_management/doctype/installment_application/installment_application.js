@@ -168,16 +168,16 @@ frappe.ui.form.on("Installment Application", {
 		let profit_percentage = 0;
 		if (total_installments > 0) {
 			profit_percentage = (total_interest / total_installments) * 100;
-			profit_percentage = Math.round(profit_percentage); // Yaxlitlash
+			profit_percentage = parseFloat(profit_percentage.toFixed(2)); // 2 raqam verguldan keyin
 		}
 		frm.set_value('custom_profit_percentage', profit_percentage);
 		
-		// Foydani Chiqarish Foiz (%) = (Total Interest / Finance Amount) × 100%
+		// Ustama Foiz (%) = (Total Interest / Finance Amount) × 100%
 		// Bu ko'rsatadi: qolgan summadan qancha foiz foyda
 		let finance_profit_percentage = 0;
 		if (finance_amount > 0) {
 			finance_profit_percentage = (total_interest / finance_amount) * 100;
-			finance_profit_percentage = Math.round(finance_profit_percentage); // Yaxlitlash
+			finance_profit_percentage = parseFloat(finance_profit_percentage.toFixed(2)); // 2 raqam verguldan keyin
 		}
 		frm.set_value('custom_finance_profit_percentage', finance_profit_percentage);
 	}
