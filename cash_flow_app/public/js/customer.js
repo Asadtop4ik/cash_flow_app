@@ -121,55 +121,54 @@ function load_payment_history(frm, wrapper) {
                     <div class="form-section card-section visible-section">
                         <div class="section-head">
                             <span class="indicator orange">📅</span>
-                            <span class="section-title">2-qism (pastda): Oylik to'lovlar jadvali</span>
+                            <span class="section-title">2-qism (pastda): Oylik to'lovlar jadvali - REAL-TIME</span>
                         </div>
                         <div class="section-body" style="padding: 15px; overflow-x: auto;">
                             <table class="table table-bordered table-hover">
                                 <thead>
                                     <tr style="background-color: #f5f5f5;">
-                                        <th>Oy raqami</th>
-                                        <th>To'lov kuni</th>
-                                        <th>To'lash kerak summa</th>
-                                        <th>To'lashga qolgan / O'tgan kun</th>
-                                        <th>To'lagan summa</th>
-                                        <th>To'lagan sana</th>
-                                        <th>Holat</th>
+                                        <th style="width: 8%;">Oy</th>
+                                        <th style="width: 12%;">Muddat</th>
+                                        <th style="width: 12%;">Summa</th>
+                                        <th style="width: 12%;">To'landi</th>
+                                        <th style="width: 12%;">Qoldi</th>
+                                        <th style="width: 12%;">To'lov sanasi</th>
+                                        <th style="width: 32%;">Status (Real-Time)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                 `;
                 
-                r.message.forEach((row, index) => {
-                    let status_badge = '';
-                    let status_color = '';
+                r.message.forEach((row) => {
+                    let paid = parseFloat(row.paid_amount) || 0;
+                    let payment_amount = parseFloat(row.payment_amount) || 0;
+                    let outstanding = parseFloat(row.outstanding) || 0;
                     
-                    if (row.status === 'On Time') {
-                        status_badge = '✅ 0 kun erta';
-                        status_color = 'green';
-                    } else if (row.status === 'Late') {
-                        status_badge = `❌ ${row.days_late} kun kechikdi`;
-                        status_color = 'red';
-                    } else if (row.status === 'Upcoming') {
-                        status_badge = `⏳ ${row.days_remaining} kun qoldi`;
-                        status_color = 'orange';
-                    } else {
-                        status_badge = '-';
-                        status_color = 'gray';
+                    // Month description
+                    let month_desc = row.description || `${row.payment_number}-oy`;
+                    
+                    // Payment date
+                    let payment_date = row.payment_date 
+                        ? frappe.datetime.str_to_user(row.payment_date) 
+                        : '-';
+                    
+                    // Status with color
+                    let status_html = `<span style="color: ${row.status_color}; font-weight: 500;">${row.status}</span>`;
+                    
+                    // Payment entry link
+                    if (row.payment_name) {
+                        payment_date = `<a href="/app/payment-entry/${row.payment_name}" target="_blank">${payment_date}</a>`;
                     }
                     
                     html += `
                         <tr>
-                            <td>${row.payment_number}-oy</td>
+                            <td style="text-align: center;"><strong>${month_desc}</strong></td>
                             <td>${frappe.datetime.str_to_user(row.due_date)}</td>
-                            <td><strong>${format_currency(row.payment_amount, 'USD')}</strong></td>
-                            <td style="color: ${status_color};">${status_badge}</td>
-                            <td>${row.paid_amount > 0 ? format_currency(row.paid_amount, 'USD') : '0'}</td>
-                            <td>${row.payment_date ? frappe.datetime.str_to_user(row.payment_date) : '-'}</td>
-                            <td>
-                                <span class="indicator-pill ${row.status === 'On Time' ? 'green' : row.status === 'Late' ? 'red' : row.status === 'Upcoming' ? 'orange' : 'gray'}">
-                                    ${row.status}
-                                </span>
-                            </td>
+                            <td><strong>${format_currency(payment_amount, 'USD')}</strong></td>
+                            <td style="color: ${paid > 0 ? 'green' : 'gray'};">${format_currency(paid, 'USD')}</td>
+                            <td style="color: ${outstanding > 0 ? 'red' : 'green'};">${format_currency(outstanding, 'USD')}</td>
+                            <td>${payment_date}</td>
+                            <td>${status_html}</td>
                         </tr>
                     `;
                 });
@@ -177,20 +176,39 @@ function load_payment_history(frm, wrapper) {
                 html += `
                                 </tbody>
                             </table>
+                            <div style="margin-top: 15px; padding: 10px; background-color: #f0f9ff; border-left: 3px solid #2563eb;">
+                                <strong>🔄 Real-Time Tracking:</strong> Bu jadval har safar Payment Entry submit qilinganda avtomatik yangilanadi!
+                                <br>
+                                <small style="color: #666;">
+                                    ✅ = To'langan | 🟡 = Qisman to'langan | ⏳ = Kutilmoqda | ❌ = Muddati o'tgan
+                                </small>
+                            </div>
                         </div>
                     </div>
                 `;
                 
                 wrapper.append(html);
             } else {
-                wrapper.append(`
+                // No payment schedule
+                let html = `
                     <div class="form-section card-section visible-section">
-                        <div class="section-body" style="padding: 15px; text-align: center; color: #888;">
-                            <p>❌ Hali shartnoma mavjud emas</p>
+                        <div class="section-head">
+                            <span class="indicator gray">📅</span>
+                            <span class="section-title">2-qism: Oylik to'lovlar jadvali</span>
+                        </div>
+                        <div class="section-body" style="padding: 15px;">
+                            <p style="color: #999; text-align: center;">
+                                Bu mijozda hozircha shartnoma yo'q
+                            </p>
                         </div>
                     </div>
-                `);
+                `;
+                wrapper.append(html);
             }
         }
     });
+}
+
+function format_currency(value, currency) {
+    return frappe.format(value, {fieldtype: 'Currency', options: currency});
 }

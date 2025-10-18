@@ -2,6 +2,13 @@
 // Shows Installment Application link when Customer is selected
 
 frappe.ui.form.on('Payment Entry', {
+    onload: function(frm) {
+        // Auto-fill contract reference when form loads (for Draft payments created by Installment Application)
+        if (frm.doc.party && !frm.doc.custom_contract_reference) {
+            auto_fill_contract_reference(frm);
+        }
+    },
+    
     refresh: function(frm) {
         // Hide timezone display
         setTimeout(() => {
@@ -16,16 +23,27 @@ frappe.ui.form.on('Payment Entry', {
         
         // Rename fields for clarity
         rename_payment_entry_fields(frm);
+        
+        // Auto-fill contract if not set (for existing drafts)
+        if (frm.doc.party && !frm.doc.custom_contract_reference && frm.doc.payment_type === 'Receive') {
+            auto_fill_contract_reference(frm);
+        }
     },
     
     party: function(frm) {
-        // When customer changes, update installment applications link
+        // When customer changes, update installment applications link and auto-fill contract
         show_installment_applications_link(frm);
+        auto_fill_contract_reference(frm);
     },
     
     party_type: function(frm) {
         // When party type changes, update visibility
         show_installment_applications_link(frm);
+    },
+    
+    custom_contract_reference: function(frm) {
+        // When contract is selected, update payment schedule options
+        update_payment_schedule_options(frm);
     }
 });
 
@@ -108,4 +126,105 @@ function rename_payment_entry_fields(frm) {
     if (frm.fields_dict.custom_contract_reference) {
         frm.set_df_property('custom_contract_reference', 'label', '📄 Shartnoma Raqami');
     }
+}
+
+// Auto-fill contract reference when customer is selected
+function auto_fill_contract_reference(frm) {
+    // Only for Receive type and Customer party type
+    if (frm.doc.payment_type !== 'Receive' || frm.doc.party_type !== 'Customer' || !frm.doc.party) {
+        return;
+    }
+    
+    // Don't override if already set
+    if (frm.doc.custom_contract_reference) {
+        return;
+    }
+    
+    // Get latest active Sales Order for this customer
+    frappe.call({
+        method: 'frappe.client.get_list',
+        args: {
+            doctype: 'Sales Order',
+            filters: {
+                customer: frm.doc.party,
+                docstatus: 1,  // Submitted
+                status: ['not in', ['Completed', 'Cancelled', 'Closed']]
+            },
+            fields: ['name', 'transaction_date', 'custom_grand_total_with_interest', 'advance_paid'],
+            order_by: 'transaction_date desc',
+            limit: 1
+        },
+        callback: function(r) {
+            if (r.message && r.message.length > 0) {
+                let contract = r.message[0];
+                
+                // Auto-fill contract reference and save
+                frm.set_value('custom_contract_reference', contract.name).then(() => {
+                    // After setting contract, update payment schedule
+                    update_payment_schedule_options(frm);
+                    
+                    // Auto-save if draft
+                    if (!frm.doc.__islocal && frm.doc.docstatus === 0) {
+                        frm.save().then(() => {
+                            frappe.show_alert({
+                                message: `✅ Shartnoma avtomatik tanlandi va saqlandi: ${contract.name}`,
+                                indicator: 'green'
+                            }, 5);
+                        });
+                    } else {
+                        // Show message without saving
+                        frappe.show_alert({
+                            message: `📄 Shartnoma avtomatik tanlandi: ${contract.name}`,
+                            indicator: 'green'
+                        }, 5);
+                    }
+                });
+            }
+        }
+    });
+}
+
+// Update payment schedule dropdown when contract is selected
+function update_payment_schedule_options(frm) {
+    if (!frm.doc.custom_contract_reference) {
+        return;
+    }
+    
+    // Get unpaid payment schedules for this contract
+    frappe.call({
+        method: 'frappe.client.get_list',
+        args: {
+            doctype: 'Payment Schedule',
+            filters: {
+                parent: frm.doc.custom_contract_reference,
+                parenttype: 'Sales Order'
+            },
+            fields: ['name', 'idx', 'due_date', 'payment_amount', 'paid_amount', 'description'],
+            order_by: 'idx asc'
+        },
+        callback: function(r) {
+            if (r.message && r.message.length > 0) {
+                let unpaid_schedules = r.message.filter(schedule => {
+                    let paid = parseFloat(schedule.paid_amount) || 0;
+                    let amount = parseFloat(schedule.payment_amount) || 0;
+                    return paid < amount;  // Not fully paid
+                });
+                
+                if (unpaid_schedules.length > 0) {
+                    // Show info about next unpaid schedule
+                    let next = unpaid_schedules[0];
+                    let outstanding = parseFloat(next.payment_amount) - (parseFloat(next.paid_amount) || 0);
+                    
+                    frappe.show_alert({
+                        message: `📅 Keyingi to'lov: ${next.description || next.idx + '-oy'} - $${outstanding.toFixed(2)}`,
+                        indicator: 'blue'
+                    }, 7);
+                    
+                    // Auto-select first unpaid schedule
+                    frm.set_value('custom_payment_schedule_row', next.name);
+                    frm.set_value('custom_payment_month', next.description || (next.idx + '-oy'));
+                }
+            }
+        }
+    });
 }

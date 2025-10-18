@@ -51,7 +51,7 @@ def get_customer_contracts(customer):
 
 @frappe.whitelist()
 def get_payment_schedule_with_history(customer):
-    """Get payment schedule with actual payment history"""
+    """Get payment schedule with actual payment history - REAL-TIME"""
     if not customer:
         return []
     
@@ -70,7 +70,7 @@ def get_payment_schedule_with_history(customer):
     
     sales_order = contract[0].name
     
-    # Get payment schedule with payments
+    # Get payment schedule with REAL-TIME paid_amount
     schedule = frappe.db.sql("""
         SELECT 
             ps.name,
@@ -85,68 +85,94 @@ def get_payment_schedule_with_history(customer):
         ORDER BY ps.idx
     """, {'sales_order': sales_order}, as_dict=1)
     
-    # Get actual payments
+    # Get actual submitted payments with their schedule links
     payments = frappe.db.sql("""
         SELECT 
+            pe.name as payment_name,
             pe.posting_date,
             pe.paid_amount,
-            per.allocated_amount,
-            per.reference_name
+            pe.custom_payment_schedule_row,
+            pe.custom_payment_month
         FROM `tabPayment Entry` pe
-        INNER JOIN `tabPayment Entry Reference` per ON per.parent = pe.name
         WHERE pe.party = %(customer)s
             AND pe.docstatus = 1
             AND pe.payment_type = 'Receive'
-            AND per.reference_name = %(sales_order)s
+            AND pe.custom_contract_reference = %(sales_order)s
         ORDER BY pe.posting_date
     """, {'customer': customer, 'sales_order': sales_order}, as_dict=1)
     
-    # Map payments to schedule
+    # Create payment map by schedule row
     payment_map = {}
     for payment in payments:
-        date = str(payment.posting_date)
-        if date not in payment_map:
-            payment_map[date] = []
-        payment_map[date].append(payment)
+        schedule_row = payment.custom_payment_schedule_row
+        if schedule_row:
+            if schedule_row not in payment_map:
+                payment_map[schedule_row] = []
+            payment_map[schedule_row].append(payment)
     
-    # Enhance schedule with status
+    # Enhance schedule with status and payment info
     today_date = getdate(today())
     
     for row in schedule:
         due_date = getdate(row.due_date)
         paid = flt(row.paid_amount)
+        payment_amount = flt(row.payment_amount)
         
-        # Find matching payment
-        row['payment_date'] = None
-        for payment_date, payment_list in payment_map.items():
-            for p in payment_list:
-                if flt(p.allocated_amount) == flt(row.payment_amount):
-                    row['payment_date'] = payment_date
-                    break
+        # Find linked payments for this schedule row
+        row['payments'] = payment_map.get(row.name, [])
+        row['payment_count'] = len(row['payments'])
         
-        # Determine status
-        if paid >= flt(row.payment_amount):
-            # Paid
+        # Get latest payment date
+        if row['payments']:
+            latest_payment = max(row['payments'], key=lambda x: x.posting_date)
+            row['payment_date'] = str(latest_payment.posting_date)
+            row['payment_name'] = latest_payment.payment_name
+        else:
+            row['payment_date'] = None
+            row['payment_name'] = None
+        
+        # Calculate outstanding for this row
+        row['outstanding'] = max(0, payment_amount - paid)
+        
+        # Determine status based on REAL-TIME paid_amount
+        if paid >= payment_amount:
+            # ✅ FULLY PAID
             if row['payment_date']:
                 payment_date = getdate(row['payment_date'])
                 days_diff = date_diff(payment_date, due_date)
                 
                 if days_diff <= 0:
-                    row['status'] = 'On Time'
+                    row['status'] = '✅ To\'landi (Vaqtida)'
+                    row['status_color'] = 'green'
                     row['days_late'] = 0
                 else:
-                    row['status'] = 'Late'
+                    row['status'] = f'✅ To\'landi ({days_diff} kun kech)'
+                    row['status_color'] = 'orange'
                     row['days_late'] = days_diff
             else:
-                row['status'] = 'On Time'
+                row['status'] = '✅ To\'landi'
+                row['status_color'] = 'green'
                 row['days_late'] = 0
-        else:
-            # Not paid yet
+        elif paid > 0:
+            # 🟡 PARTIALLY PAID
+            row['status'] = f'🟡 Qisman to\'landi (${paid}/{payment_amount})'
+            row['status_color'] = 'orange'
             if today_date > due_date:
-                row['status'] = 'Overdue'
                 row['days_late'] = date_diff(today_date, due_date)
             else:
-                row['status'] = 'Upcoming'
-                row['days_remaining'] = date_diff(due_date, today_date)
+                row['days_late'] = 0
+        else:
+            # ❌ NOT PAID YET
+            if today_date > due_date:
+                days_overdue = date_diff(today_date, due_date)
+                row['status'] = f'❌ Muddati o\'tgan ({days_overdue} kun)'
+                row['status_color'] = 'red'
+                row['days_late'] = days_overdue
+            else:
+                days_remaining = date_diff(due_date, today_date)
+                row['status'] = f'⏳ Kutilmoqda ({days_remaining} kun qoldi)'
+                row['status_color'] = 'blue'
+                row['days_remaining'] = days_remaining
+                row['days_late'] = 0
     
     return schedule

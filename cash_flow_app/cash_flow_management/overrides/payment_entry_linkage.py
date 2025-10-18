@@ -37,7 +37,7 @@ def on_submit_payment_entry(doc, method=None):
         so.db_set("advance_paid", new_advance, update_modified=True)
         
         # Update Payment Schedule
-        update_payment_schedule(so, doc.paid_amount, doc.posting_date)
+        updated_schedule = update_payment_schedule(so, doc.paid_amount, doc.posting_date, doc.name)
         
         # Check if fully paid - use custom_grand_total_with_interest if available
         grand_total = flt(so.custom_grand_total_with_interest) or flt(so.grand_total)
@@ -60,13 +60,16 @@ def on_submit_payment_entry(doc, method=None):
         frappe.throw(_("Xatolik: Shartnomaga bog'lanmadi. {0}").format(str(e)))
 
 
-def update_payment_schedule(sales_order, paid_amount, payment_date):
+def update_payment_schedule(sales_order, paid_amount, payment_date, payment_entry_name=None):
     """
     Update Payment Schedule table with actual payment
     Marks earliest unpaid schedule as paid
+    Returns the payment schedule row that was updated (for linking)
     """
     remaining_amount = flt(paid_amount)
     payment_date = getdate(payment_date)
+    updated_schedule_name = None
+    payment_description = None
     
     # Get unpaid schedules, sorted by due date
     schedules = sales_order.get("payment_schedule", [])
@@ -89,6 +92,11 @@ def update_payment_schedule(sales_order, paid_amount, payment_date):
         new_paid = paid_already + payment_for_schedule
         schedule.db_set("paid_amount", new_paid, update_modified=False)
         
+        # Track which schedule was updated (for first payment)
+        if not updated_schedule_name:
+            updated_schedule_name = schedule.name
+            payment_description = schedule.description or f"Month {schedule.idx}"
+        
         remaining_amount -= payment_for_schedule
         
         frappe.logger().info(
@@ -96,11 +104,29 @@ def update_payment_schedule(sales_order, paid_amount, payment_date):
             f"Paid: {paid_already} → {new_paid} (Due: {schedule.payment_amount})"
         )
     
+    # Update the Payment Entry with schedule row reference
+    if payment_entry_name and updated_schedule_name:
+        try:
+            frappe.db.set_value(
+                "Payment Entry", 
+                payment_entry_name, 
+                {
+                    "custom_payment_schedule_row": updated_schedule_name,
+                    "custom_payment_month": payment_description
+                },
+                update_modified=False
+            )
+            frappe.logger().info(f"Linked PE {payment_entry_name} to schedule {updated_schedule_name}")
+        except Exception as e:
+            frappe.log_error(f"Error linking PE to schedule: {e}")
+    
     # Update next payment date and amount in Sales Order custom fields
     update_next_payment_info(sales_order)
     
     # Save parent to update modified timestamp
     sales_order.db_set("modified", frappe.utils.now(), update_modified=False)
+    
+    return updated_schedule_name
 
 
 def update_next_payment_info(sales_order):
