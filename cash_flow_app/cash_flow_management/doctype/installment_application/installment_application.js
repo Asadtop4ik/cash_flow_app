@@ -193,6 +193,23 @@ frappe.ui.form.on('Installment Application Item', {
 		frm.trigger('calculate_item_totals');
 	},
 	
+	item_code(frm, cdt, cdn) {
+		let row = locals[cdt][cdn];
+		
+		// Fetch IMEI from Item
+		if (row.item_code) {
+			frappe.db.get_value('Item', row.item_code, 'custom_imei', (r) => {
+				if (r && r.custom_imei) {
+					frappe.model.set_value(cdt, cdn, 'custom_imei', r.custom_imei);
+					frappe.show_alert({
+						message: __('IMEI avto to\'ldirildi: {0}', [r.custom_imei]),
+						indicator: 'green'
+					}, 3);
+				}
+			});
+		}
+	},
+	
 	qty(frm, cdt, cdn) {
 		calculate_item_amount(frm, cdt, cdn);
 	},

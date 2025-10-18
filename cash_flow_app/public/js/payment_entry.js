@@ -7,6 +7,9 @@ frappe.ui.form.on('Payment Entry', {
         if (frm.doc.party && !frm.doc.custom_contract_reference) {
             auto_fill_contract_reference(frm);
         }
+        
+        // Setup category filter
+        setup_category_filter(frm);
     },
     
     refresh: function(frm) {
@@ -28,6 +31,15 @@ frappe.ui.form.on('Payment Entry', {
         if (frm.doc.party && !frm.doc.custom_contract_reference && frm.doc.payment_type === 'Receive') {
             auto_fill_contract_reference(frm);
         }
+        
+        // Setup category filter
+        setup_category_filter(frm);
+    },
+    
+    payment_type: function(frm) {
+        // When payment type changes, reset category and update filter
+        frm.set_value('custom_counterparty_category', '');
+        setup_category_filter(frm);
     },
     
     party: function(frm) {
@@ -140,6 +152,13 @@ function auto_fill_contract_reference(frm) {
         return;
     }
     
+    // Prevent infinite loop - check if we're already processing
+    if (frm._filling_contract_reference) {
+        return;
+    }
+    
+    frm._filling_contract_reference = true;
+    
     // Get latest active Sales Order for this customer
     frappe.call({
         method: 'frappe.client.get_list',
@@ -155,30 +174,22 @@ function auto_fill_contract_reference(frm) {
             limit: 1
         },
         callback: function(r) {
+            frm._filling_contract_reference = false;
+            
             if (r.message && r.message.length > 0) {
                 let contract = r.message[0];
                 
-                // Auto-fill contract reference and save
-                frm.set_value('custom_contract_reference', contract.name).then(() => {
-                    // After setting contract, update payment schedule
-                    update_payment_schedule_options(frm);
-                    
-                    // Auto-save if draft
-                    if (!frm.doc.__islocal && frm.doc.docstatus === 0) {
-                        frm.save().then(() => {
-                            frappe.show_alert({
-                                message: `✅ Shartnoma avtomatik tanlandi va saqlandi: ${contract.name}`,
-                                indicator: 'green'
-                            }, 5);
-                        });
-                    } else {
-                        // Show message without saving
-                        frappe.show_alert({
-                            message: `📄 Shartnoma avtomatik tanlandi: ${contract.name}`,
-                            indicator: 'green'
-                        }, 5);
-                    }
-                });
+                // Just set the value, DON'T auto-save (user will save manually)
+                frm.set_value('custom_contract_reference', contract.name);
+                
+                // Update payment schedule options
+                update_payment_schedule_options(frm);
+                
+                // Show message
+                frappe.show_alert({
+                    message: `📄 Shartnoma avtomatik tanlandi: ${contract.name}`,
+                    indicator: 'green'
+                }, 5);
             }
         }
     });
@@ -227,4 +238,44 @@ function update_payment_schedule_options(frm) {
             }
         }
     });
+}
+
+// Setup Counterparty Category filter based on Payment Type
+function setup_category_filter(frm) {
+    if (!frm.fields_dict.custom_counterparty_category) {
+        return;
+    }
+    
+    // Determine category type based on payment type
+    let category_type = null;
+    if (frm.doc.payment_type === 'Receive') {
+        category_type = 'Income';  // Kirim uchun - Income categories
+    } else if (frm.doc.payment_type === 'Pay') {
+        category_type = 'Expense';  // Chiqim uchun - Expense categories
+    }
+    
+    if (category_type) {
+        frm.set_query('custom_counterparty_category', function() {
+            return {
+                filters: {
+                    'category_type': category_type,
+                    'is_active': 1
+                }
+            };
+        });
+        
+        // Show helpful message
+        let label_emoji = category_type === 'Income' ? '📥' : '📤';
+        frm.set_df_property('custom_counterparty_category', 'label', `${label_emoji} Kategoriya (${category_type})`);
+    } else {
+        // No filter if payment type not set
+        frm.set_query('custom_counterparty_category', function() {
+            return {
+                filters: {
+                    'is_active': 1
+                }
+            };
+        });
+        frm.set_df_property('custom_counterparty_category', 'label', '📂 Kategoriya');
+    }
 }

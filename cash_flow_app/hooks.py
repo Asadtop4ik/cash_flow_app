@@ -7,6 +7,7 @@ app_license = "mit"
 
 doc_events = {
     "Item": {
+        "before_naming": "cash_flow_app.cash_flow_management.overrides.item_autoname.autoname_item",
         "before_save": "cash_flow_app.cash_flow_management.overrides.item_hooks.before_save_item",
         "validate": "cash_flow_app.cash_flow_management.overrides.item_hooks.validate_item"
     },
@@ -112,70 +113,16 @@ doctype_js = {
 # --------
 
 fixtures = [
-    {
-        "dt": "Property Setter",
-        "filters": [
-            [
-                "name", "in", [
-                    # Customer fields
-                    "Customer-salutation-hidden",
-                    "Customer-auto_repeat_detail-hidden",
-                    "Customer-customer_group-hidden",
-                    "Customer-territory-hidden",
-                    "Customer-sales_team-hidden",
-                    "Customer-account_manager-hidden",
-                    "Customer-default_currency-hidden",
-                    "Customer-default_bank_account-hidden",
-                    "Customer-default_price_list-hidden",
-                    "Customer-internal_customer-hidden",
-                    "Customer-represents_company-hidden",
-                    "Customer-companies-hidden",
-                    "Customer-default_company-hidden",
-                    "Customer-internal_customer_section-hidden",
-                    "Customer-more_info-hidden",
-                    "Customer-lead_name-hidden",
-                    "Customer-opportunity_name-hidden",
-                    "Customer-prospect_name-hidden",
-                    "Customer-custom_auto_debit-hidden",
-                    # Item fields - tabs
-                    "Item-dashboard_tab-hidden",
-                    "Item-inventory_section-hidden",
-                    "Item-variants_section-hidden",
-                    "Item-accounting-hidden",
-                    "Item-purchasing_tab-hidden",
-                    "Item-sales_details-hidden",
-                    "Item-item_tax_section_break-hidden",
-                    "Item-quality_tab-hidden",
-                    # Item fields - hide ALL default fields
-                    "Item-naming_series-hidden",
-                    "Item-item_code-hidden",
-                    "Item-item_name-hidden",
-                    "Item-item_group-hidden",
-                    "Item-stock_uom-hidden",
-                    "Item-disabled-hidden",
-                    "Item-allow_alternative_item-hidden",
-                    "Item-is_stock_item-hidden",
-                    "Item-has_variants-hidden",
-                    "Item-opening_stock-hidden",
-                    "Item-valuation_rate-hidden",
-                    "Item-standard_rate-hidden",
-                    "Item-is_fixed_asset-hidden",
-                    "Item-auto_create_assets-hidden",
-                    "Item-is_grouped_asset-hidden",
-                    "Item-asset_category-hidden",
-                    "Item-asset_naming_series-hidden",
-                    "Item-over_delivery_receipt_allowance-hidden",
-                    "Item-over_billing_allowance-hidden",
-                    "Item-image-hidden",
-                    "Item-section_break_11-hidden",
-                    "Item-description-hidden",
-                    "Item-brand-hidden",
-                    "Item-unit_of_measure_conversion-hidden",
-                    "Item-uoms-hidden"
-                ]
-            ]
-        ]
-    }
+    {"dt": "Custom Field", "filters": [["dt", "in", [
+        "Item", 
+        "Customer", 
+        "Installment Application Item", 
+        "Sales Order",
+        "Payment Entry",
+        "Payment Schedule"
+    ]]]},
+    {"dt": "Property Setter", "filters": [["doc_type", "in", ["Item", "Customer"]]]},
+    {"dt": "Counterparty Category"},  # Export all categories for deployment
 ]
 # after_install = "cash_flow_app.install.after_install"
 

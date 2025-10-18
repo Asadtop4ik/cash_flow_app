@@ -1,0 +1,22 @@
+[
+ {
+  "category_name": "Klient - klientdan kelgan kirimlar",
+  "category_type": "Income",
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "modified": "2025-10-18 14:38:06.913200",
+  "name": "Klient - klientdan kelgan kirimlar"
+ },
+ {
+  "category_name": "Klient - Mijozlardan tushgan to'lovlar",
+  "category_type": "Income",
+  "description": "Mijozlardan kelgan to'lovlar (Installment payments)",
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "modified": "2025-10-18 14:42:50.917613",
+  "name": "Klient - Mijozlardan tushgan to'lovlar"
+ }
+]
