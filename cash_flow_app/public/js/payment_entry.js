@@ -21,6 +21,9 @@ frappe.ui.form.on('Payment Entry', {
             }
         }, 500);
         
+        // Lock fields for payments created by Installment Application (Draft only)
+        lock_auto_created_payment_fields(frm);
+        
         // Show Installment Applications link for Customer
         show_installment_applications_link(frm);
         
@@ -277,5 +280,38 @@ function setup_category_filter(frm) {
             };
         });
         frm.set_df_property('custom_counterparty_category', 'label', '📂 Kategoriya');
+    }
+}
+
+// Lock fields for auto-created payments (from Installment Application)
+function lock_auto_created_payment_fields(frm) {
+    // Only lock if:
+    // 1. Payment is Draft (docstatus = 0)
+    // 2. Created from Installment Application (has custom_contract_reference)
+    // 3. Has remarks containing "Boshlang'ich to'lov"
+    
+    if (frm.doc.docstatus === 0 && 
+        frm.doc.custom_contract_reference && 
+        frm.doc.remarks && 
+        frm.doc.remarks.includes("Boshlang'ich to'lov")) {
+        
+        // Lock all fields EXCEPT mode_of_payment
+        const editable_fields = ['mode_of_payment'];
+        
+        // Get all fields
+        frm.fields.forEach(field => {
+            if (!editable_fields.includes(field.df.fieldname)) {
+                frm.set_df_property(field.df.fieldname, 'read_only', 1);
+            }
+        });
+        
+        // Show message
+        frm.dashboard.add_comment(`
+            <div style="background: #FFF3CD; padding: 10px; border-radius: 5px; border-left: 4px solid #FFC107;">
+                <strong>ℹ️ Installment Application dan yaratilgan to'lov</strong><br>
+                Faqat <strong>Mode of Payment</strong> ni o'zgartira olasiz.<br>
+                To'lov tasdiqlanishi uchun <strong>Submit</strong> tugmasini bosing.
+            </div>
+        `, 0);
     }
 }

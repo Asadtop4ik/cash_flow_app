@@ -37,14 +37,38 @@ def get_customer_contracts(customer):
     if not contracts:
         return []
     
-    # Determine status color
+    # Determine status and color based on payment progress
     for contract in contracts:
-        if contract.outstanding_amount <= 0:
-            contract['status_color'] = 'green'
-        elif contract.status == 'Overdue':
-            contract['status_color'] = 'red'
+        outstanding = flt(contract.outstanding_amount)
+        total_with_interest = flt(contract.grand_total_with_interest)
+        paid = flt(contract.paid_amount)
+        
+        # Calculate payment progress
+        if total_with_interest > 0:
+            payment_percentage = (paid / total_with_interest) * 100
         else:
+            payment_percentage = 0
+        
+        # Determine custom status
+        if outstanding <= 0:
+            contract['custom_status'] = 'Completed'
+            contract['status_color'] = 'green'
+            contract['status_icon'] = '✅'
+        elif payment_percentage > 0 and payment_percentage < 100:
+            contract['custom_status'] = 'On Process'
+            contract['status_color'] = 'blue'
+            contract['status_icon'] = '🔄'
+        elif contract.status == 'Overdue':
+            contract['custom_status'] = 'Overdue'
+            contract['status_color'] = 'red'
+            contract['status_icon'] = '⚠️'
+        else:
+            contract['custom_status'] = 'Pending'
             contract['status_color'] = 'orange'
+            contract['status_icon'] = '⏳'
+        
+        # Add payment progress
+        contract['payment_percentage'] = round(payment_percentage, 2)
     
     return contracts
 
@@ -91,8 +115,7 @@ def get_payment_schedule_with_history(customer):
             pe.name as payment_name,
             pe.posting_date,
             pe.paid_amount,
-            pe.custom_payment_schedule_row,
-            pe.custom_payment_month
+            pe.custom_payment_schedule_row
         FROM `tabPayment Entry` pe
         WHERE pe.party = %(customer)s
             AND pe.docstatus = 1

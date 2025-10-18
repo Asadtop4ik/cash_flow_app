@@ -89,9 +89,21 @@ function load_contract_history(frm, wrapper) {
                         <td><strong style="color: ${contract.outstanding_amount > 0 ? 'red' : 'green'};">${format_currency(contract.outstanding_amount, 'USD')}</strong></td>
                     </tr>
                     <tr>
+                        <td style="font-weight: 500;">To'lov jarayoni</td>
+                        <td>
+                            <div class="progress" style="height: 25px; margin-bottom: 5px;">
+                                <div class="progress-bar bg-${contract.status_color}" 
+                                     style="width: ${contract.payment_percentage || 0}%;">
+                                    ${contract.payment_percentage || 0}%
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
                         <td style="font-weight: 500;">Holat</td>
                         <td>
-                            <span class="indicator-pill ${contract.status_color}">${contract.status}</span>
+                            <span style="font-size: 16px;">${contract.status_icon || '📋'}</span>
+                            <span class="indicator-pill ${contract.status_color}">${contract.custom_status || contract.status}</span>
                         </td>
                     </tr>
                 `;
@@ -110,12 +122,16 @@ function load_contract_history(frm, wrapper) {
 }
 
 function load_payment_history(frm, wrapper) {
+    console.log('🔍 Loading payment history for:', frm.doc.name);
+    
     frappe.call({
         method: 'cash_flow_app.cash_flow_management.api.customer_history.get_payment_schedule_with_history',
         args: {
             customer: frm.doc.name
         },
         callback: function(r) {
+            console.log('📊 Payment schedule result:', r.message);
+            
             if (r.message && r.message.length > 0) {
                 let html = `
                     <div class="form-section card-section visible-section">
@@ -205,6 +221,14 @@ function load_payment_history(frm, wrapper) {
                 `;
                 wrapper.append(html);
             }
+        },
+        error: function(r) {
+            console.error('Payment schedule load error:', r);
+            frappe.msgprint({
+                title: 'Error',
+                message: 'To\'lov jadvali yuklashda xatolik: ' + (r.message || 'Unknown error'),
+                indicator: 'red'
+            });
         }
     });
 }
