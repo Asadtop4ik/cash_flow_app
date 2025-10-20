@@ -72,13 +72,6 @@ def get_columns():
 			"width": 120
 		},
 		{
-			"fieldname": "cost_center",
-			"label": _("Cost Center"),
-			"fieldtype": "Link",
-			"options": "Cost Center",
-			"width": 150
-		},
-		{
 			"fieldname": "remarks",
 			"label": _("Remarks"),
 			"fieldtype": "Data",
@@ -112,8 +105,6 @@ def get_data(filters):
 				WHEN pe.payment_type = 'Receive' THEN pe.paid_amount
 				ELSE 0
 			END as credit,
-			pe.cost_center,
-			pe.custom_branch as branch,
 			pe.remarks
 		FROM
 			`tabPayment Entry` pe
@@ -144,12 +135,6 @@ def get_conditions(filters):
 	
 	if filters.get("counterparty_category"):
 		conditions.append("pe.custom_counterparty_category = %(counterparty_category)s")
-	
-	if filters.get("cost_center"):
-		conditions.append("pe.cost_center = %(cost_center)s")
-	
-	if filters.get("branch"):
-		conditions.append("pe.custom_branch = %(branch)s")
 	
 	if filters.get("payment_type"):
 		conditions.append("pe.payment_type = %(payment_type)s")

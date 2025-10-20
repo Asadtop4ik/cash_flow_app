@@ -35,12 +35,6 @@ frappe.query_reports["Daily Cash Flow"] = {
 			"label": __("Category"),
 			"fieldtype": "Link",
 			"options": "Counterparty Category"
-		},
-		{
-			"fieldname": "cost_center",
-			"label": __("Cost Center"),
-			"fieldtype": "Link",
-			"options": "Cost Center"
 		}
 	],
 	
