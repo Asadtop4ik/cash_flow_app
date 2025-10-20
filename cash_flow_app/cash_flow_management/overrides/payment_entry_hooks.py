@@ -24,13 +24,37 @@ def autoname_payment_entry(doc, method=None):
 def validate_payment_entry(doc, method=None):
     """
     Additional validations for Payment Entry
+    Auto-fill contract reference if missing
     """
     # Ensure counterparty category is set
     if not doc.custom_counterparty_category:
         frappe.throw(_("Counterparty Category tanlanishi shart!"))
     
+    # Auto-fill contract reference for customer payments
+    if doc.payment_type == "Receive" and doc.party_type == "Customer" and not doc.custom_contract_reference:
+        # Find latest active Sales Order for this customer
+        latest_so = frappe.db.get_value(
+            "Sales Order",
+            filters={
+                "customer": doc.party,
+                "docstatus": 1,
+                "status": ["!=", "Completed"]
+            },
+            fieldname="name",
+            order_by="transaction_date DESC"
+        )
+        
+        if latest_so:
+            doc.custom_contract_reference = latest_so
+            frappe.msgprint(
+                _("ℹ️ Avtomatik: Shartnoma {0} bog'landi").format(latest_so),
+                alert=True,
+                indicator="blue"
+            )
+    
     # If contract reference is set, validate it matches party
     if doc.custom_contract_reference:
-        so = frappe.get_doc("Sales Order", doc.custom_contract_reference)
-        if so.customer != doc.party:
+        # Use db.get_value to avoid permission issues
+        so_customer = frappe.db.get_value("Sales Order", doc.custom_contract_reference, "customer")
+        if so_customer and so_customer != doc.party:
             frappe.throw(_("Shartnoma mijozi to'lov mijozi bilan mos kelmayapti!"))

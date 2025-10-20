@@ -8,6 +8,13 @@ frappe.ui.form.on('Supplier', {
             // Show debt summary
             show_debt_summary(frm);
             
+            // Add "📦 Qarzlar Tahlili" button - NEW REPORT
+            frm.add_custom_button(__('📦 Qarzlar Tahlili'), function() {
+                frappe.set_route("query-report", "Supplier Debt Analysis", {
+                    "supplier": frm.doc.name
+                });
+            }, __('Reports'));
+            
             // Add button to view payment history
             frm.add_custom_button(__('To\'lov Tarixi'), function() {
                 show_payment_history(frm);
@@ -25,6 +32,9 @@ frappe.ui.form.on('Supplier', {
 });
 
 function show_debt_summary(frm) {
+    // Remove existing dashboard
+    $('.supplier-debt-dashboard').remove();
+    
     const total_debt = frm.doc.custom_total_debt || 0;
     const paid_amount = frm.doc.custom_paid_amount || 0;
     const remaining_debt = frm.doc.custom_remaining_debt || 0;
@@ -92,8 +102,19 @@ function show_debt_summary(frm) {
         </div>
     `;
     
-    // Add to dashboard
-    frm.dashboard.add_comment(summary_html, 0);
+    // Create permanent wrapper div
+    let wrapper = $(`<div class="supplier-debt-dashboard" style="margin: 15px 0;"></div>`);
+    wrapper.html(summary_html);
+    
+    // Insert after form toolbar (before tabs)
+    if (frm.dashboard.wrapper) {
+        $(frm.dashboard.wrapper).after(wrapper);
+    } else if (frm.$wrapper.find('.form-dashboard').length) {
+        frm.$wrapper.find('.form-dashboard').after(wrapper);
+    } else {
+        // Fallback: insert after page title
+        frm.$wrapper.find('.page-head').after(wrapper);
+    }
 }
 
 function show_payment_history(frm) {

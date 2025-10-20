@@ -20,9 +20,15 @@ def on_submit_payment_entry(doc, method=None):
     if doc.payment_type != "Receive":
         return
     
+    # IDEMPOTENCY CHECK: Prevent duplicate processing
+    # If this payment was already processed, skip
+    if hasattr(doc, '_payment_already_linked') and doc._payment_already_linked:
+        frappe.logger().info(f"Payment {doc.name} already linked to SO, skipping")
+        return
+    
     try:
-        # Get Sales Order
-        so = frappe.get_doc("Sales Order", doc.custom_contract_reference)
+        # Get Sales Order (ignore permissions for system hooks)
+        so = frappe.get_doc("Sales Order", doc.custom_contract_reference, ignore_permissions=True)
         
         # Validate customer matches
         if so.customer != doc.party:
@@ -30,11 +36,42 @@ def on_submit_payment_entry(doc, method=None):
                 so.customer, doc.party
             ))
         
-        # Update advance_paid
+        # CHECK: Is this payment already included in advance_paid?
+        # Get current advance_paid
         current_advance = flt(so.advance_paid) or 0
-        new_advance = current_advance + flt(doc.paid_amount)
+        
+        # Get sum of all submitted payments for this SO (excluding current one)
+        existing_payments_sum = frappe.db.sql("""
+            SELECT COALESCE(SUM(paid_amount), 0) as total
+            FROM `tabPayment Entry`
+            WHERE custom_contract_reference = %(so)s
+                AND docstatus = 1
+                AND name != %(pe)s
+                AND payment_type = 'Receive'
+        """, {'so': so.name, 'pe': doc.name}, as_dict=1)[0].total
+        
+        existing_payments_sum = flt(existing_payments_sum)
+        
+        # Calculate what advance_paid SHOULD be if this payment is included
+        expected_advance = existing_payments_sum + flt(doc.paid_amount)
+        
+        # If advance_paid already equals expected value, payment was already processed
+        if abs(current_advance - expected_advance) < 0.01:
+            # Already processed! Skip to avoid duplication
+            frappe.logger().warning(
+                f"Payment {doc.name} already added to SO {so.name}. "
+                f"advance_paid={current_advance}, expected={expected_advance}"
+            )
+            doc._payment_already_linked = True
+            return
+        
+        # Update advance_paid
+        new_advance = expected_advance
         
         so.db_set("advance_paid", new_advance, update_modified=True)
+        
+        # Mark as processed to prevent duplicate runs
+        doc._payment_already_linked = True
         
         # Update Payment Schedule
         updated_schedule = update_payment_schedule(so, doc.paid_amount, doc.posting_date, doc.name)
@@ -175,7 +212,7 @@ def on_cancel_payment_entry(doc, method=None):
         return
     
     try:
-        so = frappe.get_doc("Sales Order", doc.custom_contract_reference)
+        so = frappe.get_doc("Sales Order", doc.custom_contract_reference, ignore_permissions=True)
         
         # Reduce advance_paid
         current_advance = flt(so.advance_paid) or 0
