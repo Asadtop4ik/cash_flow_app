@@ -7,11 +7,11 @@
  "field_order": [
   "item_code",
   "item_name",
+  "column_break_5",
+  "imei",
   "qty",
   "rate",
   "amount",
-  "column_break_5",
-  "imei",
   "description"
  ],
  "fields": [
@@ -32,6 +32,16 @@
    "read_only": 1
   },
   {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "imei",
+   "fieldtype": "Data",
+   "label": "IMEI / Serial No",
+   "fetch_from": "item_code.custom_imei"
+  },
+  {
    "default": "1",
    "fieldname": "qty",
    "fieldtype": "Float",
@@ -43,28 +53,20 @@
    "fieldname": "rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Rate (USD)",
+   "label": "Tan Narxi (USD)",
    "options": "USD",
    "reqd": 1,
-   "fetch_from": "item_code.custom_cost_price"
+   "fetch_from": "item_code.custom_cost_price",
+   "bold": 1
   },
   {
    "fieldname": "amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Amount",
+   "label": "Jami (USD)",
    "options": "USD",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_5",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "imei",
-   "fieldtype": "Data",
-   "label": "IMEI / Serial No",
-   "fetch_from": "item_code.custom_imei"
+   "read_only": 1,
+   "bold": 1
   },
   {
    "fetch_from": "item_code.description",

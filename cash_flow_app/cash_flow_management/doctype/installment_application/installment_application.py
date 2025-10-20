@@ -93,7 +93,6 @@ class InstallmentApplication(Document):
             "customer": self.customer,
             "transaction_date": self.transaction_date,
             "delivery_date": add_months(getdate(self.transaction_date), 1),
-            "cost_center": self.cost_center,
             "items": [],
             "payment_schedule": []
         })
@@ -244,7 +243,6 @@ class InstallmentApplication(Document):
                 "target_exchange_rate": 1,
                 "reference_no": sales_order_name,
                 "reference_date": self.transaction_date,
-                "cost_center": self.cost_center,
                 "custom_counterparty_category": "Klient - Mijozlardan tushgan to'lovlar",
                 "custom_contract_reference": sales_order_name,
                 "remarks": f"Boshlang'ich to'lov - Shartnoma {sales_order_name}\nInstallment Application: {self.name}"

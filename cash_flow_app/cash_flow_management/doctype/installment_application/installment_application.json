@@ -14,7 +14,6 @@
   "customer_name",
   "column_break_3",
   "transaction_date",
-  "cost_center",
   "section_break_items",
   "items",
   "section_break_payment",
@@ -83,12 +82,6 @@
    "in_list_view": 1,
    "label": "Date",
    "read_only": 1
-  },
-  {
-   "fieldname": "cost_center",
-   "fieldtype": "Link",
-   "label": "Yetkazib Beruvchi (Postavshik)",
-   "options": "Cost Center"
   },
   {
    "fieldname": "section_break_items",

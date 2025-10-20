@@ -2,6 +2,18 @@
 // Shows Installment Application link when Customer is selected
 
 frappe.ui.form.on('Payment Entry', {
+    setup: function(frm) {
+        // Filter Mode of Payment - faqat Naqd va Terminal/Click
+        frm.set_query('mode_of_payment', function() {
+            return {
+                filters: {
+                    'name': ['in', ['Naqd', 'Terminal/Click']],
+                    'enabled': 1
+                }
+            };
+        });
+    },
+    
     onload: function(frm) {
         // Auto-fill contract reference when form loads (for Draft payments created by Installment Application)
         if (frm.doc.party && !frm.doc.custom_contract_reference) {

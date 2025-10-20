@@ -11,6 +11,9 @@ doc_events = {
         "before_save": "cash_flow_app.cash_flow_management.overrides.item_hooks.before_save_item",
         "validate": "cash_flow_app.cash_flow_management.overrides.item_hooks.validate_item"
     },
+    "Installment Application": {
+        "on_submit": "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_submit"
+    },
     "Payment Entry": {
         "autoname": "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.autoname_payment_entry",
         "onload": "cash_flow_app.cash_flow_management.overrides.payment_entry_defaults.onload_payment_entry",
@@ -19,8 +22,14 @@ doc_events = {
             "cash_flow_app.cash_flow_management.custom.payment_validations.validate_negative_balance",
             "cash_flow_app.cash_flow_management.custom.payment_validations.warn_on_overdue_payments"
         ],
-        "on_submit": "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_payment_entry",
-        "on_cancel": "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry"
+        "on_submit": [
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_payment_entry",
+            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_payment"
+        ],
+        "on_cancel": [
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry",
+            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_payment"
+        ]
     },
     "Sales Order": {
         "validate": "cash_flow_app.cash_flow_management.custom.payment_validations.validate_payment_schedule_paid_amount"
@@ -65,9 +74,11 @@ doc_events = {
 
 # include js in doctype views
 doctype_js = {
+    "Item": "public/js/item.js",
     "Sales Order": "public/js/sales_order.js",
     "Payment Entry": "public/js/payment_entry.js",
-    "Customer": "public/js/customer.js"
+    "Customer": "public/js/customer.js",
+    "Supplier": "public/js/supplier.js"
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -115,14 +126,16 @@ doctype_js = {
 fixtures = [
     {"dt": "Custom Field", "filters": [["dt", "in", [
         "Item", 
-        "Customer", 
+        "Customer",
+        "Supplier",
         "Installment Application Item", 
         "Sales Order",
         "Payment Entry",
         "Payment Schedule"
     ]]]},
-    {"dt": "Property Setter", "filters": [["doc_type", "in", ["Item", "Customer"]]]},
+    {"dt": "Property Setter", "filters": [["doc_type", "in", ["Item", "Customer", "Installment Application", "Supplier"]]]},
     {"dt": "Counterparty Category"},  # Export all categories for deployment
+    {"dt": "Mode of Payment", "filters": [["name", "in", ["Naqd", "Terminal/Click"]]]},
 ]
 # after_install = "cash_flow_app.install.after_install"
 

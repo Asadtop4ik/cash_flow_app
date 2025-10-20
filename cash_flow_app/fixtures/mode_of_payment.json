@@ -1,23 +1,38 @@
 [
-  {
-    "doctype": "Mode of Payment",
-    "name": "Naqd",
-    "mode_of_payment": "Naqd",
-    "enabled": 1,
-    "type": "Cash"
-  },
-  {
-    "doctype": "Mode of Payment",
-    "name": "Click",
-    "mode_of_payment": "Click",
-    "enabled": 1,
-    "type": "Bank"
-  },
-  {
-    "doctype": "Mode of Payment",
-    "name": "Terminal",
-    "mode_of_payment": "Terminal",
-    "enabled": 1,
-    "type": "Bank"
-  }
+ {
+  "accounts": [
+   {
+    "company": "AsadStack",
+    "default_account": "Bank Account - A",
+    "parent": "Terminal/Click",
+    "parentfield": "accounts",
+    "parenttype": "Mode of Payment"
+   }
+  ],
+  "docstatus": 0,
+  "doctype": "Mode of Payment",
+  "enabled": 1,
+  "mode_of_payment": "Terminal/Click",
+  "modified": "2025-10-20 12:50:04.381416",
+  "name": "Terminal/Click",
+  "type": "Bank"
+ },
+ {
+  "accounts": [
+   {
+    "company": "AsadStack",
+    "default_account": "Cash - A",
+    "parent": "Naqd",
+    "parentfield": "accounts",
+    "parenttype": "Mode of Payment"
+   }
+  ],
+  "docstatus": 0,
+  "doctype": "Mode of Payment",
+  "enabled": 1,
+  "mode_of_payment": "Naqd",
+  "modified": "2025-10-20 12:50:04.216157",
+  "name": "Naqd",
+  "type": "Cash"
+ }
 ]
