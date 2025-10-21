@@ -1,22 +1,119 @@
 [
  {
-  "category_name": "Klient - klientdan kelgan kirimlar",
+  "category_name": "Klient",
   "category_type": "Income",
-  "description": null,
+  "description": "Klientlardan kelgan to'lovlar",
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
-  "modified": "2025-10-18 14:38:06.913200",
-  "name": "Klient - klientdan kelgan kirimlar"
+  "name": "Klient"
  },
  {
-  "category_name": "Klient - Mijozlardan tushgan to'lovlar",
+  "category_name": "Boshqa to'lov",
   "category_type": "Income",
-  "description": "Mijozlardan kelgan to'lovlar (Installment payments)",
+  "description": "Boshqa manbalardan kelgan to'lovlar",
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
-  "modified": "2025-10-18 14:42:50.917613",
-  "name": "Klient - Mijozlardan tushgan to'lovlar"
+  "name": "Boshqa to'lov"
+ },
+ {
+  "category_name": "Uslugadan foyda",
+  "category_type": "Income",
+  "description": "Xizmatlardan olingan foyda",
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "name": "Uslugadan foyda"
+ },
+ {
+  "category_name": "Boshqa foyda",
+  "category_type": "Income",
+  "description": "Boshqa manbalardan olingan foyda",
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "name": "Boshqa foyda"
+ },
+ {
+  "category_name": "Investor",
+  "category_type": "Income",
+  "description": "Investorlardan kelgan mablag'",
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "name": "Investor"
+ },
+ {
+  "category_name": "Hodim",
+  "category_type": "Expense",
+  "description": "Xodimlarga to'lovlar (oylik, bonus va h.k.)",
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "name": "Hodim"
+ },
+ {
+  "category_name": "Postavshik",
+  "category_type": "Expense",
+  "description": "Yetkazib beruvchilarga to'lovlar",
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "name": "Postavshik"
+ },
+ {
+  "category_name": "Boshqa to'lov (Chiqim)",
+  "category_type": "Expense",
+  "description": "Boshqa chiqimlar",
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "name": "Boshqa to'lov (Chiqim)"
+ },
+ {
+  "category_name": "Xarajat",
+  "category_type": "Expense",
+  "description": "Umumiy xarajatlar",
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "name": "Xarajat"
+ },
+ {
+  "category_name": "Investor chiqimi",
+  "category_type": "Expense",
+  "description": "Investorlarga to'lovlar (dividendlar)",
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "name": "Investor chiqimi"
+ },
+ {
+  "category_name": "Komunal to'lov",
+  "category_type": "Expense",
+  "description": "Kommunal xizmatlar uchun to'lovlar",
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "name": "Komunal to'lov"
+ },
+ {
+  "category_name": "Bank",
+  "category_type": "Expense",
+  "description": "Bank xizmatlari va to'lovlari",
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "name": "Bank"
+ },
+ {
+  "category_name": "Boshqa chiqim",
+  "category_type": "Expense",
+  "description": "Boshqa chiqimlar",
+  "docstatus": 0,
+  "doctype": "Counterparty Category",
+  "is_active": 1,
+  "name": "Boshqa chiqim"
  }
 ]

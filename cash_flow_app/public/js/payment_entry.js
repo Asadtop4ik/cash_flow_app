@@ -15,6 +15,16 @@ frappe.ui.form.on('Payment Entry', {
     },
     
     onload: function(frm) {
+        // Set default mode of payment to 'Naqd'
+        if (frm.is_new() && !frm.doc.mode_of_payment) {
+            frm.set_value('mode_of_payment', 'Naqd');
+        }
+        
+        // Set default category based on payment type
+        if (frm.is_new() && !frm.doc.custom_counterparty_category) {
+            set_default_category(frm);
+        }
+        
         // Auto-fill contract reference when form loads (for Draft payments created by Installment Application)
         if (frm.doc.party && !frm.doc.custom_contract_reference) {
             auto_fill_contract_reference(frm);
@@ -32,6 +42,9 @@ frappe.ui.form.on('Payment Entry', {
                 timeDisplay.style.display = 'none';
             }
         }, 500);
+        
+        // Hide unnecessary fields
+        hide_unnecessary_fields(frm);
         
         // Lock fields for payments created by Installment Application (Draft only)
         lock_auto_created_payment_fields(frm);
@@ -51,12 +64,6 @@ frappe.ui.form.on('Payment Entry', {
         setup_category_filter(frm);
     },
     
-    payment_type: function(frm) {
-        // When payment type changes, reset category and update filter
-        frm.set_value('custom_counterparty_category', '');
-        setup_category_filter(frm);
-    },
-    
     party: function(frm) {
         // When customer changes, update installment applications link and auto-fill contract
         show_installment_applications_link(frm);
@@ -71,8 +78,71 @@ frappe.ui.form.on('Payment Entry', {
     custom_contract_reference: function(frm) {
         // When contract is selected, update payment schedule options
         update_payment_schedule_options(frm);
+    },
+    
+    mode_of_payment: function(frm) {
+        // Hide bank-related fields when mode of payment is selected
+        hide_bank_related_fields(frm);
+    },
+    
+    payment_type: function(frm) {
+        // Reset category and update filter
+        frm.set_value('custom_counterparty_category', '');
+        setup_category_filter(frm);
+        
+        // Set default category based on new payment type
+        if (frm.is_new()) {
+            set_default_category(frm);
+        }
     }
 });
+
+// Hide unnecessary fields on form load
+function hide_unnecessary_fields(frm) {
+    // Always hide these fields
+    const fields_to_hide = [
+        'project',
+        'cost_center',
+        'taxes',  // Advance Taxes and Charges section
+        'party_bank_account',
+        'contact_person',
+        'contact_email',
+        'tax_withholding_category',
+        'apply_tax_withholding_amount',
+        'purchase_taxes_and_charges_template',  // Purchase Taxes
+        'sales_taxes_and_charges_template',  // Sales Taxes and Charges Template
+        'bank_account',  // Company Bank Account - always hide
+        'bank'  // Bank - always hide
+    ];
+    
+    fields_to_hide.forEach(field => {
+        frm.set_df_property(field, 'hidden', 1);
+    });
+    
+    // Hide bank-related fields if mode of payment is set
+    hide_bank_related_fields(frm);
+}
+
+// Hide bank-related fields when mode of payment is selected
+function hide_bank_related_fields(frm) {
+    if (frm.doc.mode_of_payment) {
+        const bank_fields = [
+            'party_balance',
+            'paid_from',
+            'paid_from_account_currency',
+            'paid_from_account_balance',
+            'paid_to',
+            'paid_to_account_currency',
+            'paid_to_account_balance',
+            'reference_no',
+            'reference_date'
+        ];
+        
+        bank_fields.forEach(field => {
+            frm.set_df_property(field, 'hidden', 1);
+        });
+    }
+}
 
 function show_installment_applications_link(frm) {
     // Remove existing link if any
@@ -292,6 +362,33 @@ function setup_category_filter(frm) {
             };
         });
         frm.set_df_property('custom_counterparty_category', 'label', '📂 Kategoriya');
+    }
+}
+
+// Set default category based on payment type
+function set_default_category(frm) {
+    if (!frm.doc.payment_type) {
+        return;
+    }
+    
+    let default_category = null;
+    
+    if (frm.doc.payment_type === 'Receive') {
+        // Kirim uchun default - "Klient"
+        default_category = 'Klient';
+    } else if (frm.doc.payment_type === 'Pay') {
+        // Chiqim uchun default - "Xarajat"
+        default_category = 'Xarajat';
+    }
+    
+    if (default_category) {
+        // Check if category exists before setting
+        frappe.db.exists('Counterparty Category', default_category)
+            .then(exists => {
+                if (exists) {
+                    frm.set_value('custom_counterparty_category', default_category);
+                }
+            });
     }
 }
 

@@ -86,15 +86,21 @@ class InstallmentApplication(Document):
     
     def create_sales_order(self):
         """Create Sales Order with Payment Schedule"""
-        # Create Sales Order
+                # Create Sales Order
+        company = frappe.defaults.get_user_default("Company")
+        
         so = frappe.get_doc({
             "doctype": "Sales Order",
             "naming_series": "CON-.YYYY.-.#####",
             "customer": self.customer,
             "transaction_date": self.transaction_date,
-            "delivery_date": add_months(getdate(self.transaction_date), 1),
-            "items": [],
-            "payment_schedule": []
+            "delivery_date": add_months(self.transaction_date, self.installment_months),
+            "company": company,
+            "currency": "USD",
+            "conversion_rate": 1.0,  # USD to USD = 1
+            "plc_conversion_rate": 1.0,  # Price List Currency to USD = 1
+            "ignore_pricing_rule": 1,
+            "items": []
         })
         
         # Add items from Installment Application
@@ -106,6 +112,8 @@ class InstallmentApplication(Document):
                 "qty": item.qty,
                 "rate": item.rate,
                 "amount": item.amount,
+                "uom": item.get("uom") or "Nos",
+                "conversion_factor": 1.0,
                 "custom_imei": item.get("imei")  # Copy IMEI if exists
             })
         
@@ -117,6 +125,8 @@ class InstallmentApplication(Document):
                 "item_name": "Foiz (Interest)",
                 "description": f"Muddatli to'lov foizi - {self.installment_months} oy",
                 "qty": 1,
+                "uom": "Nos",
+                "conversion_factor": 1.0,
                 "rate": flt(self.custom_total_interest),
                 "amount": flt(self.custom_total_interest)
             })
@@ -239,12 +249,14 @@ class InstallmentApplication(Document):
                 "received_amount": flt(self.downpayment_amount),
                 "paid_to": default_cash_account,
                 "paid_to_account_currency": "USD",
-                "source_exchange_rate": 1,
-                "target_exchange_rate": 1,
+                "paid_from_account_currency": "USD",
+                "source_exchange_rate": 1.0,
+                "target_exchange_rate": 1.0,
                 "reference_no": sales_order_name,
                 "reference_date": self.transaction_date,
-                "custom_counterparty_category": "Klient - Mijozlardan tushgan to'lovlar",
+                "custom_counterparty_category": "Klient",
                 "custom_contract_reference": sales_order_name,
+                "mode_of_payment": "Naqd",
                 "remarks": f"Boshlang'ich to'lov - Shartnoma {sales_order_name}\nInstallment Application: {self.name}"
             })
             

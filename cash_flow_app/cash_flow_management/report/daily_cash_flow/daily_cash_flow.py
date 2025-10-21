@@ -70,12 +70,6 @@ def get_columns():
 			"fieldtype": "Currency",
 			"options": "USD",
 			"width": 120
-		},
-		{
-			"fieldname": "remarks",
-			"label": _("Remarks"),
-			"fieldtype": "Data",
-			"width": 200
 		}
 	]
 
@@ -104,8 +98,7 @@ def get_data(filters):
 			CASE 
 				WHEN pe.payment_type = 'Receive' THEN pe.paid_amount
 				ELSE 0
-			END as credit,
-			pe.remarks
+			END as credit
 		FROM
 			`tabPayment Entry` pe
 		WHERE

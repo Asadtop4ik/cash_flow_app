@@ -16,7 +16,11 @@ def validate_counterparty_category(doc):
     if not doc.custom_counterparty_category:
         frappe.throw(_("Counterparty Category is mandatory"))
     
-    category = frappe.get_cached_doc("Counterparty Category", doc.custom_counterparty_category)
+    # Use ignore_permissions to avoid "Not permitted" error when validating
+    try:
+        category = frappe.get_cached_doc("Counterparty Category", doc.custom_counterparty_category)
+    except frappe.PermissionError:
+        category = frappe.get_doc("Counterparty Category", doc.custom_counterparty_category, ignore_permissions=True)
     
     # Income category faqat Receive uchun
     if doc.payment_type == "Receive" and category.category_type != "Income":

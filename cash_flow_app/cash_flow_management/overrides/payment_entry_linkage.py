@@ -125,9 +125,9 @@ def update_payment_schedule(sales_order, paid_amount, payment_date, payment_entr
         # Calculate payment for this schedule
         payment_for_schedule = min(remaining_amount, due_amount)
         
-        # Update paid_amount
+        # Update paid_amount in the child table
         new_paid = paid_already + payment_for_schedule
-        schedule.db_set("paid_amount", new_paid, update_modified=False)
+        schedule.paid_amount = new_paid
         
         # Track which schedule was updated (for first payment)
         if not updated_schedule_name:
@@ -140,6 +140,12 @@ def update_payment_schedule(sales_order, paid_amount, payment_date, payment_entr
             f"Updated Payment Schedule: {schedule.name} - "
             f"Paid: {paid_already} → {new_paid} (Due: {schedule.payment_amount})"
         )
+    
+    # Save the Sales Order to persist payment_schedule changes
+    sales_order.flags.ignore_validate_update_after_submit = True
+    sales_order.flags.ignore_permissions = True
+    sales_order.save()
+    frappe.db.commit()
     
     # Update the Payment Entry with schedule row reference
     if payment_entry_name and updated_schedule_name:

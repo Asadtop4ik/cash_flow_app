@@ -42,10 +42,18 @@ def setup_payment_entry_custom_fields():
                 "description": "Filial nomi (agar bir nechta filial bo'lsa)"
             },
             {
+                "fieldname": "custom_izoh",
+                "label": "Izoh (Qo'shimcha ma'lumot)",
+                "fieldtype": "Small Text",
+                "insert_after": "custom_branch",
+                "reqd": 0,
+                "description": "To'lov bo'yicha qo'shimcha izoh yoki qayd"
+            },
+            {
                 "fieldname": "custom_section_break_kassa",
                 "label": "Kassa Ma'lumotlari",
                 "fieldtype": "Section Break",
-                "insert_after": "custom_branch",
+                "insert_after": "custom_izoh",
                 "collapsible": 0
             }
         ]
