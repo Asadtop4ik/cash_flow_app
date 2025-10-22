@@ -24,11 +24,20 @@ def autoname_payment_entry(doc, method=None):
 def validate_payment_entry(doc, method=None):
     """
     Additional validations for Payment Entry
-    Auto-fill contract reference if missing
+    Require contract reference for customer payments
     """
     # Ensure counterparty category is set
     if not doc.custom_counterparty_category:
         frappe.throw(_("Counterparty Category tanlanishi shart!"))
+    
+    # IMPORTANT: For customer payments, contract reference is REQUIRED
+    if doc.payment_type == "Receive" and doc.party_type == "Customer":
+        if not doc.custom_contract_reference:
+            frappe.throw(
+                _("📄 Shartnoma Raqami (Contract Reference) tanlanishi shart!<br>"
+                  "Customer uchun to'lov qabul qilishda qaysi shartnomaga to'lov qilinayotganini ko'rsatish kerak."),
+                title=_("Shartnoma Tanlanmagan")
+            )
     
     # Validate counterparty category matches payment type (with permission handling)
     try:
@@ -52,7 +61,8 @@ def validate_payment_entry(doc, method=None):
             title=_("Invalid Category")
         )
     
-    # Auto-fill contract reference for customer payments
+    # Still auto-fill if somehow contract is missing (backward compatibility)
+    # But validation above will catch it
     if doc.payment_type == "Receive" and doc.party_type == "Customer" and not doc.custom_contract_reference:
         # Find latest active Sales Order for this customer (ignore permissions for system validation)
         try:

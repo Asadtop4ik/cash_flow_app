@@ -23,14 +23,175 @@ function load_customer_contract_summary(frm) {
         },
         callback: function(r) {
             if (r.message && r.message.length > 0) {
-                const contract = r.message[0]; // Latest contract
-                show_customer_dashboard(frm, contract);
-                show_payment_schedule(frm, contract);
+                // Show ALL contracts, not just the latest
+                show_all_contracts_dashboard(frm, r.message);
+                
+                // Show payment schedule for the ACTIVE contract only
+                const active_contract = r.message.find(c => 
+                    c.custom_status !== 'Completed' && c.custom_status !== 'Cancelled'
+                ) || r.message[0];
+                
+                show_payment_schedule(frm, active_contract);
             } else {
                 show_no_contract_message(frm);
             }
         }
     });
+}
+
+function show_all_contracts_dashboard(frm, contracts) {
+    // Remove existing dashboard
+    $('.customer-contract-dashboard').remove();
+    
+    // Create contracts list HTML
+    let contracts_html = '';
+    
+    contracts.forEach((contract, index) => {
+        const total_with_interest = contract.grand_total_with_interest || 0;
+        const paid_amount = contract.paid_amount || 0;
+        const outstanding_amount = contract.outstanding_amount || 0;
+        const payment_percentage = contract.payment_percentage || 0;
+        const status = contract.custom_status || 'Pending';
+        const status_color = contract.status_color || 'orange';
+        const status_icon = contract.status_icon || '⏳';
+        const is_active = status !== 'Completed' && status !== 'Cancelled';
+        
+        // Color mapping
+        let status_color_hex = '#FF9800';
+        let gradient_start = '#667eea';
+        let gradient_end = '#764ba2';
+        
+        if (status_color === 'green') {
+            status_color_hex = '#4CAF50';
+            gradient_start = '#56ab2f';
+            gradient_end = '#a8e063';
+        } else if (status_color === 'blue') {
+            status_color_hex = '#2196F3';
+            gradient_start = '#2196F3';
+            gradient_end = '#64b5f6';
+        } else if (status_color === 'red') {
+            status_color_hex = '#d32f2f';
+            gradient_start = '#c33764';
+            gradient_end = '#f8c291';
+        } else if (is_active) {
+            gradient_start = '#667eea';
+            gradient_end = '#764ba2';
+        }
+        
+        contracts_html += `
+            <div style="
+                background: linear-gradient(135deg, ${gradient_start} 0%, ${gradient_end} 100%);
+                padding: 20px;
+                border-radius: 12px;
+                margin-bottom: 15px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                color: white;
+                ${is_active ? 'border: 3px solid #FFD700;' : ''}
+            ">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0; color: white; font-size: 18px;">
+                        ${status_icon} ${status}
+                        ${is_active ? '<span style="background: #FFD700; color: #000; padding: 4px 12px; border-radius: 12px; font-size: 12px; margin-left: 10px;">ACTIVE</span>' : ''}
+                    </h3>
+                    <a href="/app/sales-order/${contract.name}" target="_blank" 
+                       style="background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 20px; color: white; text-decoration: none; font-size: 14px;">
+                        <strong>📄 ${contract.name}</strong>
+                    </a>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0;">
+                    <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 11px; opacity: 0.9; margin-bottom: 8px;">💰 Jami Summa</div>
+                        <div style="font-size: 20px; font-weight: bold;">
+                            $ ${total_with_interest.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                        </div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 11px; opacity: 0.9; margin-bottom: 8px;">✅ To'langan</div>
+                        <div style="font-size: 20px; font-weight: bold; color: #90EE90;">
+                            $ ${paid_amount.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                        </div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 11px; opacity: 0.9; margin-bottom: 8px;">⚠️ Qolgan</div>
+                        <div style="font-size: 20px; font-weight: bold; color: ${outstanding_amount > 0 ? '#FFB6C1' : '#90EE90'};">
+                            $ ${outstanding_amount.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="font-size: 12px; font-weight: 500;">📊 To'lov progress</span>
+                        <span style="font-size: 13px; font-weight: bold;">
+                            ${payment_percentage.toFixed(1)}%
+                        </span>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); height: 20px; border-radius: 10px; overflow: hidden;">
+                        <div style="
+                            background: linear-gradient(90deg, #4ade80, #22c55e);
+                            width: ${payment_percentage}%;
+                            height: 100%;
+                            transition: width 0.5s ease;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 10px;
+                            font-weight: bold;
+                            color: white;
+                        ">${payment_percentage > 8 ? payment_percentage.toFixed(0) + '%' : ''}</div>
+                    </div>
+                </div>
+                
+                <!-- Contract Details -->
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-size: 11px;">
+                        <div>
+                            <div style="opacity: 0.8;">📅 Sana</div>
+                            <div style="font-weight: 500; margin-top: 3px;">${frappe.datetime.str_to_user(contract.transaction_date)}</div>
+                        </div>
+                        <div>
+                            <div style="opacity: 0.8;">📆 Nechi oy</div>
+                            <div style="font-weight: 500; margin-top: 3px;">${contract.installment_months || 0} oy</div>
+                        </div>
+                        <div>
+                            <div style="opacity: 0.8;">💵 Oylik</div>
+                            <div style="font-weight: 500; margin-top: 3px;">$ ${(contract.monthly_payment || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                        </div>
+                        <div>
+                            <div style="opacity: 0.8;">🎯 Boshlang'ich</div>
+                            <div style="font-weight: 500; margin-top: 3px;">$ ${(contract.downpayment || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    // Wrap all contracts
+    const dashboard_html = `
+        <div style="margin: 15px 0;">
+            <h2 style="color: #667eea; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                <span>📋</span>
+                <span>Shartnomalar (${contracts.length})</span>
+            </h2>
+            ${contracts_html}
+        </div>
+    `;
+    
+    // Create permanent wrapper div
+    let wrapper = $(`<div class="customer-contract-dashboard"></div>`);
+    wrapper.html(dashboard_html);
+    
+    // Insert after form toolbar
+    if (frm.dashboard.wrapper) {
+        $(frm.dashboard.wrapper).after(wrapper);
+    } else if (frm.$wrapper.find('.form-dashboard').length) {
+        frm.$wrapper.find('.form-dashboard').after(wrapper);
+    } else {
+        frm.$wrapper.find('.page-head').after(wrapper);
+    }
 }
 
 function show_customer_dashboard(frm, contract) {

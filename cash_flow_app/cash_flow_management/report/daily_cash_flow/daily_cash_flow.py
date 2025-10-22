@@ -11,7 +11,7 @@ def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
 	chart = get_chart_data(data, filters)
-	summary = get_summary(data)
+	summary = get_summary(data, filters)  # Pass filters to summary
 	
 	return columns, data, None, chart, summary
 
@@ -135,6 +135,45 @@ def get_conditions(filters):
 	return " AND " + " AND ".join(conditions) if conditions else ""
 
 
+def get_opening_balance(filters):
+	"""Calculate opening balance - total balance BEFORE from_date"""
+	if not filters or not filters.get("from_date"):
+		return 0
+	
+	# Get all transactions BEFORE from_date
+	query = """
+		SELECT
+			SUM(CASE WHEN pe.payment_type = 'Receive' THEN pe.paid_amount ELSE 0 END) as total_income,
+			SUM(CASE WHEN pe.payment_type = 'Pay' THEN pe.paid_amount ELSE 0 END) as total_expense
+		FROM
+			`tabPayment Entry` pe
+		WHERE
+			pe.docstatus = 1
+			AND pe.posting_date < %(from_date)s
+	"""
+	
+	# Add additional filters if present
+	conditions = []
+	if filters.get("mode_of_payment"):
+		conditions.append("AND pe.mode_of_payment = %(mode_of_payment)s")
+	if filters.get("counterparty_category"):
+		conditions.append("AND pe.custom_counterparty_category = %(counterparty_category)s")
+	if filters.get("payment_type"):
+		conditions.append("AND pe.payment_type = %(payment_type)s")
+	
+	if conditions:
+		query += " " + " ".join(conditions)
+	
+	result = frappe.db.sql(query, filters, as_dict=1)
+	
+	if result and result[0]:
+		total_income = flt(result[0].get("total_income", 0))
+		total_expense = flt(result[0].get("total_expense", 0))
+		return total_income - total_expense
+	
+	return 0
+
+
 def get_chart_data(data, filters):
 	"""Generate chart data"""
 	if not data:
@@ -172,14 +211,18 @@ def get_chart_data(data, filters):
 	}
 
 
-def get_summary(data):
-	"""Calculate summary statistics"""
+def get_summary(data, filters=None):
+	"""Calculate summary statistics with opening balance"""
 	if not data:
 		return []
+	
+	# Calculate opening balance (before from_date)
+	opening_balance = get_opening_balance(filters)
 	
 	total_credit = sum(flt(row.credit) for row in data)
 	total_debit = sum(flt(row.debit) for row in data)
 	net_balance = total_credit - total_debit
+	closing_balance = opening_balance + net_balance
 	
 	# Group by mode of payment
 	mode_wise = {}
@@ -191,6 +234,13 @@ def get_summary(data):
 		mode_wise[mode]["debit"] += flt(row.debit)
 	
 	summary = [
+		{
+			"value": opening_balance,
+			"indicator": "Blue" if opening_balance >= 0 else "Orange",
+			"label": _("Opening Balance"),
+			"datatype": "Currency",
+			"currency": "USD"
+		},
 		{
 			"value": total_credit,
 			"indicator": "Green",

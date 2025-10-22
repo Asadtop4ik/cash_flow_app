@@ -7,7 +7,7 @@ from frappe.utils import flt, getdate, date_diff, today
 
 @frappe.whitelist()
 def get_customer_contracts(customer):
-    """Get customer's contracts with summary"""
+    """Get ALL customer's contracts with summary"""
     if not customer:
         return []
     
@@ -31,7 +31,6 @@ def get_customer_contracts(customer):
         WHERE so.customer = %(customer)s
             AND so.docstatus = 1
         ORDER BY so.transaction_date DESC
-        LIMIT 1
     """, {'customer': customer}, as_dict=1)
     
     if not contracts:
@@ -85,8 +84,7 @@ def get_payment_schedule_with_history(customer):
         FROM `tabSales Order` 
         WHERE customer = %(customer)s 
             AND docstatus = 1 
-        ORDER BY transaction_date DESC 
-        LIMIT 1
+        ORDER BY transaction_date DESC
     """, {'customer': customer}, as_dict=1)
     
     if not contract:
