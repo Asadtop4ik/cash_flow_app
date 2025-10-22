@@ -22,10 +22,7 @@ doc_events = {
             "cash_flow_app.cash_flow_management.custom.payment_validations.validate_negative_balance",
             "cash_flow_app.cash_flow_management.custom.payment_validations.warn_on_overdue_payments"
         ],
-        "on_submit": [
-            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_payment_entry",
-            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_payment"
-        ],
+        "on_submit": "cash_flow_app.cash_flow_management.custom.payment_entry_hooks.on_submit",  # ← QOSHISH KERAK!
         "on_cancel": [
             "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry",
             "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_payment"

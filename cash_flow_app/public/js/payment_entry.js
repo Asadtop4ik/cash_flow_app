@@ -94,6 +94,40 @@ frappe.ui.form.on('Payment Entry', {
         if (frm.is_new()) {
             set_default_category(frm);
         }
+    },
+    
+    after_save: function(frm) {
+        // If submitted, show success message and offer redirect to Customer
+        if (frm.doc.docstatus === 1 && frm.doc.party_type === 'Customer' && frm.doc.party) {
+            console.log('🟢 Payment Entry SUBMITTED - triggering customer dashboard refresh');
+            console.log('   Payment:', frm.doc.name);
+            console.log('   Customer:', frm.doc.party);
+            
+            frappe.show_alert({
+                message: __('Payment Entry submitted! Customer dashboard will auto-refresh.'),
+                indicator: 'green'
+            }, 7);
+            
+            // ✅ TRIGGER CUSTOM EVENT via jQuery
+            const event_data = {
+                customer: frm.doc.party,
+                payment_entry: frm.doc.name,
+                amount: frm.doc.paid_amount,
+                contract: frm.doc.custom_contract_reference
+            };
+            
+            console.log('🚀 Triggering custom event with data:', event_data);
+            $(document).trigger('customer_payment_submitted', event_data);
+            console.log('✅ Custom event triggered!');
+            
+            // ✅ AUTOMATIC REDIRECT TO CUSTOMER - Most reliable approach!
+            // Instead of checking routes or waiting for events, just redirect directly
+            console.log('🚀 Auto-redirecting to Customer dashboard:', frm.doc.party);
+            
+            setTimeout(() => {
+                frappe.set_route('Form', 'Customer', frm.doc.party);
+            }, 800);
+        }
     }
 });
 

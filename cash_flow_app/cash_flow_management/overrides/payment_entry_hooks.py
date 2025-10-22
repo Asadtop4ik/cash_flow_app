@@ -99,3 +99,49 @@ def validate_payment_entry(doc, method=None):
             # If user doesn't have permission to read SO, skip validation
             # The linked SO will be validated on submit with proper permissions
             pass
+    
+    # ✅ AUTO-FILL Payment Schedule Row if missing (CRITICAL FIX!)
+    if doc.payment_type == "Receive" and doc.party_type == "Customer" and doc.custom_contract_reference:
+        if not doc.custom_payment_schedule_row:
+            try:
+                # Find FIRST UNPAID Payment Schedule row for this contract
+                schedule_row = frappe.db.sql("""
+                    SELECT 
+                        ps.name,
+                        ps.idx,
+                        ps.payment_amount,
+                        COALESCE(ps.paid_amount, 0) as paid_amount
+                    FROM `tabPayment Schedule` ps
+                    WHERE ps.parent = %(sales_order)s
+                        AND ps.parenttype = 'Sales Order'
+                        AND COALESCE(ps.paid_amount, 0) < ps.payment_amount
+                    ORDER BY ps.idx
+                    LIMIT 1
+                """, {'sales_order': doc.custom_contract_reference}, as_dict=1)
+                
+                if schedule_row:
+                    doc.custom_payment_schedule_row = schedule_row[0].name
+                    
+                    print(f"\n🔵 AUTO-FILLED Payment Schedule Row:")
+                    print(f"   Schedule Row: {schedule_row[0].name}")
+                    print(f"   Contract: {doc.custom_contract_reference}")
+                    print(f"   Month: {schedule_row[0].idx}")
+                    print(f"   Amount Due: {schedule_row[0].payment_amount}")
+                    print(f"   Already Paid: {schedule_row[0].paid_amount}\n")
+                    
+                    frappe.msgprint(
+                        _("ℹ️ Avtomatik: {0}-oy to'lovi ({1} USD) bog'landi").format(
+                            schedule_row[0].idx,
+                            schedule_row[0].payment_amount
+                        ),
+                        alert=True,
+                        indicator="blue"
+                    )
+                else:
+                    print(f"\n⚠️ WARNING: No unpaid schedule rows found for {doc.custom_contract_reference}\n")
+                    
+            except Exception as e:
+                print(f"\n❌ ERROR auto-filling payment schedule row: {str(e)}\n")
+                # Don't fail validation if auto-fill fails
+                pass
+            pass
