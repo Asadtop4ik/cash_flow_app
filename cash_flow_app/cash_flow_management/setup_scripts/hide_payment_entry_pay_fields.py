@@ -34,10 +34,7 @@ def hide_payment_entry_pay_fields():
         "cost_center",
         "project",
         "letter_head",
-        "print_heading",
-        
-        # Branch field (already done, but ensuring)
-        "custom_branch",
+    "print_heading",
     ]
     
     created_count = 0

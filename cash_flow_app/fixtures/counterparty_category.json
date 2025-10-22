@@ -6,6 +6,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.124462",
   "name": "Klient"
  },
  {
@@ -15,6 +16,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.220100",
   "name": "Boshqa to'lov"
  },
  {
@@ -24,6 +26,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.231803",
   "name": "Uslugadan foyda"
  },
  {
@@ -33,6 +36,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.243374",
   "name": "Boshqa foyda"
  },
  {
@@ -42,6 +46,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.254959",
   "name": "Investor"
  },
  {
@@ -51,6 +56,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.266651",
   "name": "Hodim"
  },
  {
@@ -60,6 +66,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.278710",
   "name": "Postavshik"
  },
  {
@@ -69,6 +76,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.290880",
   "name": "Boshqa to'lov (Chiqim)"
  },
  {
@@ -78,6 +86,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.302435",
   "name": "Xarajat"
  },
  {
@@ -87,6 +96,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.314467",
   "name": "Investor chiqimi"
  },
  {
@@ -96,6 +106,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.326199",
   "name": "Komunal to'lov"
  },
  {
@@ -105,6 +116,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.337887",
   "name": "Bank"
  },
  {
@@ -114,6 +126,7 @@
   "docstatus": 0,
   "doctype": "Counterparty Category",
   "is_active": 1,
+  "modified": "2025-10-21 12:35:47.349629",
   "name": "Boshqa chiqim"
  }
 ]

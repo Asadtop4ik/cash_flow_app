@@ -21,7 +21,8 @@
    "in_list_view": 1,
    "label": "Item Code",
    "options": "Item",
-   "reqd": 1
+   "reqd": 1,
+   "allow_in_quick_entry": 1
   },
   {
    "fetch_from": "item_code.item_name",
@@ -47,7 +48,8 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Quantity",
-   "reqd": 1
+   "reqd": 1,
+   "allow_in_quick_entry": 1
   },
   {
    "fieldname": "rate",
@@ -57,7 +59,8 @@
    "options": "USD",
    "reqd": 1,
    "fetch_from": "item_code.custom_cost_price",
-   "bold": 1
+   "bold": 1,
+   "allow_in_quick_entry": 1
   },
   {
    "fieldname": "amount",

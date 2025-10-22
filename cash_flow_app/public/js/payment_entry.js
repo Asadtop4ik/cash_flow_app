@@ -150,16 +150,9 @@ function show_installment_applications_link(frm) {
     
     if (frm.doc.party_type === 'Customer' && frm.doc.party) {
         frappe.call({
-            method: 'frappe.client.get_list',
+            method: 'cash_flow_app.cash_flow_management.api.payment_entry_api.get_installment_applications',
             args: {
-                doctype: 'Installment Application',
-                filters: {
-                    customer: frm.doc.party,
-                    docstatus: 1  // Submitted only
-                },
-                fields: ['name', 'transaction_date', 'custom_grand_total_with_interest', 'sales_order', 'status'],
-                order_by: 'creation desc',
-                limit: 5
+                customer: frm.doc.party
             },
             callback: function(r) {
                 if (r.message && r.message.length > 0) {
@@ -246,17 +239,9 @@ function auto_fill_contract_reference(frm) {
     
     // Get latest active Sales Order for this customer
     frappe.call({
-        method: 'frappe.client.get_list',
+        method: 'cash_flow_app.cash_flow_management.api.payment_entry_api.get_customer_contracts',
         args: {
-            doctype: 'Sales Order',
-            filters: {
-                customer: frm.doc.party,
-                docstatus: 1,  // Submitted
-                status: ['not in', ['Completed', 'Cancelled', 'Closed']]
-            },
-            fields: ['name', 'transaction_date', 'custom_grand_total_with_interest', 'advance_paid'],
-            order_by: 'transaction_date desc',
-            limit: 1
+            customer: frm.doc.party
         },
         callback: function(r) {
             frm._filling_contract_reference = false;
@@ -288,15 +273,9 @@ function update_payment_schedule_options(frm) {
     
     // Get unpaid payment schedules for this contract
     frappe.call({
-        method: 'frappe.client.get_list',
+        method: 'cash_flow_app.cash_flow_management.api.payment_entry_api.get_payment_schedules',
         args: {
-            doctype: 'Payment Schedule',
-            filters: {
-                parent: frm.doc.custom_contract_reference,
-                parenttype: 'Sales Order'
-            },
-            fields: ['name', 'idx', 'due_date', 'payment_amount', 'paid_amount', 'description'],
-            order_by: 'idx asc'
+            contract_reference: frm.doc.custom_contract_reference
         },
         callback: function(r) {
             if (r.message && r.message.length > 0) {
@@ -316,9 +295,8 @@ function update_payment_schedule_options(frm) {
                         indicator: 'blue'
                     }, 7);
                     
-                    // Auto-select first unpaid schedule
-                    frm.set_value('custom_payment_schedule_row', next.name);
-                    frm.set_value('custom_payment_month', next.description || (next.idx + '-oy'));
+                    // Note: custom_payment_schedule_row and custom_payment_month fields
+                    // are not available in this Payment Entry form, so we just show the alert
                 }
             }
         }

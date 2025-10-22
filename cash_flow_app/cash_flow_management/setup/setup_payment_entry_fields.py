@@ -34,18 +34,10 @@ def setup_payment_entry_custom_fields():
                 "description": "Agar bo'lib to'lash shartnomasi bo'lsa, shu yerda tanlang"
             },
             {
-                "fieldname": "custom_branch",
-                "label": "Filial",
-                "fieldtype": "Data",
-                "insert_after": "custom_contract_reference",
-                "reqd": 0,
-                "description": "Filial nomi (agar bir nechta filial bo'lsa)"
-            },
-            {
                 "fieldname": "custom_izoh",
                 "label": "Izoh (Qo'shimcha ma'lumot)",
                 "fieldtype": "Small Text",
-                "insert_after": "custom_branch",
+                "insert_after": "custom_contract_reference",
                 "reqd": 0,
                 "description": "To'lov bo'yicha qo'shimcha izoh yoki qayd"
             },

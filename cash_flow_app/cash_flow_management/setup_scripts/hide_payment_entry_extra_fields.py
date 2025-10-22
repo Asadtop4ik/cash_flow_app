@@ -10,9 +10,6 @@ import frappe
 
 def hide_payment_entry_extra_fields():
     fields_to_hide = [
-        # Filial - not needed for simple cash flow
-        "custom_branch",
-        
         # Currency fields - system is USD only
         "paid_from_account_currency",
         "paid_to_account_currency",
