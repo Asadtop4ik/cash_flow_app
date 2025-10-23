@@ -3,26 +3,27 @@
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate
+from frappe.utils import flt
 
 
 def execute(filters=None):
 	"""
 	Customer Payment History Report
-	Shows all payments for customers with detailed breakdown
+	Shows each payment transaction with contract details
 	"""
 	columns = get_columns()
 	data = get_data(filters)
 	summary = get_summary(data)
 	
-	# No chart needed - table is sufficient
 	chart = None
 	
-	return columns, data, None, chart, summary
+	# Disable automatic totals by NOT adding 'total_row' indicator
+	# Our custom Total row already included in data
+	return columns, data, None, chart, summary, None
 
 
 def get_columns():
-	"""Define report columns - Each payment entry as a separate row"""
+	"""Define report columns - har bir tranzaksiya alohida"""
 	return [
 		{
 			"label": _("Customer"),
@@ -55,25 +56,21 @@ def get_columns():
 			"label": _("Contract (Shartnoma)"),
 			"fieldname": "contract",
 			"fieldtype": "Link",
-			"options": "Installment Application",
+			"options": "Sales Order",
 			"width": 150
 		},
 		{
 			"label": _("Contract Total"),
 			"fieldname": "contract_total",
-			"fieldtype": "Data",
+			"fieldtype": "Currency",
+			"options": "currency",
 			"width": 120
-		},
-		{
-			"label": _("Total Paid (Contract)"),
-			"fieldname": "total_paid",
-			"fieldtype": "Data",
-			"width": 140
 		},
 		{
 			"label": _("Outstanding"),
 			"fieldname": "outstanding",
-			"fieldtype": "Data",
+			"fieldtype": "Currency",
+			"options": "currency",
 			"width": 120
 		},
 		{
@@ -92,10 +89,13 @@ def get_columns():
 
 
 def get_data(filters):
-	"""Get report data - Each payment entry as a separate row"""
+	"""
+	Get payment data with contract information
+	Har bir to'lov uchun o'sha paytdagi contract holatini hisoblash
+	"""
 	conditions = get_conditions(filters)
 	
-	# Query to get all payment entries with Installment Application details
+	# Get all payment entries
 	query = """
 		SELECT
 			pe.name as payment_entry,
@@ -103,33 +103,102 @@ def get_data(filters):
 			pe.posting_date as payment_date,
 			pe.paid_amount as payment_amount,
 			pe.mode_of_payment,
+			pe.creation,
+			pe.custom_contract_reference as contract,
 			CASE 
 				WHEN pe.docstatus = 0 THEN 'Draft'
 				WHEN pe.docstatus = 1 THEN 'Submitted'
 				WHEN pe.docstatus = 2 THEN 'Cancelled'
 			END as status,
-			ia.name as contract,
-			CONCAT('$ ', FORMAT(ia.custom_grand_total_with_interest, 2)) as contract_total,
-			CONCAT('$ ', FORMAT(so.advance_paid, 2)) as total_paid,
-			CONCAT('$ ', FORMAT(ia.custom_grand_total_with_interest - COALESCE(so.advance_paid, 0), 2)) as outstanding,
 			'USD' as currency
 		FROM `tabPayment Entry` pe
-		LEFT JOIN `tabSales Order` so ON so.name = pe.custom_contract_reference
-		LEFT JOIN `tabInstallment Application` ia ON ia.sales_order = so.name
 		WHERE pe.docstatus = 1
 		AND pe.party_type = 'Customer'
 		AND pe.payment_type = 'Receive'
 		{conditions}
-		ORDER BY pe.posting_date DESC, pe.party, pe.name
+		ORDER BY pe.party, pe.posting_date, pe.creation
 	""".format(conditions=conditions)
 	
-	data = frappe.db.sql(query, filters, as_dict=1)
+	payments = frappe.db.sql(query, filters, as_dict=1)
 	
-	return data
+	if not payments:
+		return []
+	
+	# Get contract totals (from Sales Order)
+	contract_data = {}
+	unique_contracts = set([p.contract for p in payments if p.contract])
+	
+	for contract in unique_contracts:
+		so = frappe.db.get_value('Sales Order', contract,
+			['custom_grand_total_with_interest', 'grand_total'], as_dict=1)
+		if so:
+			contract_data[contract] = {
+				'total': flt(so.custom_grand_total_with_interest or so.grand_total)
+			}
+	
+	# Calculate running outstanding for each payment
+	result_data = []
+	contract_paid_running = {}
+	
+	for payment in payments:
+		contract = payment.contract
+		payment_amount = flt(payment.payment_amount)
+		
+		if contract:
+			# Initialize if not exists
+			if contract not in contract_paid_running:
+				contract_paid_running[contract] = 0
+			
+			# Add this payment to running total
+			contract_paid_running[contract] += payment_amount
+			
+			# Get contract total
+			contract_total = contract_data.get(contract, {}).get('total', 0)
+			
+			# Calculate outstanding AFTER this payment
+			outstanding = contract_total - contract_paid_running[contract]
+			
+			payment['contract_total'] = contract_total
+			payment['outstanding'] = outstanding
+		else:
+			payment['contract_total'] = 0
+			payment['outstanding'] = 0
+		
+		result_data.append(payment)
+	
+	# Add TOTAL row
+	if result_data:
+		total_payment = sum([flt(d.get('payment_amount', 0)) for d in result_data])
+		
+		# Calculate total outstanding from all unique contracts
+		# Get last outstanding for each unique contract
+		contract_outstanding = {}
+		for payment in result_data:
+			contract = payment.get('contract')
+			if contract:
+				contract_outstanding[contract] = flt(payment.get('outstanding', 0))
+		
+		total_outstanding = sum(contract_outstanding.values())
+		
+		result_data.append({
+			'customer': 'Total',
+			'payment_entry': '',
+			'payment_date': '',
+			'payment_amount': total_payment,
+			'contract': '',
+			'contract_total': None,  # Bo'sh qoladi (None = $0.00 ko'rsatmaydi)
+			'outstanding': total_outstanding,
+			'mode_of_payment': '',
+			'status': '',
+			'currency': 'USD',
+			'is_total_row': 1
+		})
+	
+	return result_data
 
 
 def get_conditions(filters):
-	"""Build WHERE conditions based on filters"""
+	"""Build WHERE conditions"""
 	conditions = []
 	
 	if filters.get("customer"):
@@ -141,45 +210,28 @@ def get_conditions(filters):
 	if filters.get("to_date"):
 		conditions.append("AND pe.posting_date <= %(to_date)s")
 	
-	if filters.get("contract_status"):
-		conditions.append("AND so.status = %(contract_status)s")
-	
-	if filters.get("payment_status"):
-		payment_status = filters.get("payment_status")
-		if payment_status == "Fully Paid":
-			conditions.append("AND COALESCE(so.advance_paid, 0) >= so.grand_total")
-		elif payment_status == "Partially Paid":
-			conditions.append("AND COALESCE(so.advance_paid, 0) > 0 AND COALESCE(so.advance_paid, 0) < so.grand_total")
-		elif payment_status == "Pending":
-			conditions.append("AND COALESCE(so.advance_paid, 0) = 0")
-		elif payment_status == "Overdue":
-			conditions.append("""
-				AND EXISTS (
-					SELECT 1 FROM `tabPayment Schedule` ps 
-					WHERE ps.parent = so.name 
-					AND ps.due_date < CURDATE() 
-					AND COALESCE(ps.paid_amount, 0) < ps.payment_amount
-				)
-			""")
-	
 	return " ".join(conditions)
 
 
 def get_summary(data):
-	"""Generate summary cards for the top of the report"""
+	"""Generate summary cards"""
 	if not data:
 		return []
 	
-	total_customers = len(set([d.get("customer") for d in data]))
-	total_payments = len(data)
-	total_payment_amount = sum([flt(d.get("payment_amount", 0)) for d in data])
+	# Remove total row for calculation
+	data_without_total = [d for d in data if d.get('customer') != 'Total']
+	
+	if not data_without_total:
+		return []
+	
+	total_customers = len(set([d.get("customer") for d in data_without_total]))
+	total_payments = len(data_without_total)
+	total_payment_amount = sum([flt(d.get("payment_amount", 0)) for d in data_without_total])
 	
 	# Get unique contracts
-	contracts = set([d.get("contract") for d in data if d.get("contract")])
+	contracts = set([d.get("contract") for d in data_without_total if d.get("contract")])
 	total_contracts = len(contracts)
 	
-	# Calculate average payment
-	avg_payment = total_payment_amount / total_payments if total_payments > 0 else 0
 	
 	summary = [
 		{
@@ -206,51 +258,7 @@ def get_summary(data):
 			"label": _("Total Received"),
 			"datatype": "Currency",
 			"currency": "USD"
-		},
-		{
-			"value": avg_payment,
-			"indicator": "orange",
-			"label": _("Average Payment"),
-			"datatype": "Currency",
-			"currency": "USD"
 		}
 	]
 	
 	return summary
-
-
-def get_chart_data(data):
-	"""Generate chart for payments by customer"""
-	if not data:
-		return None
-	
-	# Group payments by customer
-	customer_payments = {}
-	for row in data:
-		customer = row.get("customer")
-		amount = flt(row.get("payment_amount", 0))
-		if customer:
-			customer_payments[customer] = customer_payments.get(customer, 0) + amount
-	
-	# Get top 10 customers by payment amount
-	sorted_customers = sorted(customer_payments.items(), key=lambda x: x[1], reverse=True)[:10]
-	
-	if not sorted_customers:
-		return None
-	
-	chart = {
-		"data": {
-			"labels": [c[0] for c in sorted_customers],
-			"datasets": [
-				{
-					"name": "Total Payments",
-					"values": [c[1] for c in sorted_customers]
-				}
-			]
-		},
-		"type": "bar",
-		"colors": ["#2563eb"],
-		"height": 280
-	}
-	
-	return chart

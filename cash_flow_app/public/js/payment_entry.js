@@ -12,13 +12,23 @@ frappe.ui.form.on('Payment Entry', {
                 }
             };
         });
+        
+        // Filter custom_supplier_contract - faqat tanlangan supplierga tegishli
+        frm.set_query('custom_supplier_contract', function() {
+            if (frm.doc.party && frm.doc.party_type === 'Supplier') {
+                return {
+                    query: 'cash_flow_app.cash_flow_management.api.payment_entry_api.get_supplier_contracts_query',
+                    filters: {
+                        'supplier': frm.doc.party
+                    }
+                };
+            }
+            return {};
+        });
     },
     
     onload: function(frm) {
-        // Set default mode of payment to 'Naqd'
-        if (frm.is_new() && !frm.doc.mode_of_payment) {
-            frm.set_value('mode_of_payment', 'Naqd');
-        }
+        // Don't set default mode of payment - user will select manually
         
         // Set default category based on payment type
         if (frm.is_new() && !frm.doc.custom_counterparty_category) {

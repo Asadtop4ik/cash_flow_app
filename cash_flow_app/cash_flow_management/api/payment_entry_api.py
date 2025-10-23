@@ -85,3 +85,60 @@ def get_installment_applications(customer):
 	except Exception as e:
 		frappe.log_error(f"Error fetching installment applications for {customer}: {str(e)}")
 		return []
+
+
+@frappe.whitelist()
+def get_supplier_contracts(supplier):
+	"""Get Installment Applications for supplier - used by Payment Entry form (Pay type)"""
+	if not supplier:
+		return []
+	
+	try:
+		# Get Installment Applications where this supplier has items
+		# We need to query from Installment Application Item table
+		contracts = frappe.db.sql("""
+			SELECT DISTINCT
+				ia.name,
+				ia.transaction_date,
+				ia.status,
+				SUM(item.qty * item.rate) as total_amount
+			FROM `tabInstallment Application` ia
+			INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
+			WHERE item.custom_supplier = %(supplier)s
+				AND ia.docstatus = 1
+			GROUP BY ia.name
+			ORDER BY ia.transaction_date DESC
+			LIMIT 10
+		""", {'supplier': supplier}, as_dict=1)
+		
+		return contracts
+		
+	except Exception as e:
+		frappe.log_error(f"Error fetching supplier contracts: {str(e)}")
+		return []
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def get_supplier_contracts_query(doctype, txt, searchfield, start, page_len, filters):
+	"""Query method for custom_supplier_contract Link field - filters by supplier"""
+	supplier = filters.get('supplier')
+	
+	if not supplier:
+		return []
+	
+	return frappe.db.sql("""
+		SELECT DISTINCT ia.name, ia.transaction_date, ia.status
+		FROM `tabInstallment Application` ia
+		INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
+		WHERE item.custom_supplier = %(supplier)s
+			AND ia.docstatus = 1
+			AND (ia.name LIKE %(txt)s OR ia.status LIKE %(txt)s)
+		ORDER BY ia.transaction_date DESC
+		LIMIT %(start)s, %(page_len)s
+	""", {
+		'supplier': supplier,
+		'txt': '%%' + txt + '%%',
+		'start': start,
+		'page_len': page_len
+	})
