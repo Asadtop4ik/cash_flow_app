@@ -2,6 +2,15 @@
 
 USD-only cash and installment management for ERPNext
 
+---
+
+## 📖 O'zbekcha Ko'rsatma
+
+Sheriklar uchun qisqa boshlash: [QUICKSTART_UZ.md](./QUICKSTART_UZ.md)  
+To'liq o'rnatish bo'yicha ko'rsatma: [INSTALL_GUIDE_UZ.md](./INSTALL_GUIDE_UZ.md)
+
+---
+
 ### Installation
 
 You can install this app using the [bench](https://github.com/frappe/bench) CLI:
