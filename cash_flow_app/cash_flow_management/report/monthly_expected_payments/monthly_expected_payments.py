@@ -31,13 +31,6 @@ def get_columns():
 			"width": 150
 		},
 		{
-			"label": _("Contract"),
-			"fieldname": "installment_application",
-			"fieldtype": "Link",
-			"options": "Installment Application",
-			"width": 180
-		},
-		{
 			"label": _("Sales Order"),
 			"fieldname": "sales_order",
 			"fieldtype": "Link",
