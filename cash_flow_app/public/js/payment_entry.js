@@ -72,17 +72,26 @@ frappe.ui.form.on('Payment Entry', {
         
         // Setup category filter
         setup_category_filter(frm);
+
+        // Filter contract fields by customer
+        setup_contract_filters(frm);
     },
     
     party: function(frm) {
         // When customer changes, update installment applications link and auto-fill contract
         show_installment_applications_link(frm);
         auto_fill_contract_reference(frm);
+
+        // Setup contract filters
+        setup_contract_filters(frm);
     },
     
     party_type: function(frm) {
         // When party type changes, update visibility
         show_installment_applications_link(frm);
+
+        // Setup contract filters
+        setup_contract_filters(frm);
     },
     
     custom_contract_reference: function(frm) {
@@ -104,6 +113,9 @@ frappe.ui.form.on('Payment Entry', {
         if (frm.is_new()) {
             set_default_category(frm);
         }
+
+        // Setup contract filters
+        setup_contract_filters(frm);
     },
     
     after_save: function(frm) {
@@ -444,5 +456,37 @@ function lock_auto_created_payment_fields(frm) {
                 To'lov tasdiqlanishi uchun <strong>Submit</strong> tugmasini bosing.
             </div>
         `, 0);
+    }
+}
+
+// Setup filtering for contract fields by customer
+function setup_contract_filters(frm) {
+    // Only filter if payment_type is Receive and party_type is Customer and party is selected
+    if (frm.doc.payment_type !== 'Receive' || frm.doc.party_type !== 'Customer' || !frm.doc.party) {
+        return;
+    }
+
+    // Filter Installment Application field
+    if (frm.fields_dict.custom_installment_application) {
+        frm.set_query('custom_installment_application', function() {
+            return {
+                filters: {
+                    'customer': frm.doc.party,
+                    'docstatus': 1
+                }
+            };
+        });
+    }
+
+    // Filter Contract Reference field (assuming it links to Installment Application or Sales Order)
+    if (frm.fields_dict.custom_contract_reference) {
+        frm.set_query('custom_contract_reference', function() {
+            return {
+                filters: {
+                    'customer': frm.doc.party,
+                    'docstatus': 1
+                }
+            };
+        });
     }
 }
