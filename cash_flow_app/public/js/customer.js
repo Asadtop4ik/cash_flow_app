@@ -186,14 +186,51 @@ function render_contracts_with_inline_schedules(frm, contracts, all_schedules) {
             gradient_start = '#c33764'; gradient_end = '#f8c291';
         }
         
-        // Build payment schedule table HTML
+        // Build payment schedule table HTML with carry-over logic
         let schedule_rows_html = '';
-        contract_schedules.forEach((row) => {
-            const paid_amt = parseFloat(row.paid_amount) || 0;
-            const amount = parseFloat(row.payment_amount) || 0;
-            const outstanding_amt = parseFloat(row.outstanding) || 0;
+        let carry_over = 0;
+        contract_schedules.forEach((row, idx) => {
+            let paid_amt = parseFloat(row.paid_amount) || 0;
+            let amount = parseFloat(row.payment_amount) || 0;
+            let outstanding_amt = parseFloat(row.outstanding) || 0;
             const month = row.description || `${row.payment_number}-oy`;
-            
+
+            // Apply carry-over from previous overpayment
+            if (carry_over > 0) {
+                paid_amt += carry_over;
+                carry_over = 0;
+            }
+
+            // Calculate new outstanding and carry-over for next month
+            let display_paid = paid_amt;
+            let display_outstanding = 0;
+            let display_status = row.status;
+            let display_status_color = row.status_color;
+
+            if (paid_amt >= amount) {
+                // Overpaid or fully paid
+                display_paid = amount;
+                carry_over = paid_amt - amount;
+                display_outstanding = 0;
+                if (carry_over > 0) {
+                    display_status = `✅ To'landi`;
+                    display_status_color = 'green';
+                } else {
+                    display_status = row.status;
+                    display_status_color = row.status_color;
+                }
+            } else if (paid_amt > 0 && paid_amt < amount) {
+                // Partial payment
+                display_outstanding = amount - paid_amt;
+                display_status = `🟡 Qisman to'landi ($${paid_amt.toFixed(2)}/$${amount.toFixed(2)})`;
+                display_status_color = 'orange';
+            } else {
+                // Not paid
+                display_outstanding = amount;
+                display_status = row.status;
+                display_status_color = row.status_color;
+            }
+
             let payment_date_html = '-';
             if (row.payment_date && row.payment_name) {
                 payment_date_html = `<a href="/app/payment-entry/${row.payment_name}" target="_blank" style="color: #2563eb; font-weight: 500;">
@@ -202,32 +239,32 @@ function render_contracts_with_inline_schedules(frm, contracts, all_schedules) {
             } else if (row.payment_date) {
                 payment_date_html = frappe.datetime.str_to_user(row.payment_date);
             }
-            
+
             let row_bg = '';
-            if (row.status_color === 'green') row_bg = 'background: #f0fdf4;';
-            else if (row.status_color === 'red') row_bg = 'background: #fef2f2;';
-            else if (row.status_color === 'orange') row_bg = 'background: #fff7ed;';
-            else if (row.status_color === 'blue') row_bg = 'background: #eff6ff;';
-            
+            if (display_status_color === 'green') row_bg = 'background: #f0fdf4;';
+            else if (display_status_color === 'red') row_bg = 'background: #fef2f2;';
+            else if (display_status_color === 'orange') row_bg = 'background: #fff7ed;';
+            else if (display_status_color === 'blue') row_bg = 'background: #eff6ff;';
+
             let status_color = '#9ca3af';
-            if (row.status_color === 'green') status_color = '#16a34a';
-            else if (row.status_color === 'red') status_color = '#dc2626';
-            else if (row.status_color === 'orange') status_color = '#ea580c';
-            else if (row.status_color === 'blue') status_color = '#2563eb';
-            
+            if (display_status_color === 'green') status_color = '#16a34a';
+            else if (display_status_color === 'red') status_color = '#dc2626';
+            else if (display_status_color === 'orange') status_color = '#ea580c';
+            else if (display_status_color === 'blue') status_color = '#2563eb';
+
             schedule_rows_html += `
                 <tr style="${row_bg}">
                     <td style="text-align: center; font-weight: bold;">${month}</td>
                     <td>${frappe.datetime.str_to_user(row.due_date)}</td>
                     <td style="text-align: right; font-weight: 600;">$${amount.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                    <td style="text-align: right; color: ${paid_amt > 0 ? '#16a34a' : '#9ca3af'}; font-weight: 600;">
-                        $${paid_amt.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                    <td style="text-align: right; color: ${display_paid > 0 ? '#16a34a' : '#9ca3af'}; font-weight: 600;">
+                        $${display_paid.toLocaleString('en-US', {minimumFractionDigits: 2})}
                     </td>
-                    <td style="text-align: right; color: ${outstanding_amt > 0 ? '#dc2626' : '#16a34a'}; font-weight: 600;">
-                        $${outstanding_amt.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                    <td style="text-align: right; color: ${display_outstanding > 0 ? '#dc2626' : '#16a34a'}; font-weight: 600;">
+                        $${display_outstanding.toLocaleString('en-US', {minimumFractionDigits: 2})}
                     </td>
                     <td>${payment_date_html}</td>
-                    <td><span style="color: ${status_color}; font-weight: 500;">${row.status}</span></td>
+                    <td><span style="color: ${status_color}; font-weight: 500;">${display_status}</span></td>
                 </tr>
             `;
         });
