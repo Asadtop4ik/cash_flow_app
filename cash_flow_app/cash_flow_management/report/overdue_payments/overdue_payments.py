@@ -105,7 +105,7 @@ def get_data(filters):
 		LEFT JOIN `tabCustomer` c ON c.name = so.customer
 		WHERE ps.parenttype = 'Sales Order'
 			AND so.docstatus = 1
-			AND ps.due_date < CURDATE()
+			AND ps.due_date <= CURDATE()
 			AND COALESCE(ps.paid_amount, 0) < ps.payment_amount
 			{conditions}
 		ORDER BY ps.due_date ASC, so.customer

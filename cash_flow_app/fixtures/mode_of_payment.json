@@ -3,7 +3,7 @@
   "accounts": [
    {
     "company": "AsadStack",
-    "default_account": "Bank Account - A",
+    "default_account": "Cash - A",
     "parent": "Terminal/Click",
     "parentfield": "accounts",
     "parenttype": "Mode of Payment"
@@ -15,7 +15,7 @@
   "mode_of_payment": "Terminal/Click",
   "modified": "2025-10-20 12:50:04.381416",
   "name": "Terminal/Click",
-  "type": "Bank"
+  "type": "Cash"
  },
  {
   "accounts": [
