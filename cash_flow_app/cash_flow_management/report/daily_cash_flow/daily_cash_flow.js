@@ -58,5 +58,10 @@ frappe.query_reports["Daily Cash Flow"] = {
 		}
 		
 		return value;
+	},
+	onload: function(report) {
+		report.page.add_inner_button(__('Export to Excel'), function() {
+			report.export_report('xlsx');
+		});
 	}
 };

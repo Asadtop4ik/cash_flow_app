@@ -27,5 +27,10 @@ frappe.query_reports["Overdue Payments"] = {
 			"fieldtype": "Int",
 			"default": 1
 		}
-	]
+	],
+	onload: function(report) {
+		report.page.add_inner_button(__('Export to Excel'), function() {
+			report.export_report('xlsx');
+		});
+	}
 };
