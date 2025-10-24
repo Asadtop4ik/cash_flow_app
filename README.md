@@ -8,9 +8,31 @@ You can install this app using the [bench](https://github.com/frappe/bench) CLI:
 
 ```bash
 cd $PATH_TO_YOUR_BENCH
-bench get-app $URL_OF_THIS_REPO --branch develop
-bench install-app cash_flow_app
+bench get-app $URL_OF_THIS_REPO --branch main
+bench --site YOUR_SITE install-app cash_flow_app
 ```
+
+**Important:** After installation, you need to import fixtures to apply all customizations:
+
+```bash
+bench --site YOUR_SITE migrate
+```
+
+This will automatically import:
+- Custom Fields for ERPNext doctypes (Item, Customer, Supplier, Payment Entry, Sales Order, etc.)
+- Property Setters (hidden fields and other customizations)
+- Counterparty Categories
+- Custom Modes of Payment (Naqd, Terminal/Click)
+
+### For Developers
+
+If you make changes to ERPNext doctypes (add custom fields, hide fields, etc.), export fixtures:
+
+```bash
+bench --site YOUR_SITE export-fixtures
+```
+
+Then commit the updated fixture files to git.
 
 ### Contributing
 
