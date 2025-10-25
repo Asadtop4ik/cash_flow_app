@@ -26,7 +26,7 @@ services:
 
   frappe:
     build: .
-    command: ["tail", "-f", "/dev/null"]
+    command: gunicorn frappe.app:application -b 0.0.0.0:8000 --chdir /home/frappe/frappe-bench
     environment:
       - DB_HOST=mariadb
       - DB_PORT=3306
