@@ -21,7 +21,6 @@ jobs:
         pip install -e .
     - name: Run tests
       run: |
-        # Add your test commands here
         echo "Running tests..."
         # python -m pytest
 
@@ -42,3 +41,21 @@ jobs:
         context: .
         push: true
         tags: asadtop4ik/cash-flow-app:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - name: Deploy to production
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          cd ~/frappe-bench
+          git pull origin main
+          source env/bin/activate
+          bench --site 64.225.118.147 migrate
+          bench restart
