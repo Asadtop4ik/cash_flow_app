@@ -3,314 +3,376 @@
 
 import frappe
 from frappe import _
-from frappe.utils import flt
-
+from frappe.utils import flt, getdate
 
 def execute(filters=None):
-	"""
-	Supplier Debt Analysis Report
-	Shows each payment transaction with running balance calculation
-	"""
-	columns = get_columns()
-	data = get_data(filters)
-	summary = get_summary(data)
-	
-	chart = None
-	
-	# Disable automatic totals by NOT adding 'total_row' indicator
-	# Our custom Total row already included in data
-	return columns, data, None, chart, summary, None
+    """
+    Supplier Debt Analysis Report - Moliyaviy hisoblar
+    Kredit (qarz) va Debit (to'lov) asosida Outstanding hisoblash
+    """
+    # Supplier majburiy
+    if not filters.get("supplier"):
+        frappe.throw(_("Please select a Supplier"))
 
+    columns = get_columns()
+    data = get_data(filters)
+    summary = get_summary(data, filters)
+    chart = None
+
+    return columns, data, None, chart, summary, None
 
 def get_columns():
-	"""Define report columns - har bir tranzaksiya alohida ko'rsatiladi"""
-	return [
-		{
-			"label": _("Supplier"),
-			"fieldname": "supplier",
-			"fieldtype": "Link",
-			"options": "Supplier",
-			"width": 150
-		},
-		{
-			"label": _("Transaction Type"),
-			"fieldname": "transaction_type",
-			"fieldtype": "Data",
-			"width": 130
-		},
-		{
-			"label": _("Document"),
-			"fieldname": "document",
-			"fieldtype": "Dynamic Link",
-			"options": "document_type",
-			"width": 150
-		},
-		{
-			"label": _("Date"),
-			"fieldname": "transaction_date",
-			"fieldtype": "Date",
-			"width": 100
-		},
-		{
-			"label": _("Item"),
-			"fieldname": "item",
-			"fieldtype": "Link",
-			"options": "Item",
-			"width": 120
-		},
-		{
-			"label": _("Amount"),
-			"fieldname": "amount",
-			"fieldtype": "Currency",
-			"options": "currency",
-			"width": 120
-		},
-		{
-			"label": _("Debt"),
-			"fieldname": "debt",
-			"fieldtype": "Currency",
-			"options": "currency",
-			"width": 120
-		},
-		{
-			"label": _("Outstanding"),
-			"fieldname": "outstanding",
-			"fieldtype": "Currency",
-			"options": "currency",
-			"width": 120
-		},
-		{
-			"label": _("Payment Method"),
-			"fieldname": "mode_of_payment",
-			"fieldtype": "Data",
-			"width": 120
-		},
-		{
-			"label": _("Status"),
-			"fieldname": "status",
-			"fieldtype": "Data",
-			"width": 100
-		}
-	]
-
+    """Define report columns - yanada kengaytirilgan kenglik bilan"""
+    return [
+        {
+            "label": "Sana",
+            "fieldname": "transaction_date",
+            "fieldtype": "Date",
+            "width": 200  # Kenglikni yanada oshirildi
+        },
+        {
+            "label": "Hujjat",
+            "fieldname": "document",
+            "fieldtype": "Dynamic Link",
+            "options": "document_type",
+            "width": 250  # Kenglikni yanada oshirildi
+        },
+        {
+            "label": "Mahsulot",
+            "fieldname": "item_name",
+            "fieldtype": "Data",
+            "width": 250  # Kenglikni yanada oshirildi
+        },
+        {
+            "label": "Kredit",
+            "fieldname": "kredit",
+            "fieldtype": "Currency",
+            "options": "currency",
+            "width": 200  # Kenglikni yanada oshirildi
+        },
+        {
+            "label": "Debit",
+            "fieldname": "debit",
+            "fieldtype": "Currency",
+            "options": "currency",
+            "width": 200  # Kenglikni yanada oshirildi
+        },
+        {
+            "label": "Qoldiq",
+            "fieldname": "outstanding",
+            "fieldtype": "Currency",
+            "options": "currency",
+            "width": 200  # Kenglikni yanada oshirildi
+        },
+        {
+            "label": "Izoh",
+            "fieldname": "notes",
+            "fieldtype": "Small Text",
+            "width": 300  # Kenglikni yanada oshirildi
+        },
+        {
+            "label": "To'lov usuli",
+            "fieldname": "mode_of_payment",
+            "fieldtype": "Data",
+            "width": 200  # Kenglikni yanada oshirildi
+        }
+    ]
 
 def get_data(filters):
-	"""
-	Get both Installment Applications (debt source) and Payment Entries (debt payment)
-	Show all transactions in chronological order
-	"""
-	conditions = get_conditions(filters)
-	
-	# Build supplier filter for installments
-	installment_conditions = ""
-	if filters.get("supplier"):
-		installment_conditions = "AND item.custom_supplier = %(supplier)s"
-	
-	# Get all Installment Applications (debt increases)
-	installments_query = f"""
-		SELECT
-			'Installment Application' as transaction_type,
-			ia.name as document,
-			'Installment Application' as document_type,
-			ia.name as installment_application,
-			DATE(ia.transaction_date) as transaction_date,
-			item.custom_supplier as supplier,
-			item.item_code as item,
-			0 as amount,
-			(item.qty * item.rate) as debt_amount,
-			ia.creation,
-			'Debt Added' as status,
-			'USD' as currency
-		FROM `tabInstallment Application` ia
-		INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
-		WHERE ia.docstatus = 1
-			AND item.custom_supplier IS NOT NULL
-			{installment_conditions}
-		ORDER BY ia.transaction_date, ia.creation
-	"""
-	
-	# Get all Payment Entries (debt payments)
-	payment_conditions = conditions.replace("pe.party", "party").replace("pe.posting_date", "posting_date") if conditions else ""
-	payments_query = f"""
-		SELECT
-			'Payment Entry' as transaction_type,
-			name as document,
-			'Payment Entry' as document_type,
-			DATE(posting_date) as transaction_date,
-			party as supplier,
-			custom_supplier_contract as installment_application,
-			NULL as item,
-			paid_amount as amount,
-			0 as debt_amount,
-			creation,
-			mode_of_payment,
-			CASE 
-				WHEN docstatus = 0 THEN 'Draft'
-				WHEN docstatus = 1 THEN 'Submitted'
-				WHEN docstatus = 2 THEN 'Cancelled'
-			END as status,
-			'USD' as currency
-		FROM `tabPayment Entry`
-		WHERE docstatus = 1
-		AND party_type = 'Supplier'
-		AND payment_type = 'Pay'
-		{payment_conditions}
-		ORDER BY posting_date, creation
-	"""
-	
-	# Combine both queries
-	installments = frappe.db.sql(installments_query, filters, as_dict=1)
-	payments = frappe.db.sql(payments_query, filters, as_dict=1)
-	
-	# Merge and sort by date and creation
-	all_transactions = installments + payments
-	all_transactions.sort(key=lambda x: (x.transaction_date, x.creation))
-	
-	if not all_transactions:
-		return []
-	
-	# Calculate running balance
-	result_data = []
-	supplier_running = {}
-	
-	for txn in all_transactions:
-		supplier = txn.supplier
-		txn_type = txn.transaction_type
-		amount = flt(txn.amount)
-		debt_amount = flt(txn.debt_amount)
-		
-		# Initialize supplier if not exists
-		if supplier not in supplier_running:
-			supplier_running[supplier] = {
-				'total_debt': 0,
-				'total_paid': 0
-			}
-		
-		# Update running totals
-		if txn_type == 'Installment Application':
-			# This is a debt increase - use debt_amount
-			supplier_running[supplier]['total_debt'] += debt_amount
-		elif txn_type == 'Payment Entry':
-			# This is a payment (debt decrease) - use amount
-			supplier_running[supplier]['total_paid'] += amount
-		
-		# Calculate current outstanding
-		debt = supplier_running[supplier]['total_debt']
-		outstanding = debt - supplier_running[supplier]['total_paid']
-		
-		# Add calculated fields - use correct amount field
-		txn['amount'] = amount if txn_type == 'Payment Entry' else 0
-		txn['debt'] = debt
-		txn['outstanding'] = outstanding
-		
-		result_data.append(txn)
-	
-	# Add TOTAL row at the end with separator
-	if result_data:
-		# Calculate totals by transaction type
-		total_paid = sum([flt(d.get('amount', 0)) for d in result_data if d.get('transaction_type') == 'Payment Entry'])
-		
-		# Calculate total outstanding from all unique suppliers
-		# Get last outstanding for each unique supplier
-		supplier_outstanding = {}
-		for txn in result_data:
-			supplier = txn.get('supplier')
-			if supplier:
-				supplier_outstanding[supplier] = flt(txn.get('outstanding', 0))
-		
-		total_outstanding = sum(supplier_outstanding.values())
-		
-		result_data.append({
-			'supplier': 'Total',
-			'transaction_type': '',
-			'document': '',
-			'document_type': '',
-			'installment_application': '',
-			'transaction_date': '',
-			'item': '',
-			'amount': total_paid,
-			'debt': None,  # Bo'sh qoladi (None = $0.00 ko'rsatmaydi)
-			'outstanding': total_outstanding,
-			'mode_of_payment': '',
-			'status': '',
-			'currency': 'USD',
-			'is_total_row': 1
-		})
-	
-	return result_data
+    """
+    Moliyaviy mantiq:
+    - Installment Application = KREDIT (qarz oshadi)
+    - Payment Entry = DEBIT (qarz kamayadi)
+    - Outstanding = Nachalnaya Ostatok + Total Kredit - Total Debit
+    """
+    supplier = filters.get("supplier")
+    from_date = filters.get("from_date")
+    to_date = filters.get("to_date")
+
+    # 1. Get Installment Applications (KREDIT - qarz)
+    installment_conditions = []
+    if from_date:
+        installment_conditions.append("AND DATE(ia.transaction_date) >= %(from_date)s")
+    if to_date:
+        installment_conditions.append("AND DATE(ia.transaction_date) <= %(to_date)s")
+
+    installment_where = " ".join(installment_conditions)
+
+    installments_query = f"""
+        SELECT
+            'Installment Application' as document_type,
+            ia.name as document,
+            DATE(ia.transaction_date) as transaction_date,
+            item.item_code as item_code,
+            COALESCE(item.item_name, '') as item_name,
+            (item.qty * item.rate) as kredit,
+            0 as debit,
+            COALESCE(ia.notes, '') as notes,
+            NULL as mode_of_payment,
+            ia.creation,
+            'USD' as currency
+        FROM `tabInstallment Application` ia
+        INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
+        WHERE ia.docstatus = 1
+            AND item.custom_supplier = %(supplier)s
+            {installment_where}
+        ORDER BY ia.transaction_date, ia.creation
+    """
+
+    # 2. Get Payment Entries (DEBIT - to'lov)
+    payment_conditions = []
+    if from_date:
+        payment_conditions.append("AND DATE(pe.posting_date) >= %(from_date)s")
+    if to_date:
+        payment_conditions.append("AND DATE(pe.posting_date) <= %(to_date)s")
+
+    payment_where = " ".join(payment_conditions)
+
+    payments_query = f"""
+        SELECT
+            'Payment Entry' as document_type,
+            pe.name as document,
+            DATE(pe.posting_date) as transaction_date,
+            NULL as item_code,
+            'To''lov' as item_name,
+            0 as kredit,
+            pe.paid_amount as debit,
+            COALESCE(pe.remarks, '') as notes,
+            COALESCE(pe.mode_of_payment, '') as mode_of_payment,
+            pe.creation,
+            'USD' as currency
+        FROM `tabPayment Entry` pe
+        WHERE pe.docstatus = 1
+            AND pe.party_type = 'Supplier'
+            AND pe.party = %(supplier)s
+            AND pe.payment_type = 'Pay'
+            {payment_where}
+        ORDER BY pe.posting_date, pe.creation
+    """
+
+    # 3. Execute queries with detailed error logging
+    installments = []
+    payments = []
+
+    try:
+        installments = frappe.db.sql(installments_query, filters, as_dict=1)
+        frappe.log_error(
+            f"Installments Query Success:\nSupplier: {supplier}\nFound: {len(installments)}\nQuery: {installments_query}\nFilters: {filters}",
+            "Supplier Debt Analysis - Installments"
+        )
+    except Exception as e:
+        error_msg = f"Installments Query Failed:\nError: {str(e)}\nQuery: {installments_query}\nFilters: {filters}"
+        frappe.log_error(error_msg, "Supplier Debt Analysis - ERROR")
+        frappe.msgprint(_("Error loading installments. Check Error Log for details."), indicator='red')
+
+    try:
+        payments = frappe.db.sql(payments_query, filters, as_dict=1)
+        frappe.log_error(
+            f"Payments Query Success:\nSupplier: {supplier}\nFound: {len(payments)}\nQuery: {payments_query}\nFilters: {filters}",
+            "Supplier Debt Analysis - Payments"
+        )
+    except Exception as e:
+        error_msg = f"Payments Query Failed:\nError: {str(e)}\nQuery: {payments_query}\nFilters: {filters}"
+        frappe.log_error(error_msg, "Supplier Debt Analysis - ERROR")
+        frappe.msgprint(_("Error loading payments. Check Error Log for details."), indicator='red')
+
+    # 4. Combine and sort by date
+    all_transactions = installments + payments
+    all_transactions.sort(key=lambda x: (x.transaction_date, x.creation))
+
+    if not all_transactions:
+        frappe.log_error(
+            f"No transactions found:\nSupplier: {supplier}\nFrom: {from_date}\nTo: {to_date}\nInstallments: {len(installments)}\nPayments: {len(payments)}",
+            "Supplier Debt Analysis - Empty Result"
+        )
+        return []
+
+    # 5. Calculate Nachalnaya Ostatok (from_date dan oldin qolgan qarz)
+    nachalnaya_ostatok = 0
+    if from_date:
+        nachalnaya_ostatok = get_nachalnaya_ostatok(supplier, from_date)
+
+    # 6. Add initial balance as a transaction if non-zero
+    result_data = []
+    if nachalnaya_ostatok != 0:
+        result_data.append({
+            'transaction_date': from_date,
+            'document': 'Initial Balance',
+            'document_type': 'Balance Adjustment',
+            'item_name': 'Boshlang\'ich qoldiq',
+            'kredit': nachalnaya_ostatok if nachalnaya_ostatok > 0 else 0,
+            'debit': 0 if nachalnaya_ostatok > 0 else abs(nachalnaya_ostatok),
+            'outstanding': nachalnaya_ostatok,
+            'notes': 'Avtomatik hisoblangan boshlang\'ich qoldiq',
+            'mode_of_payment': None,
+            'currency': 'USD',
+            'is_initial_row': 1
+        })
+
+    # 7. Calculate running balance (Outstanding)
+    running_outstanding = nachalnaya_ostatok
+    for txn in all_transactions:
+        kredit = flt(txn.get('kredit', 0))
+        debit = flt(txn.get('debit', 0))
+        running_outstanding = running_outstanding + kredit - debit
+        txn['outstanding'] = running_outstanding
+        result_data.append(txn)
+
+    # 8. Add TOTAL row at the end
+    if result_data:
+        total_kredit = sum([flt(d.get('kredit', 0)) for d in result_data if not d.get('is_initial_row') and not d.get('is_total_row')])
+        total_debit = sum([flt(d.get('debit', 0)) for d in result_data if not d.get('is_initial_row') and not d.get('is_total_row')])
+        final_outstanding = nachalnaya_ostatok + total_kredit - total_debit
+
+        result_data.append({
+            'transaction_date': None,
+            'document': None,
+            'document_type': None,
+            'item_name': 'JAMI',
+            'kredit': total_kredit,
+            'debit': total_debit,
+            'outstanding': final_outstanding,
+            'notes': None,
+            'mode_of_payment': None,
+            'currency': 'USD',
+            'is_total_row': 1
+        })
+
+    return result_data
+
+def get_nachalnaya_ostatok(supplier, from_date):
+    """
+    from_date dan OLDIN qolgan qarzni hisoblash
+    Formula: Oldingi Kredit - Oldingi Debit = Qoldiq
+    """
+    try:
+        # from_date ni to'g'ri formatga keltirish
+        from_date = getdate(from_date)
+        frappe.log_error(f"Calculating Nachalnaya Ostatok for Supplier: {supplier}, From Date: {from_date}", "Debug - Initial Balance")
+
+        # Oldingi Kredit (from_date dan oldin qarzlar)
+        prev_kredit_query = """
+            SELECT COALESCE(SUM(item.qty * item.rate), 0) as total
+            FROM `tabInstallment Application` ia
+            INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
+            WHERE ia.docstatus = 1
+                AND item.custom_supplier = %s
+                AND DATE(ia.transaction_date) < %s
+        """
+        prev_kredit_result = frappe.db.sql(prev_kredit_query, (supplier, from_date), as_dict=1)
+        prev_kredit = flt(prev_kredit_result[0].total) if prev_kredit_result and prev_kredit_result[0].total is not None else 0
+        frappe.log_error(f"Previous Credits: {prev_kredit}", "Debug - Previous Credits")
+
+        # Oldingi Debit (from_date dan oldin to'lovlar)
+        prev_debit_query = """
+            SELECT COALESCE(SUM(paid_amount), 0) as total
+            FROM `tabPayment Entry` pe
+            WHERE pe.docstatus = 1
+                AND pe.party_type = 'Supplier'
+                AND pe.party = %s
+                AND DATE(pe.posting_date) < %s
+        """
+        prev_debit_result = frappe.db.sql(prev_debit_query, (supplier, from_date), as_dict=1)
+        prev_debit = flt(prev_debit_result[0].total) if prev_debit_result and prev_debit_result[0].total is not None else 0
+        frappe.log_error(f"Previous Debits: {prev_debit}", "Debug - Previous Debits")
+
+        # Nachalnaya Ostatok = Kredit - Debit
+        nachalnaya_ostatok = prev_kredit - prev_debit
+        frappe.log_error(f"Calculated Nachalnaya Ostatok: {nachalnaya_ostatok}", "Debug - Final Balance")
+
+        return nachalnaya_ostatok
+
+    except Exception as e:
+        error_msg = f"Error calculating Nachalnaya Ostatok: {str(e)}\nSupplier: {supplier}\nFrom Date: {from_date}"
+        frappe.log_error(error_msg, "Supplier Debt Analysis - ERROR")
+        frappe.msgprint(_("Error calculating initial balance. Check Error Log for details."), indicator='red')
+        return 0
+
+def get_summary(data, filters):
+    """
+    Generate summary cards - moliyaviy dashboard
+    6 ta card: Nachalnaya, Kredit, Debit, To'lov operatsiyalari, Tovar operatsiyalari, Ostatok
+    """
+    if not data:
+        return []
+
+    # Remove total row for calculation
+    data_without_total = [d for d in data if not d.get('is_total_row')]
+
+    if not data_without_total:
+        return []
+
+    # Istisno qilish uchun initial row ni olib tashlash
+    data_without_initial_and_total = [d for d in data_without_total if not d.get('is_initial_row')]
+
+    supplier = filters.get("supplier")
+    from_date = filters.get("from_date")
+
+    # 1. Nachalnaya Ostatok (avvalgi qarz)
+    nachalnaya_ostatok = 0
+    if from_date:
+        nachalnaya_ostatok = get_nachalnaya_ostatok(supplier, from_date)
+
+    # 2. Total Kredit (yangi qarzlar)
+    total_kredit = sum([flt(d.get('kredit', 0)) for d in data_without_initial_and_total])
+
+    # 3. Total Debit (yangi to'lovlar)
+    total_debit = sum([flt(d.get('debit', 0)) for d in data_without_initial_and_total])
+
+    # 4. Ostatok na Konets (oxirgi qarz qoldig'i)
+    ostatok_na_konets = nachalnaya_ostatok + total_kredit - total_debit
+
+    # 5. Oborot po Tovar (tovar tranzaksiyalari soni)
+    oborot_po_tovar = len([d for d in data_without_initial_and_total if flt(d.get('kredit', 0)) > 0])
+
+    # 6. Denezhniy Oborot (to'lov tranzaksiyalari soni)
+    denezhniy_oborot = len([d for d in data_without_initial_and_total if flt(d.get('debit', 0)) > 0])
+
+    # Summary kartalarni bir qatorda ko'rsatish uchun ro'yxat sifatida qaytarish
+    # To'lov operatsiyalari Tovar operatsiyalari oldida tursin, "Oxirgi qoldiq" ham birinchi qatorda
+    summary = [
+        {
+            "value": nachalnaya_ostatok,
+            "indicator": "blue",
+            "label": "Boshlang'ich qoldiq",
+            "datatype": "Currency",
+            "currency": "USD"
+        },
+        {
+            "value": total_kredit,
+            "indicator": "red",
+            "label": "Jami Kredit",
+            "datatype": "Currency",
+            "currency": "USD"
+        },
+        {
+            "value": total_debit,
+            "indicator": "green",
+            "label": "Jami Debit",
+            "datatype": "Currency",
+            "currency": "USD"
+        },
+        {
+            "value": denezhniy_oborot,
+            "indicator": "blue",
+            "label": "To'lov operatsiyalari",
+            "datatype": "Int"
+        },
+        {
+            "value": oborot_po_tovar,
+            "indicator": "blue",
+            "label": "Tovar operatsiyalari",
+            "datatype": "Int"
+        },
+        {
+            "value": ostatok_na_konets,
+            "indicator": "orange" if ostatok_na_konets > 0 else "green",
+            "label": "Oxirgi qoldiq",
+            "datatype": "Currency",
+            "currency": "USD"
+        }
+    ]
+
+    return summary
 
 
-def get_conditions(filters):
-	"""Build WHERE conditions"""
-	conditions = []
-	
-	if filters.get("supplier"):
-		conditions.append("AND pe.party = %(supplier)s")
-	
-	if filters.get("from_date"):
-		conditions.append("AND pe.posting_date >= %(from_date)s")
-	
-	if filters.get("to_date"):
-		conditions.append("AND pe.posting_date <= %(to_date)s")
-	
-	return " ".join(conditions)
-
-
-def get_summary(data):
-	"""Generate summary cards"""
-	if not data:
-		return []
-	
-	# Remove total row for calculation
-	data_without_total = [d for d in data if not d.get('is_total_row')]
-	
-	if not data_without_total:
-		return []
-	
-	# Separate by transaction type
-	debt_transactions = [d for d in data_without_total if d.get('transaction_type') == 'Installment Application']
-	payment_transactions = [d for d in data_without_total if d.get('transaction_type') == 'Payment Entry']
-	
-	total_suppliers = len(set([d.get("supplier") for d in data_without_total]))
-	total_debts = len(debt_transactions)
-	total_payments = len(payment_transactions)
-	
-	total_debt_amount = sum([flt(d.get("debt_amount", 0)) for d in debt_transactions])
-	total_payment_amount = sum([flt(d.get("amount", 0)) for d in payment_transactions])
-	
-	summary = [
-		{
-			"value": total_suppliers,
-			"indicator": "blue",
-			"label": _("Total Suppliers"),
-			"datatype": "Int"
-		},
-		{
-			"value": total_debts,
-			"indicator": "orange",
-			"label": _("Total Debts"),
-			"datatype": "Int"
-		},
-		{
-			"value": total_payments,
-			"indicator": "blue",
-			"label": _("Total Payments"),
-			"datatype": "Int"
-		},
-		{
-			"value": total_debt_amount,
-			"indicator": "red",
-			"label": _("Total Debt Amount"),
-			"datatype": "Currency",
-			"currency": "USD"
-		},
-		{
-			"value": total_payment_amount,
-			"indicator": "green",
-			"label": _("Total Paid"),
-			"datatype": "Currency",
-			"currency": "USD"
-		}
-	]
-	
-	return summary

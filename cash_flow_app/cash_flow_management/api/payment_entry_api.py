@@ -12,7 +12,7 @@ def get_customer_contracts(customer):
 	"""Get active Sales Orders for customer - used by Payment Entry form"""
 	if not customer:
 		return []
-	
+
 	try:
 		# Get latest active Sales Order for this customer
 		contracts = frappe.get_all(
@@ -27,9 +27,9 @@ def get_customer_contracts(customer):
 			limit=1,
 			ignore_permissions=True  # Internal app use
 		)
-		
+
 		return contracts
-		
+
 	except Exception as e:
 		frappe.log_error(f"Error fetching contracts for {customer}: {str(e)}")
 		return []
@@ -40,7 +40,7 @@ def get_payment_schedules(contract_reference):
 	"""Get Payment Schedules for a Sales Order - used by Payment Entry form"""
 	if not contract_reference:
 		return []
-	
+
 	try:
 		# Get unpaid payment schedules for this contract
 		schedules = frappe.get_all(
@@ -53,9 +53,9 @@ def get_payment_schedules(contract_reference):
 			order_by="idx asc",
 			ignore_permissions=True  # Internal app use
 		)
-		
+
 		return schedules
-		
+
 	except Exception as e:
 		frappe.log_error(f"Error fetching payment schedules for {contract_reference}: {str(e)}")
 		return []
@@ -66,7 +66,7 @@ def get_installment_applications(customer):
 	"""Get Installment Applications for customer - used by Payment Entry form"""
 	if not customer:
 		return []
-	
+
 	try:
 		apps = frappe.get_all(
 			"Installment Application",
@@ -79,9 +79,9 @@ def get_installment_applications(customer):
 			limit=5,
 			ignore_permissions=True  # Internal app use
 		)
-		
+
 		return apps
-		
+
 	except Exception as e:
 		frappe.log_error(f"Error fetching installment applications for {customer}: {str(e)}")
 		return []
@@ -92,7 +92,7 @@ def get_supplier_contracts(supplier):
 	"""Get Installment Applications for supplier - used by Payment Entry form (Pay type)"""
 	if not supplier:
 		return []
-	
+
 	try:
 		# Get Installment Applications where this supplier has items
 		# We need to query from Installment Application Item table
@@ -110,9 +110,9 @@ def get_supplier_contracts(supplier):
 			ORDER BY ia.transaction_date DESC
 			LIMIT 10
 		""", {'supplier': supplier}, as_dict=1)
-		
+
 		return contracts
-		
+
 	except Exception as e:
 		frappe.log_error(f"Error fetching supplier contracts: {str(e)}")
 		return []
@@ -123,10 +123,10 @@ def get_supplier_contracts(supplier):
 def get_supplier_contracts_query(doctype, txt, searchfield, start, page_len, filters):
 	"""Query method for custom_supplier_contract Link field - filters by supplier"""
 	supplier = filters.get('supplier')
-	
+
 	if not supplier:
 		return []
-	
+
 	return frappe.db.sql("""
 		SELECT DISTINCT ia.name, ia.transaction_date, ia.status
 		FROM `tabInstallment Application` ia
