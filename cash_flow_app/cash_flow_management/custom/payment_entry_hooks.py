@@ -13,8 +13,9 @@ def validate(doc, method=None):
 
 def validate_counterparty_category(doc):
     """Ensure counterparty category matches payment type"""
-    if not doc.custom_counterparty_category:
-        frappe.throw(_("Counterparty Category is mandatory"))
+    # TEMPORARILY DISABLED
+    # if not doc.custom_counterparty_category:
+    #     frappe.throw(_("Counterparty Category is mandatory"))
     
     # Use ignore_permissions to avoid "Not permitted" error when validating
     try:

@@ -26,7 +26,7 @@ frappe.ui.form.on('Payment Entry', {
             return {};
         });
         
-                // Filter custom_cashier - faqat active cash registers
+        // Filter custom_cashier - faqat active cash registers
         frm.set_query('custom_cashier', function() {
             return {
                 filters: {
