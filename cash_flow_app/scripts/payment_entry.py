@@ -1,53 +1,12 @@
-# Copyright (c) 2025, Your Company
-# API for Payment Entry
-
 import frappe
 from frappe.utils import getdate, nowdate, date_diff
 
-@frappe.whitelist()
-def get_mode_account(mode_of_payment, company):
-    """Get default account for mode of payment"""
-    if not mode_of_payment or not company:
-        return None
-    
-    accounts = frappe.get_all(
-        "Mode of Payment Account",
-        filters={
-            "parent": mode_of_payment,
-            "company": company
-        },
-        fields=["default_account"]
-    )
-    
-    if accounts:
-        return accounts[0].default_account
-    
-    return None
 
-@frappe.whitelist()
-def get_customer_contracts(customer):
-    """Get active contracts for customer"""
-    if not customer:
-        return []
-    
-    contracts = frappe.get_all(
-        "Sales Order",
-        filters={
-            "customer": customer,
-            "docstatus": 1,
-            "status": ["not in", ["Completed", "Cancelled"]]
-        },
-        fields=["name", "transaction_date", "grand_total", "customer_name"],
-        order_by="transaction_date desc"
-    )
-    
-    return contracts
-
-@frappe.whitelist()
 def on_payment_submit(doc, method):
 	"""Payment Entry submit bo'lganda customer classification avtomatik o'zgaradi"""
 	if doc.party_type == "Customer" and doc.party:
 		update_customer_classification(doc.party)
+
 
 def update_customer_classification(customer_name):
 	"""Customer classification qiladi (A, B yoki C)"""
@@ -176,7 +135,6 @@ def set_customer_classification(customer_name, classification):
 		)
 
 
-@frappe.whitelist()
 def update_all_customers_classification():
 	"""Barcha customerlarning classification ni tekshiradi (Scheduled)"""
 	customers = frappe.get_all("Customer", fields=["name"])
@@ -191,4 +149,3 @@ def update_all_customers_classification():
 			)
 
 	frappe.db.commit()
-

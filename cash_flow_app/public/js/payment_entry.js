@@ -25,10 +25,22 @@ frappe.ui.form.on('Payment Entry', {
             }
             return {};
         });
+        
+        // Filter custom_cashier - faqat active cash registers
+        frm.set_query('custom_cashier', function() {
+            return {
+                filters: {
+                    'status': 'Active'
+                }
+            };
+        });
     },
     
     onload: function(frm) {
-        // Don't set default mode of payment - user will select manually
+        // Set default mode of payment to Naqd
+        if (frm.is_new() && !frm.doc.mode_of_payment) {
+            frm.set_value('mode_of_payment', 'Naqd');
+        }
         
         // Set default category based on payment type
         if (frm.is_new() && !frm.doc.custom_counterparty_category) {
@@ -100,6 +112,14 @@ frappe.ui.form.on('Payment Entry', {
     },
     
     mode_of_payment: function(frm) {
+        // Auto-fill account based on mode of payment (standard ERPNext behavior)
+        if (frm.doc.mode_of_payment) {
+            erpnext.accounts.pos.get_payment_mode_account(frm, frm.doc.mode_of_payment, function(account) {
+                let payment_account_field = frm.doc.payment_type == "Receive" ? "paid_to" : "paid_from";
+                frm.set_value(payment_account_field, account);
+            });
+        }
+        
         // Hide bank-related fields when mode of payment is selected
         hide_bank_related_fields(frm);
     },

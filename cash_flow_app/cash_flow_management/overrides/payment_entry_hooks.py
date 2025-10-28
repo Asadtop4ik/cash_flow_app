@@ -26,9 +26,9 @@ def validate_payment_entry(doc, method=None):
     Additional validations for Payment Entry
     Require contract reference for customer payments
     """
-    # Ensure counterparty category is set
-    if not doc.custom_counterparty_category:
-        frappe.throw(_("Counterparty Category tanlanishi shart!"))
+    # TEMPORARILY DISABLED - Ensure counterparty category is set
+    # if not doc.custom_counterparty_category:
+    #     frappe.throw(_("Counterparty Category tanlanishi shart!"))
     
     # IMPORTANT: For customer payments, contract reference is REQUIRED
     if doc.payment_type == "Receive" and doc.party_type == "Customer":

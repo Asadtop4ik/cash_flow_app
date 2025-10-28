@@ -14,23 +14,36 @@ doc_events = {
     "Installment Application": {
         "on_submit": "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_submit"
     },
-    "Payment Entry": {
-        "autoname": "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.autoname_payment_entry",
-        "onload": "cash_flow_app.cash_flow_management.overrides.payment_entry_defaults.onload_payment_entry",
-        "validate": [
-            "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.validate_payment_entry",
-            "cash_flow_app.cash_flow_management.custom.payment_validations.validate_negative_balance",
-            "cash_flow_app.cash_flow_management.custom.payment_validations.warn_on_overdue_payments"
-        ],
-        "on_submit": "cash_flow_app.cash_flow_management.custom.payment_entry_hooks.on_submit",  # ← QOSHISH KERAK!
-        "on_cancel": [
-            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry",
-            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_payment"
-        ]
+	"Payment Entry": {
+		"autoname": "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.autoname_payment_entry",
+		"onload": "cash_flow_app.cash_flow_management.overrides.payment_entry_defaults.onload_payment_entry",
+		"validate": [
+			"cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.validate_payment_entry",
+			"cash_flow_app.cash_flow_management.custom.payment_validations.validate_negative_balance",
+			"cash_flow_app.cash_flow_management.custom.payment_validations.warn_on_overdue_payments"
+		],
+		"on_submit": "cash_flow_app.cash_flow_management.api.payment_entry.on_payment_submit",
+		# ← NEW LINE!
+		"on_cancel": [
+			"cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry",
+			"cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_payment"
+
+		]
     },
     "Sales Order": {
         "validate": "cash_flow_app.cash_flow_management.custom.payment_validations.validate_payment_schedule_paid_amount"
     }
+}
+
+reports = {
+    "Customer Payment Report": "cash_flow_app.cash_flow_management.report.customer_payment.all_customer_payment"
+}
+
+# Scheduled jobs (opsional - daily classification update)
+scheduler_events = {
+    "daily": [
+        "cash_flow_app.cash_flow_management.api.payment_entry.update_all_customers_classification"
+    ]
 }
 # Apps
 # ------------------
@@ -134,6 +147,7 @@ fixtures = [
         "Sales Order",
         "Supplier"
     ]]]},
+    {"dt": "Cash Register"},  # Add Cash Register fixtures
     {"dt": "Property Setter", "filters": [["doc_type", "in", [
         "Customer",
         "Delivery Note",
