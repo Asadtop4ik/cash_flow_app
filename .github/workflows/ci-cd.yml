@@ -54,8 +54,7 @@ jobs:
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_KEY }}
         script: |
-          cd ~/frappe-bench
-          git pull origin main
-          source env/bin/activate
-          bench --site 64.225.118.147 migrate
-          bench restart
+          cd ~/frappe-bench/apps/cash_flow_app
+          docker-compose down
+          docker pull asadtop4ik/cash-flow-app:latest
+          docker-compose up -d

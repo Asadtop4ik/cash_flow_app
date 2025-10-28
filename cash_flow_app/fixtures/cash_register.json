@@ -1,0 +1,22 @@
+[
+ {
+  "cash_register_name": "Kassa 1",
+  "description": "Asosiy kassa",
+  "docstatus": 0,
+  "doctype": "Cash Register",
+  "location": "Asosiy ofis",
+  "modified": "2025-10-28 16:00:00.000000",
+  "name": "Kassa 1",
+  "status": "Active"
+ },
+ {
+  "cash_register_name": "Kassa 2",
+  "description": "Filial kassa",
+  "docstatus": 0,
+  "doctype": "Cash Register",
+  "location": "Filial",
+  "modified": "2025-10-28 16:00:00.000000",
+  "name": "Kassa 2",
+  "status": "Active"
+ }
+]

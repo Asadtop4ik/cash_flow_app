@@ -147,6 +147,7 @@ fixtures = [
         "Sales Order",
         "Supplier"
     ]]]},
+    {"dt": "Cash Register"},  # Add Cash Register fixtures
     {"dt": "Property Setter", "filters": [["doc_type", "in", [
         "Customer",
         "Delivery Note",
