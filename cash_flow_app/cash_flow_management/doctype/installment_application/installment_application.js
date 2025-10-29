@@ -4,15 +4,33 @@
 frappe.ui.form.on("Installment Application", {
 	setup(frm) {
 		// Disable autocomplete for item_code in Items table
-		// Force users to manually type item code (no suggestions from existing items)
+		// BUT allow updated item to be selected after edit
 		frm.set_query('item_code', 'items', function() {
+			const updated_item = localStorage.getItem('updated_item_code');
+			
+			if (updated_item) {
+				// Allow ONLY the updated item to be selected
+				return {
+					filters: {
+						'name': updated_item
+					}
+				};
+			}
+			
+			// For new items, disable autocomplete
 			return {
 				filters: {
-					// Return no items - force manual creation
 					'name': ['=', '__FORCE_MANUAL_ENTRY__']
 				}
 			};
 		});
+	},
+	
+	onload(frm) {
+		// Store current form name in localStorage for Item redirect
+		if (frm.doc.name) {
+			localStorage.setItem('current_installment_application', frm.doc.name);
+		}
 	},
 	
 	refresh(frm) {
@@ -21,6 +39,11 @@ frappe.ui.form.on("Installment Application", {
 			$('.frappe-control[data-fieldname="transaction_date"] .help-box').hide();
 			$('.frappe-control[data-fieldname="custom_start_date"] .help-box').hide();
 		}, 100);
+		
+		// Store current form name for Item redirect
+		if (frm.doc.name) {
+			localStorage.setItem('current_installment_application', frm.doc.name);
+		}
 		
 		// Auto-calculate on refresh if values exist
 		if (frm.doc.total_amount && frm.doc.downpayment_amount && frm.doc.monthly_payment) {
@@ -208,6 +231,9 @@ frappe.ui.form.on('Installment Application Item', {
 	
 	item_code(frm, cdt, cdn) {
 		let row = locals[cdt][cdn];
+		
+		// Clear updated_item_code from localStorage after selection
+		localStorage.removeItem('updated_item_code');
 		
 		// Fetch IMEI from Item
 		if (row.item_code) {

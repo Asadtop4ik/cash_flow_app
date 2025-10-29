@@ -15,6 +15,32 @@ frappe.ui.form.on('Item', {
         frm.set_df_property('item_code', 'hidden', 1);
         frm.set_df_property('item_code', 'reqd', 0);
         frm.set_df_property('item_name', 'reqd', 0);
+        
+        // Add "Back to Contract" button if opened from Installment Application
+        const parent_name = localStorage.getItem('current_installment_application');
+        if (parent_name) {
+            frm.add_custom_button(__('📋 Shartnomaga Qaytish'), function() {
+                // Store updated item code in localStorage for filter
+                const item_code = frm.doc.name;
+                localStorage.setItem('updated_item_code', item_code);
+                
+                // Clear parent localStorage
+                localStorage.removeItem('current_installment_application');
+                
+                // Show success message
+                frappe.show_alert({
+                    message: __('✅ Item saqlandi. Item Code ni o\'chirib qayta kiriting...'),
+                    indicator: 'green'
+                }, 5);
+                
+                // Navigate back
+                frappe.set_route('Form', 'Installment Application', parent_name);
+            }).css({
+                'background-color': '#10b981',
+                'color': 'white',
+                'font-weight': 'bold'
+            });
+        }
     },
     
     custom_product_name: function(frm) {
@@ -29,34 +55,9 @@ frappe.ui.form.on('Item', {
         if (frm.doc.custom_product_name && !frm.doc.item_name) {
             frm.doc.item_name = frm.doc.custom_product_name;
         }
-    },
-    
-    after_save: function(frm) {
-        // After saving Item, redirect back to Installment Application if opened from there
-        // This handles the case when user clicks item_code link, edits and saves
-        
-        // Get the route that opened this form (stored in local storage by Frappe)
-        const from_route = frappe.route_history && frappe.route_history.length > 1 
-            ? frappe.route_history[frappe.route_history.length - 2] 
-            : null;
-        
-        // Check if we came from Installment Application
-        if (from_route && from_route[0] === 'Form' && from_route[1] === 'Installment Application') {
-            const parent_name = from_route[2];
-            
-            // Show success message
-            frappe.show_alert({
-                message: __('✅ Item saqlandi. Shartnomaga qaytilmoqda...'),
-                indicator: 'green'
-            });
-            
-            // Redirect back to parent Installment Application after 1 second
-            setTimeout(() => {
-                frappe.set_route('Form', 'Installment Application', parent_name);
-            }, 1000);
-        }
     }
 });
+
 
 // Override Quick Entry Dialog for Item
 frappe.provide('frappe.ui.form');

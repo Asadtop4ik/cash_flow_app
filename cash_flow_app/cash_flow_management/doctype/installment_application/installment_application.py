@@ -79,9 +79,20 @@ class InstallmentApplication(Document):
     def on_submit(self):
         """Create Sales Order after submission"""
         self.status = "Approved"
-
-        # Check if Sales Order already exists
-        if not self.sales_order:
+        
+        # If this is an amended document, cancel old Sales Order and create new one
+        if self.amended_from:
+            old_doc = frappe.get_doc("Installment Application", self.amended_from)
+            if old_doc.sales_order:
+                old_so = frappe.get_doc("Sales Order", old_doc.sales_order)
+                if old_so.docstatus == 1:
+                    old_so.cancel()
+                    frappe.msgprint(_("Eski Sales Order {0} bekor qilindi").format(old_so.name), alert=True)
+            
+            # Always create new SO for amended docs
+            self.create_sales_order()
+        elif not self.sales_order:
+            # For new docs, create SO if doesn't exist
             self.create_sales_order()
 
     def create_sales_order(self):
