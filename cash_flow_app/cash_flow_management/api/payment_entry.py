@@ -75,23 +75,23 @@ def update_customer_classification(customer_name):
             LIMIT 1
         """, {"customer": customer_name}, as_dict=1)
 
-		# Installment Application dan ham tekshirish
+		# ✅ Check Payment Schedule from Sales Order
 		overdue_installments = frappe.db.sql("""
             SELECT
-                ip.name,
-                ip.due_date,
-                ip.amount - IFNULL(ip.paid_amount, 0) as outstanding,
-                DATEDIFF(CURDATE(), ip.due_date) as days_overdue
+                ps.name,
+                ps.due_date,
+                ps.payment_amount - IFNULL(ps.paid_amount, 0) as outstanding,
+                DATEDIFF(CURDATE(), ps.due_date) as days_overdue
             FROM
-                `tabInstallment Payment` ip
+                `tabPayment Schedule` ps
             INNER JOIN
-                `tabInstallment Application` ia ON ip.parent = ia.name
+                `tabSales Order` so ON ps.parent = so.name
             WHERE
-                ia.customer = %(customer)s
-                AND ia.docstatus = 1
-                AND ip.status != 'Paid'
-                AND (ip.amount - IFNULL(ip.paid_amount, 0)) > 0
-                AND ip.due_date < CURDATE()
+                so.customer = %(customer)s
+                AND so.docstatus = 1
+                AND ps.parenttype = 'Sales Order'
+                AND (ps.payment_amount - IFNULL(ps.paid_amount, 0)) > 0
+                AND ps.due_date < CURDATE()
             ORDER BY
                 days_overdue DESC
             LIMIT 1

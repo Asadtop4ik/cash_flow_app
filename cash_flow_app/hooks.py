@@ -23,8 +23,11 @@ doc_events = {
 			"cash_flow_app.cash_flow_management.custom.payment_validations.validate_negative_balance",
 			"cash_flow_app.cash_flow_management.custom.payment_validations.warn_on_overdue_payments"
 		],
-		"on_submit": "cash_flow_app.cash_flow_management.api.payment_entry.on_payment_submit",
-		# ← NEW LINE!
+		"on_submit": [
+			"cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_payment_entry",
+			"cash_flow_app.cash_flow_management.api.payment_entry.on_payment_submit",
+			"cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.publish_customer_dashboard_refresh"
+		],
 		"on_cancel": [
 			"cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry",
 			"cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_payment"

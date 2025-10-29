@@ -54,6 +54,9 @@ function setup_realtime_listener(frm) {
     console.log('   User:', frappe.session.user);
     console.log('   Session:', frappe.session);
     
+    // ✅ IMPORTANT: Remove old listener first to prevent duplicates
+    frappe.realtime.off('payment_entry_submitted');
+    
     // Listen for payment_entry_submitted event (socket.io)
     frappe.realtime.on('payment_entry_submitted', function(data) {
         // 🔍 DEBUG: Log event reception
@@ -85,39 +88,45 @@ function setup_realtime_listener(frm) {
 }
 
 function refresh_customer_dashboard(frm) {
-    console.log('🔄 FORCE REFRESH - clearing cache...');
+    console.log('🔄 FORCE REFRESH - clearing cache and reloading...');
     
     // Clear existing dashboard sections
     $('.customer-contracts-section').remove();
     $('.customer-payment-schedule-section').remove();
     
-    // ✅ FORCE RELOAD - bypass cache
-    frappe.call({
-        method: 'cash_flow_app.cash_flow_management.api.customer_history.get_customer_contracts',
-        args: { customer: frm.doc.name },
-        freeze: true,  // Show loading
-        freeze_message: __('Yangilanmoqda...'),
-        no_cache: true,  // ✅ Bypass cache
-        callback: function(r) {
-            const contracts = r.message || [];
-            
-            frappe.call({
-                method: 'cash_flow_app.cash_flow_management.api.customer_history.get_payment_schedule_with_history',
-                args: { customer: frm.doc.name },
-                no_cache: true,  // ✅ Bypass cache
-                callback: function(r2) {
-                    const schedules = r2.message || [];
-                    
-                    if (contracts.length > 0) {
-                        render_contracts_with_inline_schedules(frm, contracts, schedules);
-                    } else {
-                        render_empty_state(frm);
-                    }
-                    
-                    console.log('✅ Dashboard refreshed with latest data!');
-                }
-            });
+    // ✅ FORCE RELOAD - Use Promise.all to fetch BOTH API calls in parallel
+    Promise.all([
+        frappe.call({
+            method: 'cash_flow_app.cash_flow_management.api.customer_history.get_customer_contracts',
+            args: { customer: frm.doc.name },
+            freeze: true,
+            freeze_message: __('Yangilanmoqda...'),
+            no_cache: true,  // ✅ Bypass cache
+            async: false  // ✅ Force synchronous to ensure fresh data
+        }),
+        frappe.call({
+            method: 'cash_flow_app.cash_flow_management.api.customer_history.get_payment_schedule_with_history',
+            args: { customer: frm.doc.name },
+            no_cache: true,  // ✅ Bypass cache
+            async: false  // ✅ Force synchronous to ensure fresh data
+        })
+    ]).then(([contracts_response, schedules_response]) => {
+        console.log('📥 Received fresh data from both APIs:');
+        console.log('   Contracts:', contracts_response.message?.length || 0);
+        console.log('   Schedules:', schedules_response.message?.length || 0);
+        
+        const contracts = contracts_response.message || [];
+        const schedules = schedules_response.message || [];
+        
+        if (contracts.length > 0) {
+            render_contracts_with_inline_schedules(frm, contracts, schedules);
+            console.log('✅ Dashboard refreshed with latest data!');
+        } else {
+            render_empty_state(frm);
         }
+    }).catch(error => {
+        console.error('❌ Error refreshing dashboard:', error);
+        frappe.msgprint(__('Ma\'lumotlarni yangilashda xatolik'));
     });
 }
 
@@ -150,6 +159,12 @@ function load_customer_dashboard(frm) {
 
 // ✅ NEW FUNCTION: Render contracts WITH inline payment schedules
 function render_contracts_with_inline_schedules(frm, contracts, all_schedules) {
+    // 🔍 DEBUG: Log received data from API
+    console.log('\n📊 RENDERING DASHBOARD:');
+    console.log('   Contracts:', contracts.length);
+    console.log('   All schedules:', all_schedules.length);
+    console.log('   Schedule data sample:', all_schedules.slice(0, 3));
+    
     // Remove any existing dashboard
     $('.customer-contracts-section').remove();
     $('.customer-payment-schedule-section').remove();
@@ -189,6 +204,19 @@ function render_contracts_with_inline_schedules(frm, contracts, all_schedules) {
         // Build payment schedule table HTML with carry-over logic
         let schedule_rows_html = '';
         let carry_over = 0;
+        
+        // 🔍 DEBUG: Log schedule data before rendering
+        console.log(`\n📅 Rendering schedule for contract ${contract.name}:`);
+        console.log('   Schedule rows:', contract_schedules.length);
+        contract_schedules.forEach((row, idx) => {
+            console.log(`   Row ${idx + 1}:`, {
+                month: row.description || `${row.payment_number}-oy`,
+                paid_amount: row.paid_amount,
+                payment_amount: row.payment_amount,
+                outstanding: row.outstanding
+            });
+        });
+        
         contract_schedules.forEach((row, idx) => {
             let paid_amt = parseFloat(row.paid_amount) || 0;
             let amount = parseFloat(row.payment_amount) || 0;
