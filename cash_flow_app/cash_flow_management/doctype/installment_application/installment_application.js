@@ -45,6 +45,16 @@ frappe.ui.form.on("Installment Application", {
 			localStorage.setItem('current_installment_application', frm.doc.name);
 		}
 		
+		// Clear cancelled Sales Order link for amended documents
+		if (frm.doc.sales_order && frm.doc.amended_from) {
+			frappe.db.get_value('Sales Order', frm.doc.sales_order, 'docstatus', (r) => {
+				if (r && r.docstatus == 2) {  // Cancelled
+					console.log('Clearing cancelled SO link:', frm.doc.sales_order);
+					frm.set_value('sales_order', null);
+				}
+			});
+		}
+		
 		// Auto-calculate on refresh if values exist
 		if (frm.doc.total_amount && frm.doc.downpayment_amount && frm.doc.monthly_payment) {
 			frm.trigger('calculate_totals');

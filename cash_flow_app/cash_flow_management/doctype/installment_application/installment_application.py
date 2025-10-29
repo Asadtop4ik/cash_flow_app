@@ -11,6 +11,19 @@ class InstallmentApplication(Document):
         """Validate before save"""
         self.calculate_totals()
         self.validate_payment_terms()
+        
+        # Clear cancelled Sales Order link for amended documents
+        if self.sales_order:
+            frappe.logger().info(f"Checking SO link: {self.sales_order}")
+            # Check if linked SO is cancelled using db query (faster and safer)
+            so_status = frappe.db.get_value("Sales Order", self.sales_order, "docstatus")
+            frappe.logger().info(f"SO Status: {so_status}")
+            
+            if so_status == 2:  # Cancelled
+                frappe.logger().info(f"Clearing cancelled SO link: {self.sales_order}")
+                self.sales_order = None
+            else:
+                frappe.logger().info(f"SO is not cancelled, keeping link")
 
     def calculate_totals(self):
         """Calculate total amount and payment breakdown with interest"""
