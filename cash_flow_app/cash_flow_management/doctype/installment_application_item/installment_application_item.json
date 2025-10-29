@@ -39,8 +39,10 @@
   {
    "fieldname": "imei",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "IMEI / Serial No",
-   "fetch_from": "item_code.custom_imei"
+   "fetch_from": "item_code.custom_imei",
+   "read_only": 1
   },
   {
    "default": "1",

@@ -2,6 +2,19 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Installment Application", {
+	setup(frm) {
+		// Disable autocomplete for item_code in Items table
+		// Force users to manually type item code (no suggestions from existing items)
+		frm.set_query('item_code', 'items', function() {
+			return {
+				filters: {
+					// Return no items - force manual creation
+					'name': ['=', '__FORCE_MANUAL_ENTRY__']
+				}
+			};
+		});
+	},
+	
 	refresh(frm) {
 		// Hide timezone display (Asia/Samarkand text)
 		setTimeout(() => {
@@ -200,7 +213,7 @@ frappe.ui.form.on('Installment Application Item', {
 		if (row.item_code) {
 			frappe.db.get_value('Item', row.item_code, 'custom_imei', (r) => {
 				if (r && r.custom_imei) {
-					frappe.model.set_value(cdt, cdn, 'custom_imei', r.custom_imei);
+					frappe.model.set_value(cdt, cdn, 'imei', r.custom_imei);
 					frappe.show_alert({
 						message: __('IMEI avto to\'ldirildi: {0}', [r.custom_imei]),
 						indicator: 'green'
@@ -216,6 +229,11 @@ frappe.ui.form.on('Installment Application Item', {
 	
 	rate(frm, cdt, cdn) {
 		calculate_item_amount(frm, cdt, cdn);
+	},
+	
+	custom_notes(frm, cdt, cdn) {
+		// Just refresh to show the note was saved
+		frm.refresh_field('items');
 	}
 });
 

@@ -106,7 +106,7 @@ class InstallmentApplication(Document):
         # Add items from Installment Application
         # IMPORTANT: Add interest as a separate line item
         for item in self.items:
-            so.append("items", {
+            so_item = {
                 "item_code": item.item_code,
                 "item_name": item.item_name,
                 "qty": item.qty,
@@ -115,7 +115,13 @@ class InstallmentApplication(Document):
                 "uom": item.get("uom") or "Nos",
                 "conversion_factor": 1.0,
                 "custom_imei": item.get("imei")  # Copy IMEI if exists
-            })
+            }
+            
+            # Copy custom_notes if exists (for Sales Order)
+            if item.get("custom_notes"):
+                so_item["description"] = item.get("custom_notes")
+            
+            so.append("items", so_item)
         
         # Add interest as separate item if exists
         if flt(self.custom_total_interest) > 0:

@@ -9,7 +9,8 @@ doc_events = {
     "Item": {
         "before_naming": "cash_flow_app.cash_flow_management.overrides.item_autoname.autoname_item",
         "before_save": "cash_flow_app.cash_flow_management.overrides.item_hooks.before_save_item",
-        "validate": "cash_flow_app.cash_flow_management.overrides.item_hooks.validate_item"
+        "validate": "cash_flow_app.cash_flow_management.overrides.item_hooks.validate_item",
+        "on_update": "cash_flow_app.cash_flow_management.overrides.item_update_sync.on_update_item"
     },
     "Installment Application": {
         "on_submit": "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_submit"
