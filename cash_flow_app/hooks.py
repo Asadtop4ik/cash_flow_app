@@ -13,7 +13,11 @@ doc_events = {
         "on_update": "cash_flow_app.cash_flow_management.overrides.item_update_sync.on_update_item"
     },
     "Installment Application": {
-        "on_submit": "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_submit"
+        "on_submit": [
+            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_submit",
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_installment_application"
+        ],
+        "on_cancel": "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_installment"
     },
 	"Payment Entry": {
 		"autoname": "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.autoname_payment_entry",
@@ -35,7 +39,8 @@ doc_events = {
 		]
     },
     "Sales Order": {
-        "validate": "cash_flow_app.cash_flow_management.custom.payment_validations.validate_payment_schedule_paid_amount"
+        "validate": "cash_flow_app.cash_flow_management.custom.payment_validations.validate_payment_schedule_paid_amount",
+        "before_cancel": "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_sales_order"
     }
 }
 

@@ -179,3 +179,77 @@ def update_supplier_debt_on_cancel_payment(doc, method=None):
         
     except Exception as e:
         frappe.log_error(f"Error reversing supplier payment for {supplier_name}: {str(e)}")
+
+
+def update_supplier_debt_on_cancel_installment(doc, method=None):
+    """
+    Called when Installment Application is cancelled
+    Reverses debt from suppliers
+    
+    Args:
+        doc: Installment Application document
+        method: Event method name (not used)
+    """
+    if not doc.items:
+        return
+    
+    print(f"\n🔴 on_cancel_installment_application() CALLED for InstApp: {doc.name}")
+    frappe.logger().info(f"🔴 Cancelling InstApp {doc.name} - reversing supplier debts")
+    
+    # Group items by supplier
+    supplier_debts = {}
+    
+    for item in doc.items:
+        if not item.custom_supplier:
+            continue  # Skip if no supplier
+        
+        supplier = item.custom_supplier
+        item_total = flt(item.qty) * flt(item.rate)
+        
+        if supplier in supplier_debts:
+            supplier_debts[supplier] += item_total
+        else:
+            supplier_debts[supplier] = item_total
+    
+    # Reverse each supplier's debt
+    for supplier_name, debt_amount in supplier_debts.items():
+        try:
+            supplier = frappe.get_doc("Supplier", supplier_name)
+            
+            # Subtract from total debt
+            current_total_debt = flt(supplier.get("custom_total_debt", 0))
+            new_total_debt = max(0, current_total_debt - debt_amount)  # Don't go negative
+            
+            # Calculate remaining debt
+            paid_amount = flt(supplier.get("custom_paid_amount", 0))
+            remaining_debt = new_total_debt - paid_amount
+            
+            # Determine status
+            if remaining_debt <= 0:
+                status = "To'landi"
+            elif paid_amount > 0:
+                status = "Qisman to'langan"
+            else:
+                status = "Qarzda"
+            
+            # Update supplier
+            supplier.custom_total_debt = new_total_debt
+            supplier.custom_remaining_debt = remaining_debt
+            supplier.custom_payment_status = status
+            
+            supplier.save(ignore_permissions=True)
+            
+            print(f"   ✅ Supplier {supplier_name}: Qarz kamaytrildi -${debt_amount} (qoldi: ${new_total_debt})")
+            frappe.logger().info(f"Reversed supplier debt for {supplier_name}: -${debt_amount}")
+            
+            frappe.msgprint(
+                _("Supplier {0}: Qarz kamaytrildi ${1:,.2f} (Qoldi: ${2:,.2f})").format(
+                    supplier_name, debt_amount, new_total_debt
+                ),
+                alert=True,
+                indicator="orange"
+            )
+            
+        except Exception as e:
+            frappe.log_error(f"Error reversing supplier debt for {supplier_name}: {str(e)}")
+            print(f"   ❌ Failed to reverse debt for {supplier_name}: {e}")
