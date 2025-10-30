@@ -1,6 +1,22 @@
 [
  {
   "default_value": null,
+  "doc_type": "Customer",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "naming_series",
+  "is_system_generated": 1,
+  "modified": "2025-10-29 17:29:04.878146",
+  "module": null,
+  "name": "Customer-naming_series-options",
+  "property": "options",
+  "property_type": "Text",
+  "row_name": null,
+  "value": "CUST-.YYYY.-"
+ },
+ {
+  "default_value": null,
   "doc_type": "Sales Order",
   "docstatus": 0,
   "doctype": "Property Setter",
@@ -1831,7 +1847,7 @@
   "doctype_or_field": "DocField",
   "field_name": "custom_notes",
   "is_system_generated": 0,
-  "modified": "2025-10-29 12:00:00.000000",
+  "modified": "2025-10-29 12:00:00",
   "module": null,
   "name": "Installment Application Item-custom_notes-in_list_view",
   "property": "in_list_view",
