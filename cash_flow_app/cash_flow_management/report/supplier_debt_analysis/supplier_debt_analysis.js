@@ -30,12 +30,24 @@ frappe.query_reports["Supplier Debt Analysis"] = {
 	"formatter": function(value, row, column, data, default_formatter) {
 		value = default_formatter(value, row, column, data);
 
+		// JAMI qatori
 		if (data && data.is_total_row) {
 			if (column.fieldname == "item_name") {
 				return `<span style="font-weight: 700; font-size: 15px; color: #1e3a8a;">JAMI</span>`;
 			}
 			if (['kredit', 'debit', 'outstanding'].includes(column.fieldname)) {
 				return `<span style="font-weight: 700; color: #1e3a8a; font-size: 15px;">${value}</span>`;
+			}
+			return '';
+		}
+
+		// Boshlang'ich qoldiq qatori
+		if (data && data.is_initial_row) {
+			if (column.fieldname == "item_name") {
+				return `<span style="font-weight: 600; font-size: 13px; color: #2563eb; font-style: italic;">${value}</span>`;
+			}
+			if (['kredit', 'debit', 'outstanding'].includes(column.fieldname)) {
+				return `<span style="font-weight: 600; color: #2563eb; font-size: 13px;">${value}</span>`;
 			}
 			return '';
 		}
@@ -64,8 +76,13 @@ frappe.query_reports["Supplier Debt Analysis"] = {
 
 		// Hujjat linki
 		if (column.fieldname == "document" && data.document && data.document_type) {
-			let route = data.document_type.toLowerCase().replace(/ /g, '-');
-			value = `<a href="/app/${route}/${data.document}" target="_blank" style="color: #2563eb; font-weight: 600; font-size: 13px;">${data.document}</a>`;
+			// Initial Balance uchun link qilmaslik
+			if (data.document === 'Initial Balance') {
+				value = `<span style="color: #2563eb; font-weight: 600; font-size: 13px; font-style: italic;">${data.document}</span>`;
+			} else {
+				let route = data.document_type.toLowerCase().replace(/ /g, '-');
+				value = `<a href="/app/${route}/${data.document}" target="_blank" style="color: #2563eb; font-weight: 600; font-size: 13px;">${data.document}</a>`;
+			}
 		}
 
 		// Izoh
@@ -78,10 +95,9 @@ frappe.query_reports["Supplier Debt Analysis"] = {
 			}
 		}
 
-		// To'lov usuli
-		if (column.fieldname == "mode_of_payment" && value) {
-			let color = value.toLowerCase().includes('naqd') || value.toLowerCase().includes('cash') ? '#16a34a' : '#2563eb';
-			value = `<span style="background:${color}; color:white; padding:2px 6px; border-radius:3px; font-size:11px; font-weight:600;">${value}</span>`;
+		// Kassa (custom_cashier)
+		if (column.fieldname == "custom_cashier" && value && value.trim()) {
+			value = `<span style="background:#2563eb; color:white; padding:2px 6px; border-radius:3px; font-size:11px; font-weight:600;">${value}</span>`;
 		}
 
 		return value;
@@ -189,3 +205,4 @@ frappe.query_reports["Supplier Debt Analysis"] = {
 		}
 	}
 };
+
