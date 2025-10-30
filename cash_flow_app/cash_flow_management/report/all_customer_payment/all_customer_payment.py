@@ -91,7 +91,7 @@ def get_columns(filters):
 		}
 	]
 
-	# Period columns qo'shish
+	# Period columns
 	from_date = getdate(filters.get("from_date"))
 	to_date = getdate(filters.get("to_date"))
 	report_type = filters.get("report_type", "Monthly")
@@ -138,44 +138,66 @@ def get_data(filters):
 	if customers and isinstance(customers, str):
 		customers = [c.strip() for c in customers.split(",")]
 
-	# Build contract filters
-	contract_filters = {
-		"status": ["!=", "Closed"]
-	}
+	# Exclude Closed, Cancelled, Completed
+	contracts = frappe.db.sql("""
+		SELECT
+			name,
+			customer,
+			custom_grand_total_with_interest,
+			downpayment_amount,
+			finance_amount,
+			monthly_payment,
+			installment_months,
+			status
+		FROM `tabInstallment Application`
+		WHERE status NOT IN ('Closed', 'Cancelled', 'Completed')
+		{customer_filter}
+		ORDER BY customer, name
+	""".format(
+		customer_filter=f"AND customer IN ({','.join(['%s'] * len(customers))})" if customers else ""
+	), tuple(customers) if customers else (), as_dict=1)
 
-	if customers:
-		contract_filters["customer"] = ["in", customers]
+	if not contracts:
+		return []
 
-	# Get contracts with all necessary fields
-	contracts = frappe.get_list(
-		"Installment Application",
-		filters=contract_filters,
-		fields=[
-			"name",
-			"customer",
-			"custom_grand_total_with_interest",
-			"downpayment_amount",
-			"finance_amount",
-			"monthly_payment",
-			"installment_months",
-			"status"
-		]
-	)
-
-	# Bulk fetch all data to minimize DB queries
-	contract_names = [c.name for c in contracts]
-
-	# Get all payment schedules at once
-	payment_schedules = get_all_payment_schedules(contract_names)
-
-	# Get all payments at once
-	all_payments = get_all_payments(contract_names)
-
-	# Get all customer classifications at once
+	# Get unique customers
 	customer_names = list(set([c.customer for c in contracts]))
+
+	# Bulk fetch customer classifications
 	customer_classifications = get_customer_classifications(customer_names)
 
+	# Bulk fetch all payment schedules
+	contract_names = [c.name for c in contracts]
+	payment_schedules = get_all_payment_schedules(contract_names)
+
+	# Bulk fetch all customer payments
+	all_customer_payments = get_all_customer_payments(customer_names)
+
 	data = []
+	totals = {
+		"classification": "TOTAL",
+		"customer_name": "",
+		"contract_link": "",
+		"total_amount": 0,
+		"down_payment": 0,
+		"finance_amount": 0,
+		"total_finance_amount": 0,
+		"monthly_payment": 0,
+		"total_paid": 0,
+		"remaining": 0
+	}
+
+	# Initialize period columns in totals
+	current_date = getdate(from_date)
+	while current_date <= to_date:
+		if report_type == "Monthly":
+			month_key = f"month_{current_date.strftime('%Y_%m')}"
+			totals[month_key] = 0
+			current_date += relativedelta(months=1)
+		else:
+			day_key = f"day_{current_date.strftime('%Y_%m_%d')}"
+			totals[day_key] = 0
+			current_date += timedelta(days=1)
 
 	for contract in contracts:
 		# Get customer classification
@@ -185,45 +207,78 @@ def get_data(filters):
 		if classifications and customer_classification not in classifications:
 			continue
 
-		# Get total paid for this contract (all time)
-		contract_payments = all_payments.get(contract.name, [])
-		total_paid = sum(p.get("paid_amount", 0) for p in contract_payments)
+		# Get payment schedule for THIS CONTRACT
+		schedule = payment_schedules.get(contract.name, [])
 
-		# Calculate remaining based on contract amount with interest
-		contract_amount = flt(contract.custom_grand_total_with_interest)
-		remaining = contract_amount - total_paid
+		# Get all payments for this customer
+		customer_payments = all_customer_payments.get(contract.customer, [])
 
-		# Only show contracts with remaining balance
+		# Calculate total schedule amount
+		total_schedule_amount = sum(flt(s["payment_amount"]) for s in schedule)
+
+		# Calculate total paid (ALL customer payments, not limited to schedule)
+		total_paid_all = sum(flt(p["paid_amount"]) for p in customer_payments)
+
+		# Remaining = schedule - actual paid
+		remaining = total_schedule_amount - total_paid_all
+
+		# Only show contracts with remaining > 0
 		if remaining <= 0:
 			continue
 
-		# Calculate total finance amount (monthly_payment × installment_months)
+		# Calculate total finance amount
 		total_finance_amount = flt(contract.monthly_payment) * flt(contract.installment_months)
 
 		row = {
 			"classification": customer_classification,
 			"customer_name": contract.customer,
 			"contract_link": contract.name,
-			"total_amount": contract_amount,
+			"total_amount": flt(contract.custom_grand_total_with_interest),
 			"down_payment": contract.downpayment_amount,
 			"finance_amount": contract.finance_amount,
 			"total_finance_amount": total_finance_amount,
 			"monthly_payment": contract.monthly_payment,
-			"total_paid": total_paid,
+			"total_paid": total_paid_all,
 			"remaining": remaining
 		}
 
-		# Get payment schedule for this contract
-		schedule = payment_schedules.get(contract.name, [])
-		payments = contract_payments
-
 		# Add period data
 		if report_type == "Monthly":
-			row.update(get_monthly_payment_status(schedule, payments, from_date, to_date))
+			period_data = get_monthly_payment_status_fixed(schedule, customer_payments, from_date,
+														   to_date)
+			row.update(period_data)
+			# Add to totals - sum the numeric values
+			for key, val in period_data.items():
+				try:
+					if val and val != "To'landi":
+						totals[key] += flt(val)
+				except:
+					pass
 		else:
-			row.update(get_daily_payment_status(schedule, payments, from_date, to_date))
+			period_data = get_daily_payment_status(schedule, customer_payments, from_date, to_date)
+			row.update(period_data)
+			# Add to totals
+			for key, val in period_data.items():
+				try:
+					if val and val != "To'landi":
+						totals[key] += flt(val)
+				except:
+					pass
+
+		# Add to totals
+		totals["total_amount"] += flt(contract.custom_grand_total_with_interest)
+		totals["down_payment"] += flt(contract.downpayment_amount)
+		totals["finance_amount"] += flt(contract.finance_amount)
+		totals["total_finance_amount"] += total_finance_amount
+		totals["monthly_payment"] += flt(contract.monthly_payment)
+		totals["total_paid"] += total_paid_all
+		totals["remaining"] += remaining
 
 		data.append(row)
+
+	# Add totals row
+	if data:
+		data.append(totals)
 
 	return data
 
@@ -233,11 +288,11 @@ def get_customer_classifications(customer_names):
 	if not customer_names:
 		return {}
 
-	customers = frappe.get_all(
-		"Customer",
-		filters={"name": ["in", customer_names]},
-		fields=["name", "customer_classification"]
-	)
+	customers = frappe.db.sql("""
+		SELECT name, customer_classification
+		FROM `tabCustomer`
+		WHERE name IN ({})
+	""".format(','.join(['%s'] * len(customer_names))), tuple(customer_names), as_dict=1)
 
 	return {c.name: c.customer_classification or "A" for c in customers}
 
@@ -247,12 +302,12 @@ def get_all_payment_schedules(contract_names):
 	if not contract_names:
 		return {}
 
-	schedules = frappe.get_all(
-		"Payment Schedule",
-		filters={"parent": ["in", contract_names]},
-		fields=["parent", "due_date", "payment_amount"],
-		order_by="due_date"
-	)
+	schedules = frappe.db.sql("""
+		SELECT parent, due_date, payment_amount
+		FROM `tabPayment Schedule`
+		WHERE parent IN ({})
+		ORDER BY due_date
+	""".format(','.join(['%s'] * len(contract_names))), tuple(contract_names), as_dict=1)
 
 	# Group by contract
 	schedule_dict = {}
@@ -267,42 +322,45 @@ def get_all_payment_schedules(contract_names):
 	return schedule_dict
 
 
-def get_all_payments(contract_names):
-	"""Bulk fetch all payments for contracts"""
-	if not contract_names:
+def get_all_customer_payments(customer_names):
+	"""Bulk fetch all customer payments"""
+	if not customer_names:
 		return {}
 
-	# Get payments through references child table
+	# Get payments by customer
 	payments = frappe.db.sql("""
 		SELECT
-			pe.name,
-			pe.paid_amount,
-			pe.posting_date,
-			ref.reference_name as contract_name
-		FROM `tabPayment Entry` pe
-		INNER JOIN `tabPayment Entry Reference` ref
-			ON ref.parent = pe.name
+			name,
+			paid_amount,
+			posting_date,
+			party as customer
+		FROM `tabPayment Entry`
 		WHERE
-			pe.docstatus = 1
-			AND ref.reference_doctype = 'Installment Application'
-			AND ref.reference_name IN %(contracts)s
-		ORDER BY pe.posting_date
-	""", {"contracts": contract_names}, as_dict=1)
+			docstatus = 1
+			AND party_type = 'Customer'
+			AND party IN ({})
+		ORDER BY posting_date
+	""".format(','.join(['%s'] * len(customer_names))), tuple(customer_names), as_dict=1)
 
-	# Group by contract
+	# Group by customer
 	payment_dict = {}
 	for p in payments:
-		if p.contract_name not in payment_dict:
-			payment_dict[p.contract_name] = []
-		payment_dict[p.contract_name].append(p)
+		if p.customer not in payment_dict:
+			payment_dict[p.customer] = []
+		payment_dict[p.customer].append(p)
 
 	return payment_dict
 
 
-def get_monthly_payment_status(schedule, payments, from_date, to_date):
-	"""Get monthly payment status with expected vs paid"""
+def get_monthly_payment_status_fixed(schedule, payments, from_date, to_date):
+	"""
+	✅ FIXED: Oylik statusa - oldindan to'laganlarni hisoblab chiqish
+	"""
 	data = {}
 	current_date = getdate(from_date)
+
+	# First, distribute all payments across months
+	running_balance = sum(flt(p["paid_amount"]) for p in payments)  # Total paid
 
 	while current_date <= to_date:
 		month_key = f"month_{current_date.strftime('%Y_%m')}"
@@ -316,28 +374,70 @@ def get_monthly_payment_status(schedule, payments, from_date, to_date):
 			month_end = current_date.replace(month=current_date.month + 1, day=1) - timedelta(
 				days=1)
 
-		# Calculate expected payment for this month (sum of all schedules in this month)
+		# Calculate expected payment for this month from schedule
 		expected = 0
 		for s in schedule:
 			due_date = getdate(s["due_date"])
 			if month_start <= due_date <= month_end:
 				expected += flt(s["payment_amount"])
 
-		# Calculate actual payments for this month
-		paid = 0
+		# Calculate actual payments made BY/BEFORE end of this month
+		paid_until_month_end = 0
 		for p in payments:
 			posting_date = getdate(p["posting_date"])
-			if month_start <= posting_date <= month_end:
-				paid += flt(p["paid_amount"])
+			if posting_date <= month_end:
+				paid_until_month_end += flt(p["paid_amount"])
 
-		# Format: "paid/expected" or just expected if not paid
+		# Calculate what should be paid by END of this month (cumulative)
+		expected_cumulative = 0
+		temp_date = getdate(from_date)
+		while temp_date <= month_end:
+			for s in schedule:
+				due_date = getdate(s["due_date"])
+				if temp_date.replace(day=1) == temp_date.replace(day=1):  # same month
+					if due_date <= month_end:
+						expected_cumulative += flt(s["payment_amount"])
+			break
+
+		# Better approach: sum all scheduled payments up to month end
+		expected_cumulative = 0
+		for s in schedule:
+			due_date = getdate(s["due_date"])
+			if due_date <= month_end:
+				expected_cumulative += flt(s["payment_amount"])
+
+		# Determine what to show for THIS MONTH
 		if expected > 0:
-			if paid >= expected:
+			# Show what was paid FOR THIS MONTH only
+			paid_this_month = 0
+			for p in payments:
+				posting_date = getdate(p["posting_date"])
+				if month_start <= posting_date <= month_end:
+					paid_this_month += flt(p["paid_amount"])
+
+			if paid_this_month >= expected:
 				data[month_key] = "To'landi"
-			elif paid > 0:
-				data[month_key] = f"{paid:.0f}/{expected:.0f}"
+			elif paid_this_month > 0:
+				data[month_key] = f"{paid_this_month:.0f}/{expected:.0f}"
 			else:
-				data[month_key] = f"{expected:.0f}"
+				# Check if this was paid from previous months' overpayment
+				paid_up_to_month = 0
+				for p in payments:
+					posting_date = getdate(p["posting_date"])
+					if posting_date <= month_end:
+						paid_up_to_month += flt(p["paid_amount"])
+
+				expected_up_to_month = 0
+				for s in schedule:
+					due_date = getdate(s["due_date"])
+					if due_date <= month_end:
+						expected_up_to_month += flt(s["payment_amount"])
+
+				# If we have overpayment from before, mark as paid
+				if paid_up_to_month >= expected_up_to_month:
+					data[month_key] = "To'landi"
+				else:
+					data[month_key] = f"{expected:.0f}"
 		else:
 			data[month_key] = ""
 
@@ -347,7 +447,7 @@ def get_monthly_payment_status(schedule, payments, from_date, to_date):
 
 
 def get_daily_payment_status(schedule, payments, from_date, to_date):
-	"""Get daily payment status with expected vs paid"""
+	"""Get daily payment status"""
 	data = {}
 	current_date = getdate(from_date)
 
@@ -368,7 +468,6 @@ def get_daily_payment_status(schedule, payments, from_date, to_date):
 			if posting_date == current_date:
 				paid += flt(p["paid_amount"])
 
-		# Format: "paid/expected" or just expected if not paid
 		if expected > 0:
 			if paid >= expected:
 				data[day_key] = "To'landi"
