@@ -187,6 +187,18 @@ def get_data(filters):
 		"remaining": 0
 	}
 
+	# Initialize period columns in totals
+	current_date = getdate(from_date)
+	while current_date <= to_date:
+		if report_type == "Monthly":
+			month_key = f"month_{current_date.strftime('%Y_%m')}"
+			totals[month_key] = 0
+			current_date += relativedelta(months=1)
+		else:
+			day_key = f"day_{current_date.strftime('%Y_%m_%d')}"
+			totals[day_key] = 0
+			current_date += timedelta(days=1)
+
 	for contract in contracts:
 		# Get customer classification
 		customer_classification = customer_classifications.get(contract.customer, "A")
@@ -235,13 +247,23 @@ def get_data(filters):
 			period_data = get_monthly_payment_status_fixed(schedule, customer_payments, from_date,
 														   to_date)
 			row.update(period_data)
-			# Add to totals
+			# Add to totals - sum the numeric values
 			for key, val in period_data.items():
-				if key not in totals:
-					totals[key] = 0
+				try:
+					if val and val != "To'landi":
+						totals[key] += flt(val)
+				except:
+					pass
 		else:
 			period_data = get_daily_payment_status(schedule, customer_payments, from_date, to_date)
 			row.update(period_data)
+			# Add to totals
+			for key, val in period_data.items():
+				try:
+					if val and val != "To'landi":
+						totals[key] += flt(val)
+				except:
+					pass
 
 		# Add to totals
 		totals["total_amount"] += flt(contract.custom_grand_total_with_interest)
