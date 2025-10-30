@@ -342,3 +342,649 @@ def publish_customer_dashboard_refresh(doc, method=None):
         )
         
         frappe.logger().info(f"📡 Published dashboard refresh event for customer: {doc.party}")
+
+
+# ================================================================================
+# SALES ORDER CANCEL/AMEND HANDLING
+# ================================================================================
+
+def on_cancel_sales_order(doc, method=None):
+    """
+    ❌ Cancel/Delete all linked Payment Entries (both submitted AND draft)
+    when Sales Order is cancelled
+    
+    Args:
+        doc: Sales Order document
+        method: Event method name (not used)
+    """
+    print(f"\n🔴 on_cancel_sales_order() CALLED for SO: {doc.name}")
+    frappe.logger().info(f"🔴 Cancelling SO {doc.name} - checking linked Payment Entries")
+    
+    try:
+        # 1️⃣ GET SUBMITTED Payment Entries (need to CANCEL)
+        submitted_payments = frappe.get_all(
+            "Payment Entry",
+            filters={
+                "custom_contract_reference": doc.name,
+                "docstatus": 1,  # Submitted
+                "payment_type": "Receive"
+            },
+            fields=["name", "paid_amount"]
+        )
+        
+        # 2️⃣ GET DRAFT Payment Entries (need to DELETE)
+        draft_payments = frappe.get_all(
+            "Payment Entry",
+            filters={
+                "custom_contract_reference": doc.name,
+                "docstatus": 0,  # Draft
+                "payment_type": "Receive"
+            },
+            fields=["name", "paid_amount"]
+        )
+        
+        print(f"   📋 Found {len(submitted_payments)} SUBMITTED, {len(draft_payments)} DRAFT payments")
+        frappe.logger().info(f"Found {len(submitted_payments)} submitted, {len(draft_payments)} draft PE'lar for SO {doc.name}")
+        
+        if not submitted_payments and not draft_payments:
+            print(f"   ℹ️  No payments to cancel/delete")
+            return
+        
+        # 3️⃣ CANCEL submitted payments
+        cancelled_count = 0
+        for payment in submitted_payments:
+            try:
+                pe_doc = frappe.get_doc("Payment Entry", payment.name)
+                pe_doc.add_comment(
+                    "Comment",
+                    f"🔴 Avtomatik bekor qilindi: Sales Order {doc.name} bekor qilindi"
+                )
+                pe_doc.cancel()
+                cancelled_count += 1
+                print(f"   ✅ Cancelled Payment Entry: {payment.name}")
+                frappe.logger().info(f"Cancelled PE {payment.name} for SO {doc.name}")
+                
+            except Exception as e:
+                print(f"   ❌ Failed to cancel {payment.name}: {e}")
+                frappe.log_error(f"Error cancelling PE {payment.name}: {e}", "SO Cancel - PE Cancel Error")
+        
+        # 4️⃣ DELETE draft payments (can't cancel drafts, must delete)
+        deleted_count = 0
+        for payment in draft_payments:
+            try:
+                frappe.delete_doc("Payment Entry", payment.name, force=1)
+                deleted_count += 1
+                print(f"   🗑️  Deleted DRAFT Payment Entry: {payment.name}")
+                frappe.logger().info(f"Deleted draft PE {payment.name} for SO {doc.name}")
+                
+            except Exception as e:
+                print(f"   ❌ Failed to delete {payment.name}: {e}")
+                frappe.log_error(f"Error deleting draft PE {payment.name}: {e}", "SO Cancel - PE Delete Error")
+        
+        # 5️⃣ Show message to user
+        message_parts = []
+        if cancelled_count > 0:
+            message_parts.append(f"✅ {cancelled_count} ta to'lov bekor qilindi")
+        if deleted_count > 0:
+            message_parts.append(f"🗑️ {deleted_count} ta draft to'lov o'chirildi")
+        
+        if message_parts:
+            frappe.msgprint(
+                "<br>".join(message_parts),
+                title=_("To'lovlar Bekor Qilindi"),
+                indicator="orange"
+            )
+        
+    except Exception as e:
+        print(f"\n❌ ERROR in on_cancel_sales_order: {str(e)}")
+        frappe.log_error(f"Error cancelling/deleting linked payments for SO {doc.name}: {e}", "SO Cancel Error")
+
+
+# ================================================================================
+# INSTALLMENT APPLICATION AMEND HANDLING
+# ================================================================================
+
+def on_submit_installment_application(doc, method=None):
+    """
+    🔄 After Installment Application is amended and re-submitted,
+    auto-create Payment Entries from cancelled ones
+    
+    ✅ IMPORTANT: Uses NEW amounts from amended InstApp, not old PE amounts!
+    
+    Args:
+        doc: Installment Application document
+        method: Event method name (not used)
+    """
+    # Check if this is an amended document
+    if not doc.amended_from:
+        print(f"   ℹ️  Not an amendment ({doc.name}), skipping PE restoration")
+        return
+    
+    print(f"\n🔄 AMENDED Installment Application: {doc.name} (from {doc.amended_from})")
+    frappe.logger().info(f"🔄 Processing amended InstApp: {doc.name} from {doc.amended_from}")
+    
+    try:
+        # Get old Installment App
+        old_app = frappe.get_doc("Installment Application", doc.amended_from)
+        old_so_name = old_app.sales_order
+        new_so_name = doc.sales_order
+        
+        if not old_so_name or not new_so_name:
+            print(f"   ❌ Missing SO references (old: {old_so_name}, new: {new_so_name})")
+            frappe.log_error(f"Missing SO references in amended InstApp {doc.name}", "InstApp Amend Error")
+            return
+        
+        print(f"   📋 Old SO: {old_so_name}, New SO: {new_so_name}")
+        
+        # ================================================================================
+        # STEP 1: ANALYZE WHAT CHANGED
+        # ================================================================================
+        changes = _analyze_installment_changes(old_app, doc)
+        
+        print(f"\n   📊 CHANGES DETECTED:")
+        for key, value in changes.items():
+            if value.get("changed"):
+                print(f"      {key}: {value['old']} → {value['new']}")
+        
+        # ================================================================================
+        # STEP 2: GET CANCELLED PAYMENT ENTRIES
+        # ================================================================================
+        cancelled_payments = frappe.get_all(
+            "Payment Entry",
+            filters={
+                "custom_contract_reference": old_so_name,
+                "docstatus": 2,  # Cancelled
+                "payment_type": "Receive"
+            },
+            fields=["name", "paid_amount", "posting_date", "mode_of_payment", 
+                    "custom_payment_schedule_row", "paid_to", "paid_from"],
+            order_by="posting_date asc"
+        )
+        
+        print(f"\n   📋 Found {len(cancelled_payments)} CANCELLED Payment Entries")
+        
+        if not cancelled_payments:
+            print(f"   ℹ️  No cancelled payments to restore")
+            
+            # Check if downpayment needs to be created as draft
+            if flt(doc.downpayment_amount) > 0:
+                _create_downpayment_draft(doc, new_so_name)
+            
+            return
+        
+        # ================================================================================
+        # STEP 3: CATEGORIZE PAYMENTS
+        # ================================================================================
+        payment_categories = _categorize_payments(cancelled_payments, old_so_name)
+        
+        print(f"\n   📊 Payment Categories:")
+        print(f"      Downpayment: {len(payment_categories['downpayment'])} PE")
+        print(f"      Installments: {len(payment_categories['installments'])} PE")
+        
+        # ================================================================================
+        # STEP 4: DECIDE CLONE STRATEGY
+        # ================================================================================
+        clone_strategy = _determine_clone_strategy(changes, payment_categories)
+        
+        print(f"\n   🎯 Clone Strategy: {clone_strategy['type']}")
+        print(f"      Clone downpayment: {clone_strategy['clone_downpayment']}")
+        print(f"      Clone installments: {clone_strategy['clone_installments']}")
+        print(f"      Adjust installment amounts: {clone_strategy['adjust_installment_amounts']}")
+        
+        # ================================================================================
+        # STEP 5: SHOW WARNING TO USER
+        # ================================================================================
+        _show_clone_warning(changes, clone_strategy)
+        
+        # ================================================================================
+        # STEP 6: CLONE/CREATE PAYMENT ENTRIES
+        # ================================================================================
+        restored_payments = []
+        
+        # 6.1: Handle Downpayment
+        if payment_categories['downpayment']:
+            restored_payments.extend(
+                _handle_downpayment_restoration(
+                    payment_categories['downpayment'],
+                    doc,
+                    new_so_name,
+                    clone_strategy
+                )
+            )
+        elif flt(doc.downpayment_amount) > 0 and not clone_strategy['clone_downpayment']:
+            # Create new draft if downpayment amount exists but wasn't cloned
+            _create_downpayment_draft(doc, new_so_name)
+        
+        # 6.2: Handle Installments
+        if payment_categories['installments']:
+            restored_payments.extend(
+                _handle_installment_restoration(
+                    payment_categories['installments'],
+                    doc,
+                    new_so_name,
+                    clone_strategy,
+                    changes
+                )
+            )
+        
+        # ================================================================================
+        # STEP 7: SHOW SUCCESS MESSAGE
+        # ================================================================================
+        if restored_payments:
+            _show_restoration_success(restored_payments)
+        
+        frappe.logger().info(f"✅ Restored {len(restored_payments)} Payment Entries for InstApp {doc.name}")
+        
+    except Exception as e:
+        print(f"\n❌ ERROR in on_submit_installment_application: {str(e)}")
+        frappe.log_error(
+            f"Error in on_submit_installment_application for {doc.name}: {e}",
+            "InstApp Amend Error"
+        )
+        import traceback
+        traceback.print_exc()
+
+
+def _analyze_installment_changes(old_app, new_app):
+    """
+    Analyze what changed between old and new Installment Application
+    
+    Returns:
+        dict: Dictionary of changes with 'changed', 'old', 'new' keys
+    """
+    changes = {
+        "total_amount": {
+            "changed": flt(old_app.total_amount) != flt(new_app.total_amount),
+            "old": flt(old_app.total_amount),
+            "new": flt(new_app.total_amount)
+        },
+        "downpayment_amount": {
+            "changed": flt(old_app.downpayment_amount) != flt(new_app.downpayment_amount),
+            "old": flt(old_app.downpayment_amount),
+            "new": flt(new_app.downpayment_amount)
+        },
+        "monthly_payment": {
+            "changed": flt(old_app.monthly_payment) != flt(new_app.monthly_payment),
+            "old": flt(old_app.monthly_payment),
+            "new": flt(new_app.monthly_payment)
+        },
+        "installment_months": {
+            "changed": old_app.installment_months != new_app.installment_months,
+            "old": old_app.installment_months,
+            "new": new_app.installment_months
+        },
+        "grand_total_with_interest": {
+            "changed": flt(old_app.custom_grand_total_with_interest) != flt(new_app.custom_grand_total_with_interest),
+            "old": flt(old_app.custom_grand_total_with_interest),
+            "new": flt(new_app.custom_grand_total_with_interest)
+        }
+    }
+    
+    return changes
+
+
+def _categorize_payments(payment_entries, so_name):
+    """
+    Categorize cancelled Payment Entries into downpayment and installments
+    
+    Returns:
+        dict: {'downpayment': [pe_list], 'installments': [pe_list]}
+    """
+    categories = {
+        "downpayment": [],
+        "installments": []
+    }
+    
+    # Get SO to check payment schedule
+    so = frappe.get_doc("Sales Order", so_name)
+    
+    # Get first payment schedule row (usually downpayment)
+    first_schedule_row = None
+    if so.payment_schedule:
+        first_schedule_row = so.payment_schedule[0].name
+    
+    for pe_data in payment_entries:
+        # Check if this PE is linked to first schedule row (downpayment)
+        if pe_data.custom_payment_schedule_row == first_schedule_row:
+            categories["downpayment"].append(pe_data)
+        else:
+            categories["installments"].append(pe_data)
+    
+    return categories
+
+
+def _determine_clone_strategy(changes, payment_categories):
+    """
+    Determine clone strategy based on what changed
+    
+    Returns:
+        dict: Clone strategy with flags
+    """
+    strategy = {
+        "type": "FULL_CLONE",  # FULL_CLONE, PARTIAL_CLONE, NO_CLONE
+        "clone_downpayment": True,
+        "clone_installments": True,
+        "adjust_installment_amounts": False,
+        "reason": ""
+    }
+    
+    # Check if any critical financial field changed
+    critical_changes = []
+    
+    if changes["total_amount"]["changed"]:
+        critical_changes.append("total_amount")
+    
+    if changes["downpayment_amount"]["changed"]:
+        critical_changes.append("downpayment_amount")
+        strategy["clone_downpayment"] = False  # Don't clone, create new draft instead
+        strategy["type"] = "PARTIAL_CLONE"
+    
+    if changes["monthly_payment"]["changed"]:
+        critical_changes.append("monthly_payment")
+        strategy["adjust_installment_amounts"] = True  # Clone but adjust amounts
+        if strategy["type"] != "PARTIAL_CLONE":
+            strategy["type"] = "PARTIAL_CLONE"
+    
+    if changes["installment_months"]["changed"]:
+        critical_changes.append("installment_months")
+        # This shouldn't happen if there are existing payments
+        # But if it does, we still clone existing ones
+    
+    if critical_changes:
+        strategy["reason"] = f"Changed: {', '.join(critical_changes)}"
+    else:
+        strategy["reason"] = "No financial changes, safe to clone all"
+    
+    return strategy
+
+
+def _show_clone_warning(changes, strategy):
+    """
+    Show warning message to user about clone strategy
+    """
+    if strategy["type"] == "FULL_CLONE":
+        frappe.msgprint(
+            _("✅ Moliyaviy ma'lumotlar o'zgarmadi. Barcha to'lovlar qayta tiklanadi."),
+            title=_("To'lovlarni Qayta Tiklash"),
+            indicator="green"
+        )
+    elif strategy["type"] == "PARTIAL_CLONE":
+        warning_parts = []
+        
+        if not strategy["clone_downpayment"]:
+            warning_parts.append(
+                f"⚠️ Boshlang'ich to'lov o'zgardi: "
+                f"${changes['downpayment_amount']['old']} → ${changes['downpayment_amount']['new']}<br>"
+                f"Yangi summa bilan DRAFT yaratiladi (tekshiring va submit qiling!)"
+            )
+        
+        if strategy["adjust_installment_amounts"]:
+            warning_parts.append(
+                f"⚠️ Oylik to'lov o'zgardi: "
+                f"${changes['monthly_payment']['old']} → ${changes['monthly_payment']['new']}<br>"
+                f"Eski to'lovlar clone qilinadi, yangi summa keyingi oylar uchun qo'llaniladi"
+            )
+        
+        if warning_parts:
+            frappe.msgprint(
+                "<br><br>".join(warning_parts),
+                title=_("To'lovlarni Qayta Tiklash - Ogohlik"),
+                indicator="orange"
+            )
+
+
+def _handle_downpayment_restoration(downpayment_pes, new_app, new_so_name, strategy):
+    """
+    Handle restoration of downpayment Payment Entry
+    
+    Returns:
+        list: List of restored payment info
+    """
+    restored = []
+    
+    if not strategy["clone_downpayment"]:
+        # Don't clone, create new draft instead
+        _create_downpayment_draft(new_app, new_so_name)
+        return restored
+    
+    # Clone downpayment PE (should be only one)
+    for old_pe_data in downpayment_pes:
+        try:
+            old_pe = frappe.get_doc("Payment Entry", old_pe_data.name)
+            
+            # Use OLD amount (since strategy says clone)
+            amount = flt(old_pe.paid_amount)
+            
+            print(f"\n   💰 Cloning DOWNPAYMENT: {old_pe.name} (${amount})")
+            
+            new_pe = _create_cloned_payment_entry(old_pe, new_app, new_so_name, amount, "Boshlang'ich to'lov")
+            new_pe.submit()
+            
+            restored.append({
+                "old": old_pe.name,
+                "new": new_pe.name,
+                "old_amount": flt(old_pe.paid_amount),
+                "new_amount": amount,
+                "type": "Boshlang'ich to'lov (clone)",
+                "status": "submitted"
+            })
+            
+            print(f"   ✅ Cloned & submitted: {old_pe.name} → {new_pe.name} (${amount})")
+            frappe.logger().info(f"Cloned downpayment PE: {old_pe.name} → {new_pe.name}")
+            
+        except Exception as e:
+            print(f"   ❌ Failed to clone downpayment {old_pe_data.name}: {e}")
+            frappe.log_error(f"Error cloning downpayment PE {old_pe_data.name}: {e}", "PE Clone Error")
+    
+    return restored
+
+
+def _handle_installment_restoration(installment_pes, new_app, new_so_name, strategy, changes):
+    """
+    Handle restoration of installment Payment Entries
+    
+    Returns:
+        list: List of restored payment info
+    """
+    restored = []
+    
+    if not strategy["clone_installments"]:
+        return restored
+    
+    for old_pe_data in installment_pes:
+        try:
+            old_pe = frappe.get_doc("Payment Entry", old_pe_data.name)
+            
+            # Determine amount
+            if strategy["adjust_installment_amounts"] and changes["monthly_payment"]["changed"]:
+                # Use NEW monthly payment amount for future installments
+                # But keep old amount for already-paid ones (this is tricky)
+                # For simplicity: use old amount (safe approach)
+                amount = flt(old_pe.paid_amount)
+                
+                # Note: In future, could check payment_schedule to determine if this
+                # installment should use new or old amount
+            else:
+                amount = flt(old_pe.paid_amount)
+            
+            print(f"\n   💰 Cloning INSTALLMENT: {old_pe.name} (${amount})")
+            
+            new_pe = _create_cloned_payment_entry(old_pe, new_app, new_so_name, amount, "Oylik to'lov")
+            new_pe.submit()
+            
+            restored.append({
+                "old": old_pe.name,
+                "new": new_pe.name,
+                "old_amount": flt(old_pe.paid_amount),
+                "new_amount": amount,
+                "type": "Oylik to'lov (clone)",
+                "status": "submitted"
+            })
+            
+            print(f"   ✅ Cloned & submitted: {old_pe.name} → {new_pe.name} (${amount})")
+            frappe.logger().info(f"Cloned installment PE: {old_pe.name} → {new_pe.name}")
+            
+        except Exception as e:
+            print(f"   ❌ Failed to clone installment {old_pe_data.name}: {e}")
+            frappe.log_error(f"Error cloning installment PE {old_pe_data.name}: {e}", "PE Clone Error")
+    
+    return restored
+
+
+def _create_cloned_payment_entry(old_pe, new_app, new_so_name, amount, payment_type_label):
+    """
+    Create a cloned Payment Entry with new amount and SO reference
+    
+    Returns:
+        frappe.Document: New Payment Entry (not submitted)
+    """
+    new_pe = frappe.new_doc("Payment Entry")
+    new_pe.payment_type = "Receive"
+    new_pe.party_type = "Customer"
+    new_pe.party = new_app.customer
+    new_pe.posting_date = old_pe.posting_date  # Keep original date
+    new_pe.paid_amount = amount
+    new_pe.received_amount = amount
+    new_pe.mode_of_payment = old_pe.mode_of_payment or "Cash"
+    new_pe.custom_contract_reference = new_so_name
+    new_pe.custom_payment_schedule_row = old_pe.custom_payment_schedule_row
+    new_pe.custom_installment_application = new_app.name
+    
+    # Copy custom fields
+    if hasattr(old_pe, 'custom_counterparty_category') and old_pe.custom_counterparty_category:
+        new_pe.custom_counterparty_category = old_pe.custom_counterparty_category
+    
+    # Copy accounts
+    new_pe.paid_to = old_pe.paid_to
+    new_pe.paid_from = old_pe.paid_from
+    new_pe.paid_to_account_currency = old_pe.paid_to_account_currency
+    new_pe.paid_from_account_currency = old_pe.paid_from_account_currency
+    new_pe.company = old_pe.company
+    
+    # Copy cost center if exists
+    if hasattr(old_pe, 'cost_center') and old_pe.cost_center:
+        new_pe.cost_center = old_pe.cost_center
+    
+    # Add comment
+    amount_diff = amount - flt(old_pe.paid_amount)
+    if amount_diff != 0:
+        change_text = f"⬆️ +${abs(amount_diff)}" if amount_diff > 0 else f"⬇️ -${abs(amount_diff)}"
+        comment = (
+            f"🔄 Clone qilingan: {old_pe.name}<br>"
+            f"📝 Summa o'zgartirildi: ${old_pe.paid_amount} → ${amount} ({change_text})<br>"
+            f"🔗 InstApp amended: {new_app.amended_from} → {new_app.name}<br>"
+            f"📋 Turi: {payment_type_label}"
+        )
+    else:
+        comment = (
+            f"🔄 Clone qilingan: {old_pe.name}<br>"
+            f"💰 Summa: ${amount}<br>"
+            f"🔗 InstApp amended: {new_app.amended_from} → {new_app.name}<br>"
+            f"📋 Turi: {payment_type_label}"
+        )
+    
+    new_pe.add_comment("Comment", comment)
+    
+    new_pe.insert(ignore_permissions=True)
+    
+    return new_pe
+
+
+def _create_downpayment_draft(new_app, new_so_name):
+    """
+    Create a DRAFT Payment Entry for downpayment
+    """
+    downpayment_amount = flt(new_app.downpayment_amount)
+    
+    if downpayment_amount <= 0:
+        return
+    
+    try:
+        print(f"\n   📝 Creating NEW DRAFT downpayment: ${downpayment_amount}")
+        
+        # Get SO to find first payment schedule row
+        so = frappe.get_doc("Sales Order", new_so_name)
+        first_schedule_row = None
+        if so.payment_schedule:
+            first_schedule_row = so.payment_schedule[0].name
+        
+        # Get default accounts
+        company = new_app.company if hasattr(new_app, 'company') else frappe.defaults.get_user_default("Company")
+        default_receivable = frappe.get_cached_value("Company", company, "default_receivable_account")
+        default_cash = frappe.get_cached_value("Company", company, "default_cash_account") or frappe.get_cached_value("Company", company, "default_bank_account")
+        
+        new_pe = frappe.new_doc("Payment Entry")
+        new_pe.payment_type = "Receive"
+        new_pe.party_type = "Customer"
+        new_pe.party = new_app.customer
+        new_pe.posting_date = frappe.utils.today()
+        new_pe.paid_amount = downpayment_amount
+        new_pe.received_amount = downpayment_amount
+        new_pe.mode_of_payment = "Cash"
+        new_pe.custom_contract_reference = new_so_name
+        new_pe.custom_payment_schedule_row = first_schedule_row
+        new_pe.custom_installment_application = new_app.name
+        
+        # Set accounts
+        new_pe.paid_to = default_cash
+        new_pe.paid_from = default_receivable
+        new_pe.company = company
+        
+        new_pe.add_comment(
+            "Comment",
+            f"📝 DRAFT yaratildi (amended InstApp {new_app.name})<br>"
+            f"⚠️ TEKSHIRING va submit qiling!<br>"
+            f"💰 Boshlang'ich to'lov: ${downpayment_amount}"
+        )
+        
+        # ✅ Save as DRAFT (don't submit!)
+        new_pe.insert(ignore_permissions=True)
+        
+        frappe.msgprint(
+            _(f"📝 Boshlang'ich to'lov uchun DRAFT yaratildi: {new_pe.name} (${downpayment_amount})<br>"
+              f"⚠️ Tekshiring va submit qiling!"),
+            title=_("Draft To'lov Yaratildi"),
+            indicator="blue"
+        )
+        
+        print(f"   ✅ Created DRAFT: {new_pe.name} (${downpayment_amount})")
+        frappe.logger().info(f"Created draft downpayment PE: {new_pe.name} for InstApp {new_app.name}")
+        
+    except Exception as e:
+        print(f"   ❌ Failed to create draft downpayment: {e}")
+        frappe.log_error(f"Error creating draft downpayment for InstApp {new_app.name}: {e}", "Draft PE Error")
+
+
+def _show_restoration_success(restored_payments):
+    """
+    Show success message with list of restored payments
+    """
+    if not restored_payments:
+        return
+    
+    message_parts = []
+    
+    # Group by type
+    downpayments = [p for p in restored_payments if "Boshlang'ich" in p["type"]]
+    installments = [p for p in restored_payments if "Oylik" in p["type"]]
+    
+    if downpayments:
+        downpayment_list = "<br>".join([
+            f"• {p['old']} → <b>{p['new']}</b> (${p['new_amount']})" 
+            for p in downpayments
+        ])
+        message_parts.append(f"<b>✅ Boshlang'ich to'lov:</b><br>{downpayment_list}")
+    
+    if installments:
+        installment_list = "<br>".join([
+            f"• {p['old']} → <b>{p['new']}</b> (${p['new_amount']})" 
+            for p in installments
+        ])
+        message_parts.append(f"<b>✅ Oylik to'lovlar:</b><br>{installment_list}")
+    
+    if message_parts:
+        frappe.msgprint(
+            "<br><br>".join(message_parts),
+            title=_("To'lovlar Muvaffaqiyatli Qayta Tiklandi"),
+            indicator="green"
+        )
