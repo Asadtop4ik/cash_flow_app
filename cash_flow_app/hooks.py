@@ -157,7 +157,8 @@ fixtures = [
         "Sales Order",
         "Supplier"
     ]]]},
-    {"dt": "Cash Register"},  # Add Cash Register fixtures
+    # ❌ REMOVED: Cash Register fixtures - users will create their own cash registers
+    # {"dt": "Cash Register"},
     {"dt": "Property Setter", "filters": [["doc_type", "in", [
         "Customer",
         "Delivery Note",
@@ -189,8 +190,9 @@ fixtures = [
         "Supplier",
         "Supplier Quotation"
     ]]]},
-    {"dt": "Counterparty Category"},  # Export all categories for deployment
-    {"dt": "Mode of Payment", "filters": [["name", "in", ["Naqd", "Terminal/Click"]]]},
+    # ❌ REMOVED: Counterparty Category fixtures - users will create their own categories
+    # {"dt": "Counterparty Category"},
+    {"dt": "Mode of Payment", "filters": [["name", "in", ["Naqd", "Terminal/Click"]]]},  # Keep Mode of Payment - same everywhere
 ]
 # after_install = "cash_flow_app.install.after_install"
 

@@ -13,18 +13,7 @@ frappe.ui.form.on('Payment Entry', {
             };
         });
         
-        // Filter custom_supplier_contract - faqat tanlangan supplierga tegishli
-        frm.set_query('custom_supplier_contract', function() {
-            if (frm.doc.party && frm.doc.party_type === 'Supplier') {
-                return {
-                    query: 'cash_flow_app.cash_flow_management.api.payment_entry_api.get_supplier_contracts_query',
-                    filters: {
-                        'supplier': frm.doc.party
-                    }
-                };
-            }
-            return {};
-        });
+        // ❌ REMOVED: custom_supplier_contract filter - not needed
         
         // Filter custom_cashier - faqat active cash registers
         frm.set_query('custom_cashier', function() {
@@ -37,15 +26,15 @@ frappe.ui.form.on('Payment Entry', {
     },
     
     onload: function(frm) {
-        // Set default mode of payment to Naqd
+        // Set default mode of payment to Naqd (safe - fixture ensures it exists)
         if (frm.is_new() && !frm.doc.mode_of_payment) {
             frm.set_value('mode_of_payment', 'Naqd');
         }
         
-        // Set default category based on payment type
-        if (frm.is_new() && !frm.doc.custom_counterparty_category) {
-            set_default_category(frm);
-        }
+        // ❌ REMOVED: Don't set default category - causes conflict on server deployment
+        // if (frm.is_new() && !frm.doc.custom_counterparty_category) {
+        //     set_default_category(frm);
+        // }
         
         // Auto-fill contract reference when form loads (for Draft payments created by Installment Application)
         if (frm.doc.party && !frm.doc.custom_contract_reference) {
@@ -129,10 +118,10 @@ frappe.ui.form.on('Payment Entry', {
         frm.set_value('custom_counterparty_category', '');
         setup_category_filter(frm);
         
-        // Set default category based on new payment type
-        if (frm.is_new()) {
-            set_default_category(frm);
-        }
+        // ❌ REMOVED: Don't set default category - causes conflict on server deployment
+        // if (frm.is_new()) {
+        //     set_default_category(frm);
+        // }
 
         // Setup contract filters
         setup_contract_filters(frm);
@@ -419,32 +408,8 @@ function setup_category_filter(frm) {
     }
 }
 
-// Set default category based on payment type
-function set_default_category(frm) {
-    if (!frm.doc.payment_type) {
-        return;
-    }
-    
-    let default_category = null;
-    
-    if (frm.doc.payment_type === 'Receive') {
-        // Kirim uchun default - "Klient"
-        default_category = 'Klient';
-    } else if (frm.doc.payment_type === 'Pay') {
-        // Chiqim uchun default - "Xarajat"
-        default_category = 'Xarajat';
-    }
-    
-    if (default_category) {
-        // Check if category exists before setting
-        frappe.db.exists('Counterparty Category', default_category)
-            .then(exists => {
-                if (exists) {
-                    frm.set_value('custom_counterparty_category', default_category);
-                }
-            });
-    }
-}
+// ❌ REMOVED: set_default_category() function - causes conflict on server deployment
+// Users will manually select category based on their setup
 
 // Lock fields for auto-created payments (from Installment Application)
 function lock_auto_created_payment_fields(frm) {
