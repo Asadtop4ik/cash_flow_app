@@ -13,8 +13,6 @@ frappe.ui.form.on('Payment Entry', {
             };
         });
         
-        // ❌ REMOVED: custom_supplier_contract filter - not needed
-        
         // Filter custom_cashier - faqat active cash registers
         frm.set_query('custom_cashier', function() {
             return {
