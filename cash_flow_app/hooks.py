@@ -192,7 +192,8 @@ fixtures = [
     ]]]},
     # ❌ REMOVED: Counterparty Category fixtures - users will create their own categories
     # {"dt": "Counterparty Category"},
-    {"dt": "Mode of Payment", "filters": [["name", "in", ["Naqd", "Terminal/Click"]]]},  # Keep Mode of Payment - same everywhere
+    # ❌ REMOVED: Mode of Payment fixtures - company-specific accounts cause issues
+    # {"dt": "Mode of Payment", "filters": [["name", "in", ["Naqd", "Terminal/Click"]]]},
 ]
 # after_install = "cash_flow_app.install.after_install"
 
