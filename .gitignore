@@ -5,3 +5,11 @@
 tags
 node_modules
 __pycache__
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Docker volumes
+sites/

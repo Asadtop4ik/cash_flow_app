@@ -1,0 +1,291 @@
+# ============================================
+# FRAPPE APP AUTO-DEPLOYMENT WORKFLOW
+# ============================================
+# Bu fayl TEMPLATE - har bir projectga nusxa ko'chiring!
+#
+# USAGE:
+# 1. Bu faylni nusxa ko'chiring: akfa_accounting/.github/workflows/deploy.yml
+# 2. GitHub Settings → Secrets → Actions da quyidagilarni qo'shing:
+#    - SERVER_IP
+#    - SSH_PRIVATE_KEY
+#    - SITE_NAME
+#    - DB_PASSWORD
+#    - ADMIN_PASSWORD
+#    - APPS_TO_INSTALL (ixtiyoriy)
+# 3. main branch ga push qiling - avtomatik deploy bo'ladi!
+#
+# ============================================
+
+name: Deploy to Production
+
+# Qachon ishga tushadi
+on:
+  push:
+    branches:
+      - main              # main branch ga push bo'lganda
+  workflow_dispatch:      # Manual trigger ham mumkin
+
+# Environment variables (GitHub Secrets dan olinadi)
+env:
+  FRAPPE_VERSION: "version-15"
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "18"
+  BENCH_PATH: "/home/frappe/frappe-bench"
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    
+    steps:
+      # ============================================
+      # 1. CODE CHECKOUT
+      # ============================================
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full git history (for versioning)
+
+      # ============================================
+      # 2. SETUP SSH
+      # ============================================
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+
+      # ============================================
+      # 3. VALIDATE SECRETS
+      # ============================================
+      - name: Validate Configuration
+        run: |
+          if [ -z "${{ secrets.SERVER_IP }}" ]; then
+            echo "❌ ERROR: SERVER_IP secret not set!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.SITE_NAME }}" ]; then
+            echo "❌ ERROR: SITE_NAME secret not set!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "❌ ERROR: SSH_PRIVATE_KEY secret not set!"
+            exit 1
+          fi
+          echo "✅ All required secrets are configured"
+
+      # ============================================
+      # 4. CREATE .env FILE FROM SECRETS
+      # ============================================
+      - name: Generate .env from Secrets
+        run: |
+          cat > .env << EOF
+          # ============================================
+          # AUTO-GENERATED FROM GITHUB SECRETS
+          # Generated: $(date)
+          # ============================================
+          
+          # SERVER CONFIGURATION
+          SERVER_IP="${{ secrets.SERVER_IP }}"
+          SERVER_USER="root"
+          
+          # FRAPPE CONFIGURATION
+          FRAPPE_USER="frappe"
+          SITE_NAME="${{ secrets.SITE_NAME }}"
+          FRAPPE_VERSION="${{ env.FRAPPE_VERSION }}"
+          
+          # DATABASE CONFIGURATION
+          MARIADB_ROOT_PASSWORD="${{ secrets.DB_PASSWORD }}"
+          ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD }}"
+          
+          # APPS CONFIGURATION
+          # Auto-detect from repository
+          APPS_TO_INSTALL="${{ secrets.APPS_TO_INSTALL || 'frappe,erpnext' }}"
+          CUSTOM_APP_REPO="${{ github.server_url }}/${{ github.repository }}.git"
+          CUSTOM_APP_BRANCH="${{ github.ref_name }}"
+          
+          # BACKUP CONFIGURATION
+          RESTORE_BACKUP="false"
+          
+          # PRODUCTION SETTINGS
+          DEVELOPER_MODE="false"
+          ENABLE_SCHEDULER="true"
+          SETUP_SSL="${{ secrets.SETUP_SSL || 'false' }}"
+          SSL_DOMAIN="${{ secrets.SSL_DOMAIN || '' }}"
+          SSL_EMAIL="${{ secrets.SSL_EMAIL || '' }}"
+          
+          # ADVANCED SETTINGS
+          BENCH_PATH="${{ env.BENCH_PATH }}"
+          PYTHON_VERSION="${{ env.PYTHON_VERSION }}"
+          NODE_VERSION="${{ env.NODE_VERSION }}"
+          EOF
+          
+          echo "✅ .env file generated successfully"
+
+      # ============================================
+      # 5. CHECK IF DEPLOYMENT EXISTS
+      # ============================================
+      - name: Check Deployment Status
+        id: check_deploy
+        run: |
+          # Serverda frappe-bench bormi tekshirish
+          if ssh root@${{ secrets.SERVER_IP }} "[ -d ${{ env.BENCH_PATH }} ]"; then
+            echo "deployment_exists=true" >> $GITHUB_OUTPUT
+            echo "📦 Existing deployment found - will update"
+          else
+            echo "deployment_exists=false" >> $GITHUB_OUTPUT
+            echo "🆕 No deployment found - will do fresh install"
+          fi
+
+      # ============================================
+      # 6A. FRESH DEPLOYMENT (First time)
+      # ============================================
+      - name: Fresh Deployment
+        if: steps.check_deploy.outputs.deployment_exists == 'false'
+        run: |
+          echo "🚀 Starting fresh deployment..."
+          
+          # Upload deployment scripts to server
+          scp -r deploy/ backups/ .env root@${{ secrets.SERVER_IP }}:/root/frappe_deployment/
+          
+          # Run deployment script
+          ssh root@${{ secrets.SERVER_IP }} << 'ENDSSH'
+            cd /root/frappe_deployment
+            chmod +x deploy/deploy.sh
+            ./deploy/deploy.sh
+          ENDSSH
+          
+          echo "✅ Fresh deployment completed!"
+
+      # ============================================
+      # 6B. UPDATE EXISTING DEPLOYMENT
+      # ============================================
+      - name: Update Existing Deployment
+        if: steps.check_deploy.outputs.deployment_exists == 'true'
+        run: |
+          echo "🔄 Updating existing deployment..."
+          
+          # Extract app name from repository
+          APP_NAME=$(basename ${{ github.repository }})
+          
+          ssh root@${{ secrets.SERVER_IP }} << ENDSSH
+            # Switch to frappe user
+            su - frappe << 'EOF'
+          set -e
+          cd ${{ env.BENCH_PATH }}
+          
+          # Enable maintenance mode
+          echo "🔧 Enabling maintenance mode..."
+          bench --site ${{ secrets.SITE_NAME }} set-maintenance-mode on
+          
+          # Pull latest code
+          echo "📥 Pulling latest code for ${APP_NAME}..."
+          cd apps/${APP_NAME}
+          git fetch origin
+          git reset --hard origin/${{ github.ref_name }}
+          cd ${{ env.BENCH_PATH }}
+          
+          # Install dependencies
+          echo "📦 Installing dependencies..."
+          bench setup requirements
+          
+          # Run migrations
+          echo "🗄️  Running database migrations..."
+          bench --site ${{ secrets.SITE_NAME }} migrate
+          
+          # Build assets
+          echo "🎨 Building frontend assets..."
+          bench build --app ${APP_NAME}
+          
+          # Clear cache
+          echo "🧹 Clearing cache..."
+          bench --site ${{ secrets.SITE_NAME }} clear-cache
+          bench --site ${{ secrets.SITE_NAME }} clear-website-cache
+          
+          # Disable maintenance mode
+          echo "✅ Disabling maintenance mode..."
+          bench --site ${{ secrets.SITE_NAME }} set-maintenance-mode off
+          
+          echo "✅ Update completed successfully!"
+          EOF
+          
+          # Restart services (as root)
+          echo "🔄 Restarting services..."
+          supervisorctl restart all
+          systemctl reload nginx
+          
+          ENDSSH
+          
+          echo "✅ Deployment updated!"
+
+      # ============================================
+      # 7. HEALTH CHECK
+      # ============================================
+      - name: Health Check
+        run: |
+          echo "🏥 Running health check..."
+          
+          # Wait for services to start
+          sleep 10
+          
+          # Check if site is accessible
+          SITE_URL="http://${{ secrets.SERVER_IP }}"
+          
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" $SITE_URL || echo "000")
+          
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
+            echo "✅ Site is accessible! (HTTP $HTTP_CODE)"
+          else
+            echo "⚠️ Warning: Site returned HTTP $HTTP_CODE"
+            echo "This might be normal if SSL redirect is configured"
+          fi
+          
+          # Check via SSH
+          ssh root@${{ secrets.SERVER_IP }} << 'ENDSSH'
+            echo "📊 Service Status:"
+            supervisorctl status | head -5
+            
+            echo ""
+            echo "💾 Disk Usage:"
+            df -h / | tail -1
+            
+            echo ""
+            echo "🧠 Memory Usage:"
+            free -h | grep Mem
+          ENDSSH
+
+      # ============================================
+      # 8. SEND NOTIFICATION (Optional)
+      # ============================================
+      - name: Send Success Notification
+        if: success()
+        run: |
+          echo "✅ Deployment successful!"
+          echo ""
+          echo "🌐 Site: http://${{ secrets.SERVER_IP }}"
+          echo "📦 App: ${{ github.repository }}"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Author: ${{ github.actor }}"
+          
+          # Agar webhook URL bo'lsa, notification yuborish
+          # curl -X POST ${{ secrets.WEBHOOK_URL }} -d "Deployment successful!"
+
+      - name: Send Failure Notification
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Check logs above for details"
+          
+          # Agar webhook URL bo'lsa, error yuborish
+          # curl -X POST ${{ secrets.WEBHOOK_URL }} -d "Deployment failed!"
+
+# ============================================
+# SECURITY NOTES
+# ============================================
+# 1. HECH QACHON parollarni code da yozmang!
+# 2. Barcha sensitive data GitHub Secrets da
+# 3. SSH key ni hech qachon commit qilmang!
+# 4. .env faylni .gitignore ga qo'shing
+# ============================================
