@@ -168,27 +168,38 @@ jobs:
           
           # Extract app name from repository
           APP_NAME=$(basename ${{ github.repository }})
+          echo "📦 App name: ${APP_NAME}"
           
           ssh root@${{ secrets.SERVER_IP }} << ENDSSH
-            # Switch to frappe user
-            su - frappe << 'EOF'
+            # Switch to frappe user for bench operations
+            su - frappe << 'FRAPPE_EOF'
           set -e
           cd ${{ env.BENCH_PATH }}
           
           # Enable maintenance mode
           echo "🔧 Enabling maintenance mode..."
-          bench --site ${{ secrets.SITE_NAME }} set-maintenance-mode on
+          bench --site ${{ secrets.SITE_NAME }} set-maintenance-mode on || true
           
-          # Pull latest code
+          # Pull latest code - Auto-detect remote name
           echo "📥 Pulling latest code for ${APP_NAME}..."
           cd apps/${APP_NAME}
-          git fetch origin
-          git reset --hard origin/${{ github.ref_name }}
+          
+          # Detect remote name (origin or upstream)
+          REMOTE_NAME=\$(git remote | head -1)
+          echo "🔗 Using remote: \${REMOTE_NAME}"
+          
+          # Pull latest changes
+          git fetch \${REMOTE_NAME}
+          git reset --hard \${REMOTE_NAME}/${{ github.ref_name }}
+          
+          echo "✅ Code updated to latest commit:"
+          git log -1 --oneline
+          
           cd ${{ env.BENCH_PATH }}
           
           # Install dependencies
-          echo "📦 Installing dependencies..."
-          bench setup requirements
+          echo "📦 Installing Python dependencies..."
+          bench setup requirements || true
           
           # Run migrations
           echo "🗄️  Running database migrations..."
@@ -207,17 +218,16 @@ jobs:
           echo "✅ Disabling maintenance mode..."
           bench --site ${{ secrets.SITE_NAME }} set-maintenance-mode off
           
-          echo "✅ Update completed successfully!"
-          EOF
+          echo "✅ Frappe user tasks completed!"
+          FRAPPE_EOF
           
           # Restart services (as root)
           echo "🔄 Restarting services..."
           supervisorctl restart all
-          systemctl reload nginx
+          systemctl reload nginx || true
           
+          echo "✅ Deployment updated successfully!"
           ENDSSH
-          
-          echo "✅ Deployment updated!"
 
       # ============================================
       # 7. HEALTH CHECK
