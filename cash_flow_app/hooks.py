@@ -158,11 +158,16 @@ fixtures = [
         "Supplier"
     ]]]},
     {"dt": "Role", "filters": [["role_name", "in", ["Operator"]]]},
+    
+    # 🔥 BU QATORNI TO'G'RILANG - Operator role uchun BARCHA permissions
     {"dt": "DocPerm", "filters": [["role", "=", "Operator"]]},
+    
+    # ✅ WORKSPACE VA PAGE UCHUN HAM PERMISSIONS KERAK
+    # Bu yuqoridagi qatorda allaqachon bor, lekin check qiling:
+    # Workspace va Page DocType uchun Operator permissions export bo'lishi kerak
+    
     {"dt": "Workspace", "filters": [["title", "in", ["Operator Paneli"]]]},
-
-    # ❌ REMOVED: Cash Register fixtures - users will create their own cash registers
-    # {"dt": "Cash Register"},
+    
     {"dt": "Property Setter", "filters": [["doc_type", "in", [
         "Customer",
         "Delivery Note",
@@ -194,10 +199,6 @@ fixtures = [
         "Supplier",
         "Supplier Quotation"
     ]]]},
-    # ❌ REMOVED: Counterparty Category fixtures - users will create their own categories
-    # {"dt": "Counterparty Category"},
-    # ❌ REMOVED: Mode of Payment fixtures - company-specific accounts cause issues
-    # {"dt": "Mode of Payment", "filters": [["name", "in", ["Naqd", "Terminal/Click"]]]},
 ]
 # after_install = "cash_flow_app.install.after_install"
 
