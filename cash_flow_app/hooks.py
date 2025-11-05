@@ -157,6 +157,10 @@ fixtures = [
         "Sales Order",
         "Supplier"
     ]]]},
+    {"dt": "Role", "filters": [["role_name", "in", ["Operator"]]]},
+    {"dt": "DocPerm", "filters": [["role", "=", "Operator"]]},
+    {"dt": "Workspace", "filters": [["title", "in", ["Operator Paneli"]]]},
+
     # ❌ REMOVED: Cash Register fixtures - users will create their own cash registers
     # {"dt": "Cash Register"},
     {"dt": "Property Setter", "filters": [["doc_type", "in", [
