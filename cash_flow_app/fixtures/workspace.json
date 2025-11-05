@@ -12,8 +12,8 @@
   "is_hidden": 0,
   "label": "Operator Paneli",
   "links": [],
-  "modified": "2025-11-05 16:46:13.348713",
-  "module": "Cash Flow Management",
+  "modified": "2025-11-05 19:07:44.580966",
+  "module": null,
   "name": "Operator Paneli",
   "number_cards": [],
   "parent_page": "",
@@ -25,13 +25,13 @@
     "parent": "Operator Paneli",
     "parentfield": "roles",
     "parenttype": "Workspace",
-    "role": "Operator"
+    "role": "Administrator"
    },
    {
     "parent": "Operator Paneli",
     "parentfield": "roles",
     "parenttype": "Workspace",
-    "role": "Administrator"
+    "role": "Operator"
    }
   ],
   "sequence_id": 1.0,
