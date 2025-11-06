@@ -26,13 +26,25 @@ def before_save_item(doc, method=None):
     if not doc.item_name and doc.item_code:
         doc.item_name = doc.item_code
     
-    # Set item_group if empty
+    # Set item_group if empty - try to find existing or use default
     if not doc.item_group:
-        doc.item_group = "Products"
+        # Try Uzbek first, then English
+        if frappe.db.exists("Item Group", "Mahsulotlar"):
+            doc.item_group = "Mahsulotlar"
+        elif frappe.db.exists("Item Group", "Products"):
+            doc.item_group = "Products"
+        else:
+            doc.item_group = "All Item Groups"  # Fallback to default Frappe item group
     
-    # Set stock_uom if empty
+    # Set stock_uom if empty - try to find existing or use default
     if not doc.stock_uom:
-        doc.stock_uom = "Unit"
+        # Try Uzbek first, then English
+        if frappe.db.exists("UOM", "Dona"):
+            doc.stock_uom = "Dona"
+        elif frappe.db.exists("UOM", "Unit"):
+            doc.stock_uom = "Unit"
+        else:
+            doc.stock_uom = "Nos"  # Fallback to default Frappe UOM
 
 def validate_item(doc, method=None):
     """
@@ -50,10 +62,20 @@ def validate_item(doc, method=None):
             # Last resort - throw error
             frappe.throw(_("Mahsulot nomi (custom_product_name) kiriting!"))
     
-    # Ensure item_group
+    # Ensure item_group - try to find existing or use default
     if not doc.item_group:
-        doc.item_group = "Products"
+        if frappe.db.exists("Item Group", "Mahsulotlar"):
+            doc.item_group = "Mahsulotlar"
+        elif frappe.db.exists("Item Group", "Products"):
+            doc.item_group = "Products"
+        else:
+            doc.item_group = "All Item Groups"
     
-    # Ensure stock_uom
+    # Ensure stock_uom - try to find existing or use default
     if not doc.stock_uom:
-        doc.stock_uom = "Unit"
+        if frappe.db.exists("UOM", "Dona"):
+            doc.stock_uom = "Dona"
+        elif frappe.db.exists("UOM", "Unit"):
+            doc.stock_uom = "Unit"
+        else:
+            doc.stock_uom = "Nos"
