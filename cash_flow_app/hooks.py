@@ -5,6 +5,12 @@ app_description = "USD-only cash and installment management for ERPNext"
 app_email = "asadbek.backend@gmail.com"
 app_license = "mit"
 
+# After migrate hooks - force sync fixtures without migration_hash
+after_migrate = [
+	"cash_flow_app.utils.fixtures.force_sync_custom_fields",
+	"cash_flow_app.utils.fixtures.force_sync_property_setters",
+]
+
 doc_events = {
     "Item": {
         "before_naming": "cash_flow_app.cash_flow_management.overrides.item_autoname.autoname_item",
