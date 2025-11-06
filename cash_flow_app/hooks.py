@@ -144,6 +144,8 @@ doctype_js = {
 # --------
 
 fixtures = [
+    {"dt": "UOM"},  # Export UOM "Dona"
+    {"dt": "Item Group", "filters": [["name", "=", "Mahsulotlar"]]},  # Export Item Group "Mahsulotlar"
     {"dt": "Custom Field", "filters": [["dt", "in", [
         "Address",
         "Contact",
