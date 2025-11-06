@@ -143,65 +143,111 @@ doctype_js = {
 # Fixtures
 # --------
 
+# ============================================
+# FIXTURES - DATABASE CUSTOMIZATIONS EXPORT
+# ============================================
+# Ushbu ro'yxat `bench export-fixtures` komandasi ishga tushganda 
+# qaysi ma'lumotlarni JSON ga export qilishni belgilaydi.
+# Bu fixtures SERVER bilan LOCAL ni sync qilish uchun ishlatiladi.
+
 fixtures = [
-    {"dt": "UOM"},  # Export UOM "Dona"
-    {"dt": "Item Group", "filters": [["name", "=", "Mahsulotlar"]]},  # Export Item Group "Mahsulotlar"
-    {"dt": "Custom Field", "filters": [["dt", "in", [
-        "Address",
-        "Contact",
-        "Customer",
-        "Installment Application",
-        "Installment Application Item",
-        "Item",
-        "Payment Entry",
-        "Payment Schedule",
-        "Print Settings",
-        "Sales Order",
-        "Supplier"
-    ]]]},
-    {"dt": "Role", "filters": [["role_name", "in", ["Operator"]]]},
+    # ============================================
+    # 1. ROLES - Operator role va permissions
+    # ============================================
+    {
+        "dt": "Role",
+        "filters": [["name", "in", ["Operator"]]]
+    },
     
-    # 🔥 BU QATORNI TO'G'RILANG - Operator role uchun BARCHA permissions
-    {"dt": "DocPerm", "filters": [["role", "=", "Operator"]]},
+    {
+        "dt": "DocPerm",
+        "filters": [["role", "=", "Operator"]]
+    },
     
-    # ✅ WORKSPACE VA PAGE UCHUN HAM PERMISSIONS KERAK
-    # Bu yuqoridagi qatorda allaqachon bor, lekin check qiling:
-    # Workspace va Page DocType uchun Operator permissions export bo'lishi kerak
+    # ============================================
+    # 2. CUSTOM FIELDS - Module filterlari bilan
+    # ============================================
+    # Audit natijasi: Hozirda 0 ta Custom Field (module="Cash Flow Management")
+    # Lekin Property Setter lar ko'p, demak custom field lar bor lekin module ko'rsatilmagan
+    # Shuning uchun DocType filter ishlatamiz
+    {
+        "dt": "Custom Field",
+        "filters": [["dt", "in", [
+            "Address",
+            "Contact", 
+            "Customer",
+            "Installment Application",
+            "Installment Application Item",
+            "Item",
+            "Payment Entry",
+            "Payment Schedule",
+            "Print Settings",
+            "Sales Order",
+            "Supplier"
+        ]]]
+    },
     
-    {"dt": "Workspace", "filters": [["title", "in", ["Operator Paneli"]]]},
+    # ============================================
+    # 3. PROPERTY SETTERS - Field customizations
+    # ============================================
+    # Audit: 134 ta Property Setter topildi
+    # Customer: 24, Item: 42, Payment Entry: 20, Supplier: 34, etc.
+    {
+        "dt": "Property Setter",
+        "filters": [["doc_type", "in", [
+            # Audit: Customer (24), Item (42), Payment Entry (20), Supplier (34)
+            # Sales Order (11), Installment Application (3)
+            "Customer",
+            "Installment Application",
+            "Item",
+            "Payment Entry",
+            "Sales Order",
+            "Supplier"
+        ]]]
+    },
     
-    {"dt": "Property Setter", "filters": [["doc_type", "in", [
-        "Customer",
-        "Delivery Note",
-        "Delivery Note Item",
-        "Installment Application",
-        "Installment Application Item",
-        "Item",
-        "Item Barcode",
-        "Job Card",
-        "Material Request",
-        "Packed Item",
-        "Payment Entry",
-        "Pick List",
-        "POS Invoice",
-        "POS Invoice Item",
-        "Purchase Invoice",
-        "Purchase Invoice Item",
-        "Purchase Order",
-        "Purchase Receipt",
-        "Purchase Receipt Item",
-        "Quotation",
-        "Sales Invoice",
-        "Sales Invoice Item",
-        "Sales Order",
-        "Stock Entry",
-        "Stock Entry Detail",
-        "Stock Reconciliation",
-        "Stock Reconciliation Item",
-        "Supplier",
-        "Supplier Quotation"
-    ]]]},
+    # ============================================
+    # 4. UOM (Unit of Measure)
+    # ============================================
+    # Audit: 240 ta UOM bor, faqat "Dona" ni export qilamiz
+    {
+        "dt": "UOM",
+        "filters": [["name", "in", ["Dona"]]]
+    },
+    
+    # ============================================
+    # 5. ITEM GROUP
+    # ============================================
+    # Audit: "Mahsulotlar" custom group topildi
+    {
+        "dt": "Item Group",
+        "filters": [["name", "=", "Mahsulotlar"]]
+    },
+    
+    # ============================================
+    # 6. WORKSPACE (Agar yaratilgan bo'lsa)
+    # ============================================
+    # Audit: Hozirda 0 ta custom workspace
+    # Lekin kelajakda "Operator Paneli" yaratilsa, export qilinadi
+    # {
+    #     "dt": "Workspace",
+    #     "filters": [["module", "=", "Cash Flow Management"]]
+    # },
 ]
+
+# ============================================
+# FIXTURES EXPORT QANDAY ISHLAYDI?
+# ============================================
+# FIXTURES EXPORT QANDAY ISHLAYDI?
+# ============================================
+# 1. UI da o'zgartirish qiling (Custom Field, Property, etc.)
+# 2. Terminal: bench --site asadstack.com export-fixtures
+# 3. Yuqoridagi filters asosida JSON fayllar yaratiladi/yangilanadi
+# 4. Git commit + push → Server ga yuboriladi
+# 5. Server: bench migrate → JSON fayllar database ga import qilinadi
+# 6. ✅ LOCAL va SERVER sync bo'ldi!
+# ============================================
+
 # after_install = "cash_flow_app.install.after_install"
 
 # Uninstallation
