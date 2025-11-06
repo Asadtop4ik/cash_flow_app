@@ -165,26 +165,19 @@ fixtures = [
     },
     
     # ============================================
-    # 2. CUSTOM FIELDS - Module filterlari bilan
+    # 2. CUSTOM FIELDS - Module filter (OPTIMAL!)
     # ============================================
-    # Audit natijasi: Hozirda 0 ta Custom Field (module="Cash Flow Management")
-    # Lekin Property Setter lar ko'p, demak custom field lar bor lekin module ko'rsatilmagan
-    # Shuning uchun DocType filter ishlatamiz
+    # SABAB: DocType filter ishlatish boshqa module larni ham export qiladi.
+    # Masalan: Customer DocType da ERPNext module custom field lari ham bor.
+    # Module filter ishlatib, FAQAT bizning app ga tegishli field larni olamiz.
+    # 
+    # QANDAY ISHLAYDI:
+    # - Siz UI da Custom Field yaratganingizda module = "Cash Flow Management" qo'yasiz
+    # - Base DocType (Customer, Payment Entry, etc.) ga qo'shishingizdan qat'iy nazar
+    # - Barcha "Cash Flow Management" module field lari export bo'ladi
     {
         "dt": "Custom Field",
-        "filters": [["dt", "in", [
-            "Address",
-            "Contact", 
-            "Customer",
-            "Installment Application",
-            "Installment Application Item",
-            "Item",
-            "Payment Entry",
-            "Payment Schedule",
-            "Print Settings",
-            "Sales Order",
-            "Supplier"
-        ]]]
+        "filters": [["module", "=", "Cash Flow Management"]]
     },
     
     # ============================================
