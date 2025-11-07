@@ -1,0 +1,439 @@
+{% set customer_doc = frappe.get_doc("Customer", doc.customer) %}
+{% set installment_app = frappe.db.get_value("Installment Application", {"custom_sales_order": doc.name}, "*", as_dict=True) %}
+{% set installment_items = frappe.get_all("Installment Application Item",
+    filters={"parent": installment_app.name if installment_app else ""},
+    fields=["*"],
+    order_by="idx"
+) if installment_app else [] %}
+
+{# Date formatting helper #}
+{% macro format_date(date_val) %}
+    {% if date_val %}
+        {% if date_val is string %}
+            {{ frappe.utils.formatdate(date_val, "dd.MM.yyyy") }}
+        {% else %}
+            {{ date_val.strftime("%d.%m.%Y") }}
+        {% endif %}
+    {% else %}
+        {{ "" }}
+    {% endif %}
+{% endmacro %}
+
+{% macro format_date_uzbek(date_val) %}
+    {% if date_val %}
+        {% set months_uzbek = {
+            "01": "Yanvar", "02": "Fevral", "03": "Mart", "04": "Aprel",
+            "05": "May", "06": "Iyun", "07": "Iyul", "08": "Avgust",
+            "09": "Sentabr", "10": "Oktabr", "11": "Noyabr", "12": "Dekabr"
+        } %}
+        {% if date_val is string %}
+            {% set parts = date_val.split("-") %}
+            {% if parts|length == 3 %}
+                «{{ parts[2] }}» {{ months_uzbek[parts[1]] }} {{ parts[0] }}
+            {% else %}
+                {{ date_val }}
+            {% endif %}
+        {% else %}
+            «{{ date_val.strftime("%d") }}» {{ months_uzbek[date_val.strftime("%m")] }} {{ date_val.strftime("%Y") }}
+        {% endif %}
+    {% else %}
+        {{ "" }}
+    {% endif %}
+{% endmacro %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 11pt;
+            line-height: 1.4;
+            color: #000;
+        }
+
+        .contract-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .contract-title {
+            font-size: 14pt;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .contract-number {
+            font-size: 12pt;
+            font-weight: bold;
+        }
+
+        .contract-date {
+            margin-top: 10px;
+        }
+
+        .party-info {
+            margin: 20px 0;
+            text-align: justify;
+            line-height: 1.6;
+        }
+
+        .section-title {
+            font-weight: bold;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .items-table th,
+        .items-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .items-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+
+        .items-table td:first-child {
+            text-align: center;
+            width: 40px;
+        }
+
+        .items-table td:nth-child(2) {
+            text-align: left;
+        }
+
+        .summary-table {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .summary-table td {
+            padding: 5px;
+        }
+
+        .summary-table td:first-child {
+            font-weight: bold;
+            width: 250px;
+        }
+
+        .terms-section {
+            margin: 15px 0;
+            text-align: justify;
+        }
+
+        .terms-section p {
+            margin: 8px 0;
+            text-indent: 0;
+        }
+
+        .signature-section {
+            margin-top: 40px;
+            page-break-inside: avoid;
+        }
+
+        .signature-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .signature-table td {
+            width: 50%;
+            vertical-align: top;
+            padding: 10px;
+        }
+
+        .signature-box {
+            margin-top: 60px;
+        }
+
+        .signature-line {
+            border-bottom: 1px solid #000;
+            width: 200px;
+            display: inline-block;
+            margin: 20px 0 5px 0;
+        }
+
+        .payment-schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .payment-schedule-table th,
+        .payment-schedule-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .payment-schedule-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+
+        .page-break {
+            page-break-before: always;
+        }
+
+        .appendix-title {
+            text-align: center;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- SHARTNOMA ASOSIY QISMI -->
+    <div class="contract-header">
+        <div>Махсулот қийматини бўлиб тўлаш шарти билан тузилган</div>
+        <div class="contract-number">№ {{ doc.name }} сонли олди сотди</div>
+        <div class="contract-title">ШАРТНОМА</div>
+        <div class="contract-date">{{ format_date_uzbek(doc.transaction_date) }} йил</div>
+    </div>
+
+    <div class="party-info">
+        MCHJ"TEXNOBARAKA", бундан кейин "Сотувчи" деб номланадиган Устав асосида рахбари Алимбоев Сардор Дилхуш угли ишлайдиган бир томондан, ва фукаро
+        <strong>{{ customer_doc.customer_name|upper }}</strong> манзили: {{ customer_doc.custom_residence_address or customer_doc.custom_passport_address or doc.customer_address }} манзилида яшайдиган,
+        (паспорт серия <strong>{{ customer_doc.custom_passport_series or customer_doc.tax_id or "" }}</strong>
+        {% if customer_doc.custom_birth_date %}туғилган санаси {{ format_date_uzbek(customer_doc.custom_birth_date) }} йил{% endif %}
+        {% if customer_doc.custom_pinfl %}, ЖШШИР: {{ customer_doc.custom_pinfl }}{% endif %}),
+        бундан кейин "Xаридор" деб номланадиган, биргаликда "Tомонлар" деб, ушбу шартнома куйидагилар бўйичa тузилди:
+    </div>
+
+    <div class="section-title">1. Шартнома мазмуни</div>
+    <div class="terms-section">
+        <p>1.1. Шартномага биноан «Сотувчи» жадвалда кўрсатилган махсулотларни (бундан кейин матндa "Tоварлар" деб номланади) «Харидор» га махсулот қийматини бўлиб тўлаш шарти билан сотади.</p>
+    </div>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>№</th>
+                <th>Махсулот номи</th>
+                <th>Улчов бирлиги</th>
+                <th>Микдори</th>
+                <th>Нархи</th>
+                <th>Суммаси</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in doc.items %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ item.item_name }}</td>
+                <td>{{ item.uom }}</td>
+                <td>{{ item.qty }}</td>
+                <td>{{ "{:,.0f}".format(item.rate) }} сўм</td>
+                <td>{{ "{:,.0f}".format(item.amount) }} сўм</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <table class="summary-table">
+        <tr>
+            <td>Товар суммаси</td>
+            <td>{{ "{:,.0f}".format(doc.total) }} сўм</td>
+        </tr>
+        {% if installment_app %}
+        <tr>
+            <td>Ойма-ой тулови</td>
+            <td>{{ "{:,.0f}".format(installment_app.get('monthly_payment', 0)) }} сўм</td>
+        </tr>
+        <tr>
+            <td>Олдиндан тулов суммаси</td>
+            <td>{{ "{:,.0f}".format(doc.advance_paid or 0) }} сўм</td>
+        </tr>
+        <tr>
+            <td>Колдик карз суммаси</td>
+            <td>{{ "{:,.0f}".format((installment_app.get('total_payable', 0) or 0) - (doc.advance_paid or 0)) }} сўм</td>
+        </tr>
+        <tr>
+            <td>Булиб тулаш шартномаси муддати</td>
+            <td>{{ installment_app.get('repayment_period', 0) }} ой</td>
+        </tr>
+        {% endif %}
+    </table>
+
+    <div class="terms-section">
+        <p>1.2. Шартноманинг умумий нархи: {{ "{:,.0f}".format(doc.grand_total) }} сўм.</p>
+        <p>1.3. Товарларга эгалик хукуки ушбу шартнома шартларига мувофик сотувчидан харидорга товар қиймати тўлиқ тўлангандан кейин ўтади.</p>
+    </div>
+
+    <div class="section-title">2. Томонларнинг хукук ва мажбуриятлари</div>
+    <div class="terms-section">
+        <p><strong>2.1. Сотувчининг мажбуриятлари:</strong></p>
+        <p>2.1.1. Шартномада кўзда тутилган сифатли, томонлар келишган миқдордаги ва ассортиментдаги товарларни харидорга мажбуриятни бажарган кундан бошлаб 3 кун ичида етказиб беради.</p>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- IMZOQO'YISH QISMI -->
+    <div class="signature-section">
+        <div class="section-title">9. Toмонларнинг манзиллари ва банк маълумотлари:</div>
+
+        <table class="signature-table">
+            <tr>
+                <td>
+                    <strong>СОТУВЧИ</strong><br>
+                    <strong>MCHJ"TEXNOBARAKA"</strong><br><br>
+                    Манзил: г.Ташкент, Шайхантахурский район, улица Кичик халқа йўли, Тахтапул МСГ дом 61,59,57.<br><br>
+                    Банк: АТБ"Азияальянсбанк" Шайхонтохур филиали<br>
+                    Р/с: 20208000405503710001<br>
+                    МФО: 01095<br>
+                    ИНН: 501239747<br><br>
+                    Алока телефонлари: +99897 625 51 00<br><br>
+                    <strong>SAMSUNG рахбари Алимбоев Сардор Дилхуш угли</strong><br><br>
+                    Имзо: _________________<br>
+                    М.П.
+                </td>
+                <td>
+                    <strong>ХАРИДОР</strong><br>
+                    <strong>{{ customer_doc.customer_name|upper }}</strong><br><br>
+                    Доимий яшаш манзили: {{ customer_doc.custom_residence_address or customer_doc.custom_passport_address or doc.customer_address }}<br><br>
+                    Банк картаси: {{ customer_doc.custom_bank_card or "___________________" }}<br><br>
+                    Паспорт: {{ customer_doc.custom_passport_series or customer_doc.tax_id or "" }}<br>
+                    ЖШШИР: {{ customer_doc.custom_pinfl or "" }}<br><br>
+                    Тел: {{ customer_doc.custom_phone_1 or customer_doc.mobile_no or doc.contact_mobile }}<br><br><br>
+                    <strong>Харидор {{ customer_doc.customer_name|upper }}</strong><br><br>
+                    Имзо: _________________
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- ILOVA 1 - TOVARLARNI QABUL QILISH -->
+    <div class="page-break"></div>
+    <div class="appendix-title">
+        Товарлар қийматини бўлиб тўлаш шарти<br>
+        билан тузилган № {{ doc.name }} сонли<br>
+        {{ format_date_uzbek(doc.transaction_date) }} йилда тузилган Шартномага № 1 илова
+    </div>
+
+    <div class="contract-header">
+        <div class="contract-title">Tоварларни қабул қилиш ва топшириш тўғрисидаги<br>Далолатнома</div>
+        <div class="contract-date">{{ format_date_uzbek(doc.transaction_date) }} йил</div>
+    </div>
+
+    <div class="party-info">
+        Биз, имзо чекувчилар, ушбу далолатномани Сотувчи SAMSUNG маъсул ходими Алимбоев Сардор Дилхуш угли ва харидор {{ customer_doc.customer_name|upper }} билан юқорида кўрсатиб ўтилган шартномага муофиқ сотиб олинган куйидаги товарларни топшириш ва қабул килганлиги тўғрисидаги Далолатнома:
+    </div>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>№ п/п</th>
+                <th>Товарлар (ишлар, хизматлар) номи</th>
+                <th>Ед. Изм.</th>
+                <th>Сони</th>
+                <th>Нархи</th>
+                <th>Етказиб бериш нархи</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in doc.items %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ item.item_name }}</td>
+                <td>{{ item.uom }}</td>
+                <td>{{ item.qty }}</td>
+                <td>{{ "{:,.0f}".format(item.rate) }}</td>
+                <td>0</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="margin: 20px 0;">
+        <strong>Жами суммаси: {{ "{:,.0f}".format(doc.grand_total) }} сўм</strong>
+    </div>
+
+    <table class="signature-table">
+        <tr>
+            <td>
+                <strong>СОТУВЧИ махсулот топширувчи</strong><br><br>
+                Алимбоев Сардор Дилхуш угли<br>
+                TEST TEST<br><br>
+                Имзо: _________________
+            </td>
+            <td>
+                <strong>ХАРИДОР махсулотни қабул қилувчи</strong><br><br>
+                {{ customer_doc.customer_name|upper }}<br><br><br>
+                Имзо: _________________
+            </td>
+        </tr>
+    </table>
+
+    <!-- ILOVA 2 - TO'LOV GRAFIGI -->
+    <div class="page-break"></div>
+    <div class="appendix-title">
+        Товарлар қийматини бўлиб тўлаш шарти<br>
+        билан тузилган № {{ doc.name }} сонли<br>
+        {{ format_date_uzbek(doc.transaction_date) }} йилда тузилган Шартномага № 2 илова
+    </div>
+
+    <div class="contract-header">
+        <div class="contract-title">Қарздорликни бўлиб тўлаш ЖАДВАЛИ</div>
+    </div>
+
+    <table class="payment-schedule-table">
+        <thead>
+            <tr>
+                <th>№</th>
+                <th>Тўлов муддати</th>
+                <th>Tўлов миқдори, (сўм)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if installment_items %}
+                {% for item in installment_items %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ format_date(item.payment_date) }}</td>
+                    <td>{{ "{:,.0f}".format(item.payment_amount or 0) }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td>1</td>
+                    <td>{{ format_date(doc.transaction_date) }}</td>
+                    <td>{{ "{:,.0f}".format(doc.grand_total) }}</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <div style="margin: 20px 0;">
+        <strong>Жами суммаси: {{ "{:,.0f}".format(doc.grand_total) }} сўм</strong>
+    </div>
+
+    <table class="signature-table">
+        <tr>
+            <td>
+                <strong>SAMSUNG рахбари Алимбоев Сардор Дилхуш угли</strong><br>
+                TEST TEST<br><br>
+                Имзо: _________________
+            </td>
+            <td>
+                <strong>Харидор {{ customer_doc.customer_name|upper }}</strong><br><br><br>
+                Имзо: _________________
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
