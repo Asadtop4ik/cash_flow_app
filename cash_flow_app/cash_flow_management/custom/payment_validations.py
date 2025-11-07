@@ -96,11 +96,12 @@ def warn_on_overdue_payments(doc, method=None):
 		return
 	
 	# Check for overdue payments
-	from frappe.utils import today, date_diff, add_days
+	from frappe.utils import today, date_diff, getdate
 	
-	# ✅ SMART LOGIC: Only show overdue for ACTIVE contracts (within 1 year)
-	# Historical contracts (>365 days old) should not trigger warning
-	one_year_ago = add_days(today(), -365)
+	# ✅ SMART LOGIC: Only show overdue for CURRENT YEAR contracts
+	# Historical contracts (previous years) should not trigger warning
+	today_date = getdate(today())
+	current_year_start = f"{today_date.year}-01-01"
 	
 	overdue_schedules = frappe.db.sql("""
 		SELECT
@@ -120,14 +121,14 @@ def warn_on_overdue_payments(doc, method=None):
 			AND ps.parenttype = 'Sales Order'
 			AND ps.due_date < %(today)s
 			AND (ps.payment_amount - IFNULL(ps.paid_amount, 0)) > 0
-			AND so.transaction_date >= %(one_year_ago)s
+			AND so.transaction_date >= %(current_year_start)s
 		ORDER BY
 			ps.due_date ASC
 		LIMIT 5
 	""", {
 		"customer": doc.party,
 		"today": today(),
-		"one_year_ago": one_year_ago
+		"current_year_start": current_year_start
 	}, as_dict=1)
 	
 	if overdue_schedules:

@@ -200,35 +200,42 @@ def get_payment_schedule_with_history(customer):
                 # Only show overdue if payment is incomplete AND due date passed
                 if today_date > due_date:
                     days_overdue = date_diff(today_date, due_date)
-                    # ✅ SMART: Only show "overdue" for recent contracts (within 1 year)
-                    contract_age_days = date_diff(today_date, contract_date)
-                    if contract_age_days <= 365:
+                    
+                    # ✅ IMPROVED: Check if contract is from previous year
+                    contract_year = contract_date.year
+                    current_year = today_date.year
+                    
+                    if contract_year < current_year:
+                        # Old contract from previous years - don't show overdue
+                        row['days_late'] = 0
+                    else:
+                        # Current year contract - show overdue
                         row['status'] += f' - ⚠️ {days_overdue} kun kech'
                         row['status_color'] = 'red'
                         row['days_late'] = days_overdue
-                    else:
-                        # Old contract - don't show overdue
-                        row['days_late'] = 0
                 else:
                     row['days_late'] = 0
             else:
                 # NOT PAID YET
                 # ✅ SMART LOGIC: Only show "overdue" for ACTIVE contracts
-                contract_age_days = date_diff(today_date, contract_date)
+                # Check if contract is from PREVIOUS YEAR (historical)
+                contract_year = contract_date.year
+                current_year = today_date.year
                 
                 if today_date > due_date:
                     days_overdue = date_diff(today_date, due_date)
                     
-                    # Only show overdue if contract is recent (within 1 year)
-                    if contract_age_days <= 365:
-                        row['status'] = f'❌ Muddati o\'tgan ({days_overdue} kun)'
-                        row['status_color'] = 'red'
-                        row['days_late'] = days_overdue
-                    else:
-                        # OLD CONTRACT - Show as historical, not overdue
+                    # ✅ IMPROVED: Check if contract is from previous year (historical)
+                    if contract_year < current_year:
+                        # OLD CONTRACT from previous years (2024, 2023, etc.) - Show as historical
                         row['status'] = f'📋 Eski shartnoma (to\'lanmagan)'
                         row['status_color'] = 'gray'
                         row['days_late'] = 0
+                    else:
+                        # CURRENT YEAR contract - show overdue
+                        row['status'] = f'❌ Muddati o\'tgan ({days_overdue} kun)'
+                        row['status_color'] = 'red'
+                        row['days_late'] = days_overdue
                 else:
                     # Not overdue yet - show remaining days
                     days_remaining = date_diff(due_date, today_date)
