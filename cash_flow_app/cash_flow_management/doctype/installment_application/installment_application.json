@@ -109,12 +109,12 @@
    "read_only": 1
   },
   {
+   "default": "0",
    "fieldname": "downpayment_amount",
    "fieldtype": "Currency",
    "label": "Boshlang'ich To'lov (USD)",
-   "description": "Qo'lda kiriting: masalan 850",
-   "options": "USD",
-   "reqd": 1
+   "description": "Qo'lda kiriting: masalan 850 (ixtiyoriy - 0 bo'lishi mumkin)",
+   "options": "USD"
   },
   {
    "fieldname": "column_break_payment",

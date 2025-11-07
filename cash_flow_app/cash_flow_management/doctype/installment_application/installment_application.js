@@ -68,10 +68,11 @@ frappe.ui.form.on("Installment Application", {
 			return;
 		}
 		
-		if (!frm.doc.downpayment_amount || frm.doc.downpayment_amount <= 0) {
-			frappe.msgprint(__('Iltimos boshlang\'ich to\'lovni kiriting!'));
-			return;
-		}
+		// Boshlang'ich to'lov ixtiyoriy (0 bo'lishi mumkin)
+		// if (!frm.doc.downpayment_amount || frm.doc.downpayment_amount <= 0) {
+		// 	frappe.msgprint(__('Iltimos boshlang\'ich to\'lovni kiriting!'));
+		// 	return;
+		// }
 		
 		if (!frm.doc.monthly_payment || frm.doc.monthly_payment <= 0) {
 			frappe.msgprint(__('Iltimos oylik to\'lovni kiriting!'));
@@ -94,12 +95,14 @@ frappe.ui.form.on("Installment Application", {
 		// Clear existing payment schedule
 		frm.clear_table('payment_schedule');
 		
-		// Add downpayment row
-		let downpayment_row = frm.add_child('payment_schedule');
-		downpayment_row.due_date = frm.doc.custom_start_date;
-		downpayment_row.payment_amount = flt(frm.doc.downpayment_amount);
-		downpayment_row.invoice_portion = (flt(frm.doc.downpayment_amount) / flt(frm.doc.total_amount)) * 100;
-		downpayment_row.description = 'Boshlang\'ich to\'lov';
+		// Add downpayment row only if downpayment > 0
+		if (flt(frm.doc.downpayment_amount) > 0) {
+			let downpayment_row = frm.add_child('payment_schedule');
+			downpayment_row.due_date = frm.doc.custom_start_date;
+			downpayment_row.payment_amount = flt(frm.doc.downpayment_amount);
+			downpayment_row.invoice_portion = (flt(frm.doc.downpayment_amount) / flt(frm.doc.total_amount)) * 100;
+			downpayment_row.description = 'Boshlang\'ich to\'lov';
+		}
 		
 		// Add monthly payment rows with specific day
 		let months = flt(frm.doc.installment_months) || 6;
@@ -149,10 +152,19 @@ frappe.ui.form.on("Installment Application", {
 		}, 5);
 		
 		// Show calculation summary
+		let downpayment_display = flt(frm.doc.downpayment_amount) > 0 
+			? `<p>Boshlang'ich to'lov: <strong>$${flt(frm.doc.downpayment_amount).toFixed(2)}</strong></p>` 
+			: `<p>Boshlang'ich to'lov: <strong style="color: gray;">Yo'q (0)</strong></p>`;
+		
+		let total_rows = flt(frm.doc.downpayment_amount) > 0 ? months + 1 : months;
+		let row_description = flt(frm.doc.downpayment_amount) > 0 
+			? `(1 boshlang'ich + ${months} oylik)` 
+			: `(${months} oylik)`;
+		
 		let msg = `<div style="font-size: 14px; line-height: 1.8;">
 			<p><strong>📊 HISOB-KITOB:</strong></p>
 			<p>Umumiy narx: <strong>$${flt(frm.doc.total_amount).toFixed(2)}</strong></p>
-			<p>Boshlang'ich to'lov: <strong>$${flt(frm.doc.downpayment_amount).toFixed(2)}</strong></p>
+			${downpayment_display}
 			<p>Qolgan: <strong>$${flt(frm.doc.finance_amount).toFixed(2)}</strong></p>
 			<p>Oylik to'lov: <strong>$${flt(frm.doc.monthly_payment).toFixed(2)} × ${frm.doc.installment_months} oy</strong></p>
 			<p>To'lov kuni: <strong>Har oyning ${payment_day}-sanasi</strong></p>
@@ -160,7 +172,7 @@ frappe.ui.form.on("Installment Application", {
 			<p>Jami to'lanadi: <strong style="color: green;">$${flt(frm.doc.custom_grand_total_with_interest).toFixed(2)}</strong></p>
 			<hr>
 			<p><strong>📅 TO'LOV JADVALI:</strong></p>
-			<p>Jami qatorlar: <strong>${months + 1} ta</strong> (1 boshlang'ich + ${months} oylik)</p>
+			<p>Jami qatorlar: <strong>${total_rows} ta</strong> ${row_description}</p>
 		</div>`;
 		
 		frappe.msgprint({

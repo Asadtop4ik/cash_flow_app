@@ -158,9 +158,6 @@ doctype_js = {
 # Bu fixtures SERVER bilan LOCAL ni sync qilish uchun ishlatiladi.
 
 fixtures = [
-    # ============================================
-    # 1. ROLES - Operator role va permissions
-    # ============================================
     {
         "dt": "Role",
         "filters": [["name", "in", ["Operator"]]]

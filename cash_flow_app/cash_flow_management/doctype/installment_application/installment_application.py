@@ -74,10 +74,12 @@ class InstallmentApplication(Document):
 
     def validate_payment_terms(self):
         """Validate payment terms"""
+        # Boshlang'ich to'lov 0 yoki ijobiy bo'lishi mumkin (ixtiyoriy)
         if flt(self.downpayment_amount) < 0:
             frappe.throw(_("Boshlang'ich to'lov 0 dan kam bo'lishi mumkin emas"))
 
-        if flt(self.downpayment_amount) >= flt(self.total_amount):
+        # Agar boshlang'ich to'lov kiritilgan bo'lsa, umumiy narxdan kam bo'lishi kerak
+        if flt(self.downpayment_amount) > 0 and flt(self.downpayment_amount) >= flt(self.total_amount):
             frappe.throw(_("Boshlang'ich to'lov umumiy narxdan kam bo'lishi kerak"))
 
         if flt(self.installment_months) < 1:
@@ -170,13 +172,14 @@ class InstallmentApplication(Document):
         # Now Sales Order grand_total should match our custom_grand_total_with_interest
         so_grand_total = flt(so.grand_total)
 
-        # Downpayment schedule
-        downpayment_portion = (flt(self.downpayment_amount) / so_grand_total) * 100
-        so.append("payment_schedule", {
-            "due_date": start_date,
-            "invoice_portion": downpayment_portion,
-            "payment_amount": flt(self.downpayment_amount)
-        })
+        # Add downpayment schedule only if downpayment > 0
+        if flt(self.downpayment_amount) > 0:
+            downpayment_portion = (flt(self.downpayment_amount) / so_grand_total) * 100
+            so.append("payment_schedule", {
+                "due_date": start_date,
+                "invoice_portion": downpayment_portion,
+                "payment_amount": flt(self.downpayment_amount)
+            })
 
         # Monthly payment schedules with custom payment day
         monthly_portion = (flt(self.monthly_payment) / so_grand_total) * 100
