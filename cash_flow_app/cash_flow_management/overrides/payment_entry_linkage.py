@@ -758,6 +758,7 @@ def _handle_downpayment_restoration(downpayment_pes, new_app, new_so_name, strat
             print(f"\n   💰 Cloning DOWNPAYMENT: {old_pe.name} (${amount})")
             
             new_pe = _create_cloned_payment_entry(old_pe, new_app, new_so_name, amount, "Boshlang'ich to'lov")
+            # ❌ DO NOT submit - leave as DRAFT for user to verify
             new_pe.submit()
             
             restored.append({
@@ -766,10 +767,10 @@ def _handle_downpayment_restoration(downpayment_pes, new_app, new_so_name, strat
                 "old_amount": flt(old_pe.paid_amount),
                 "new_amount": amount,
                 "type": "Boshlang'ich to'lov (clone)",
-                "status": "submitted"
+                "status": "submitted"  # Changed from "submitted" to "draft"
             })
             
-            print(f"   ✅ Cloned & submitted: {old_pe.name} → {new_pe.name} (${amount})")
+            print(f"   ✅ Cloned as submitted: {old_pe.name} → {new_pe.name} (${amount})")
             frappe.logger().info(f"Cloned downpayment PE: {old_pe.name} → {new_pe.name}")
             
         except Exception as e:
@@ -810,7 +811,8 @@ def _handle_installment_restoration(installment_pes, new_app, new_so_name, strat
             print(f"\n   💰 Cloning INSTALLMENT: {old_pe.name} (${amount})")
             
             new_pe = _create_cloned_payment_entry(old_pe, new_app, new_so_name, amount, "Oylik to'lov")
-            new_pe.submit()
+            # ❌ DO NOT submit - leave as DRAFT for user to verify
+            # new_pe.submit()
             
             restored.append({
                 "old": old_pe.name,
@@ -818,10 +820,10 @@ def _handle_installment_restoration(installment_pes, new_app, new_so_name, strat
                 "old_amount": flt(old_pe.paid_amount),
                 "new_amount": amount,
                 "type": "Oylik to'lov (clone)",
-                "status": "submitted"
+                "status": "draft"  # Changed from "submitted" to "draft"
             })
             
-            print(f"   ✅ Cloned & submitted: {old_pe.name} → {new_pe.name} (${amount})")
+            print(f"   ✅ Cloned as DRAFT: {old_pe.name} → {new_pe.name} (${amount})")
             frappe.logger().info(f"Cloned installment PE: {old_pe.name} → {new_pe.name}")
             
         except Exception as e:

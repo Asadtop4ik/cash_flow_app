@@ -236,8 +236,10 @@ class InstallmentApplication(Document):
         self.db_set("status", "Sales Order Created")
 
         # Create Downpayment Payment Entry (Draft)
+        # ⚠️ IMPORTANT: Only create PE for NEW documents, not for AMENDED ones!
+        # Amended docs will be handled by on_submit_installment_application hook
         pe_name = None
-        if flt(self.downpayment_amount) > 0:
+        if flt(self.downpayment_amount) > 0 and not self.amended_from:
             pe_name = self.create_downpayment_payment_entry(so.name)
 
         # Success message
@@ -316,10 +318,56 @@ class InstallmentApplication(Document):
 
     def on_cancel(self):
         """Cancel related Sales Order"""
+        print(f"\n🔴 on_cancel() CALLED for InstApp: {self.name}")
+        frappe.logger().info(f"🔴 Cancelling Installment Application: {self.name}")
+        
         if self.sales_order:
-            so = frappe.get_doc("Sales Order", self.sales_order)
-            if so.docstatus == 1:
-                so.cancel()
-                frappe.msgprint(_("Sales Order {0} cancelled").format(so.name))
+            try:
+                print(f"   📋 Linked Sales Order: {self.sales_order}")
+                frappe.logger().info(f"Getting SO: {self.sales_order}")
+                
+                so = frappe.get_doc("Sales Order", self.sales_order, ignore_permissions=True)
+                
+                print(f"   📊 SO Status: {so.docstatus} ({['Draft', 'Submitted', 'Cancelled'][so.docstatus]})")
+                frappe.logger().info(f"SO {so.name} status: {so.docstatus}")
+                
+                if so.docstatus == 1:  # Submitted
+                    print(f"   ⚠️  Cancelling Sales Order...")
+                    frappe.logger().info(f"Cancelling SO {so.name}")
+                    
+                    # Cancel SO - this will trigger on_cancel_sales_order hook
+                    # which will cancel all linked Payment Entries
+                    so.cancel()
+                    
+                    print(f"   ✅ Sales Order cancelled: {so.name}")
+                    frappe.logger().info(f"✅ SO {so.name} cancelled successfully")
+                    
+                    frappe.msgprint(
+                        _("✅ Sales Order {0} va bog'langan to'lovlar bekor qilindi").format(so.name),
+                        alert=True
+                    )
+                elif so.docstatus == 2:  # Already cancelled
+                    print(f"   ℹ️  Sales Order already cancelled")
+                    frappe.logger().info(f"SO {so.name} already cancelled")
+                else:
+                    print(f"   ℹ️  Sales Order is draft, skipping cancel")
+                    
+            except Exception as e:
+                print(f"   ❌ Error cancelling SO: {e}")
+                frappe.logger().error(f"Error cancelling SO {self.sales_order}: {e}")
+                import traceback
+                traceback.print_exc()
+                
+                # Don't throw - allow InstApp to be cancelled even if SO cancel fails
+                frappe.msgprint(
+                    _("⚠️ Xatolik: Sales Order bekor qilinmadi. Qo'lda bekor qiling: {0}").format(self.sales_order),
+                    alert=True,
+                    indicator="orange"
+                )
+        else:
+            print(f"   ℹ️  No Sales Order linked")
+            frappe.logger().info(f"No SO linked to InstApp {self.name}")
 
         self.status = "Cancelled"
+        print(f"   ✅ InstApp status updated to Cancelled")
+
