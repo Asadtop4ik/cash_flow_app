@@ -90,8 +90,8 @@ def force_sync_all_fixtures():
 	fixtures_to_sync = [
 		"custom_field.json",
 		"property_setter.json",
+		"docperm.json",  # Add DocPerm to prevent duplicates
 		# Add others if needed:
-		# "docperm.json",
 		# "item_group.json",
 		# "mode_of_payment.json",
 	]
@@ -124,3 +124,39 @@ def force_sync_all_fixtures():
 	
 	frappe.db.commit()
 	print("✅ All fixtures sync completed")
+
+
+def force_sync_docperms():
+	"""
+	Force import DocPerm to prevent duplicate permissions.
+	
+	Problem: When you change permissions via UI, Frappe creates
+	new records with random names. This causes duplicates in fixtures.
+	
+	Solution: Force import after migrate to ensure single source of truth.
+	"""
+	try:
+		fixture_path = frappe.get_app_path("cash_flow_app", "fixtures", "docperm.json")
+		
+		if not os.path.exists(fixture_path):
+			return
+		
+		frappe.flags.in_migrate = True
+		
+		import_file_by_path(
+			fixture_path,
+			force=True,
+			data_import=True,
+			reset_permissions=True
+		)
+		
+		frappe.db.commit()
+		print("✅ DocPerm synced successfully")
+		
+	except Exception as e:
+		frappe.log_error(
+			message=str(e),
+			title="DocPerm Force Sync Failed"
+		)
+		print(f"⚠️  DocPerm sync failed: {e}")
+

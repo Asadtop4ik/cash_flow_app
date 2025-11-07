@@ -9,6 +9,7 @@ app_license = "mit"
 after_migrate = [
 	"cash_flow_app.utils.fixtures.force_sync_custom_fields",
 	"cash_flow_app.utils.fixtures.force_sync_property_setters",
+	"cash_flow_app.utils.fixtures.force_sync_docperms",  # Prevent duplicate permissions
 ]
 
 doc_events = {
