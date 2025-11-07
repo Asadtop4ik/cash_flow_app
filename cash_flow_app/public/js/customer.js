@@ -1,5 +1,12 @@
 // Customer Form - Professional Dashboard
 // Frappe Standard: Dashboard renders BELOW form fields, not above
+// Version: 3.0.0 - CRITICAL FIX: Global scope export for all functions
+// Last Updated: 2025-11-07 23:45
+
+(function() {
+    'use strict';
+    
+    console.log('🔥🔥🔥 CUSTOMER.JS LOADED - Version 3.0.0 (2025-11-07 23:45) 🔥🔥🔥');
 
 frappe.ui.form.on('Customer', {
     refresh: function(frm) {
@@ -168,7 +175,6 @@ function render_contracts_with_inline_schedules(frm, contracts, all_schedules) {
     // Remove any existing dashboard
     $('.customer-contracts-section').remove();
     $('.customer-payment-schedule-section').remove();
-    
     // Group schedules by contract
     const schedules_by_contract = {};
     all_schedules.forEach(row => {
@@ -229,34 +235,34 @@ function render_contracts_with_inline_schedules(frm, contracts, all_schedules) {
                 carry_over = 0;
             }
 
-            // Calculate new outstanding and carry-over for next month
+            // ✅ IMPORTANT: Use API status FIRST (for historical contracts)
+            // Only override status if we have carry-over logic
             let display_paid = paid_amt;
             let display_outstanding = 0;
-            let display_status = row.status;
-            let display_status_color = row.status_color;
+            let display_status = row.status;  // ✅ Default to API status
+            let display_status_color = row.status_color;  // ✅ Default to API color
 
             if (paid_amt >= amount) {
                 // Overpaid or fully paid
                 display_paid = amount;
                 carry_over = paid_amt - amount;
                 display_outstanding = 0;
+                
+                // ✅ Only override status if we have carry-over (overpayment)
                 if (carry_over > 0) {
                     display_status = `✅ To'landi`;
                     display_status_color = 'green';
-                } else {
-                    display_status = row.status;
-                    display_status_color = row.status_color;
                 }
+                // ✅ If no carry-over, keep API status (respects historical contracts)
             } else if (paid_amt > 0 && paid_amt < amount) {
-                // Partial payment
+                // Partial payment - override status
                 display_outstanding = amount - paid_amt;
                 display_status = `🟡 Qisman to'landi ($${paid_amt.toFixed(2)}/$${amount.toFixed(2)})`;
                 display_status_color = 'orange';
             } else {
-                // Not paid
+                // Not paid - KEEP API STATUS (important for historical contracts!)
                 display_outstanding = amount;
-                display_status = row.status;
-                display_status_color = row.status_color;
+                // display_status and display_status_color already set from API
             }
 
             let payment_date_html = '-';
@@ -273,12 +279,14 @@ function render_contracts_with_inline_schedules(frm, contracts, all_schedules) {
             else if (display_status_color === 'red') row_bg = 'background: #fef2f2;';
             else if (display_status_color === 'orange') row_bg = 'background: #fff7ed;';
             else if (display_status_color === 'blue') row_bg = 'background: #eff6ff;';
+            else if (display_status_color === 'gray') row_bg = 'background: #f9fafb;';  // ✅ Add gray for historical
 
             let status_color = '#9ca3af';
             if (display_status_color === 'green') status_color = '#16a34a';
             else if (display_status_color === 'red') status_color = '#dc2626';
             else if (display_status_color === 'orange') status_color = '#ea580c';
             else if (display_status_color === 'blue') status_color = '#2563eb';
+            else if (display_status_color === 'gray') status_color = '#6b7280';  // ✅ Gray for historical
 
             schedule_rows_html += `
                 <tr style="${row_bg}">
@@ -467,3 +475,16 @@ function add_customer_action_buttons(frm) {
         frappe.set_route("List", "Sales Order");
     }, __('View'));
 }
+
+// ✅ EXPORT ALL FUNCTIONS TO GLOBAL SCOPE (for debugging and console access)
+window.render_contracts_with_inline_schedules = render_contracts_with_inline_schedules;
+window.render_empty_state = render_empty_state;
+window.load_customer_dashboard = load_customer_dashboard;
+window.refresh_customer_dashboard = refresh_customer_dashboard;
+
+console.log('✅✅✅ All functions exported to window object! ✅✅✅');
+console.log('   render_contracts_with_inline_schedules:', typeof window.render_contracts_with_inline_schedules);
+console.log('   render_empty_state:', typeof window.render_empty_state);
+console.log('   load_customer_dashboard:', typeof window.load_customer_dashboard);
+
+})(); // ← Close IIFE

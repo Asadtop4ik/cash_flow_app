@@ -30,6 +30,7 @@ doc_events = {
 		"autoname": "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.autoname_payment_entry",
 		"onload": "cash_flow_app.cash_flow_management.overrides.payment_entry_defaults.onload_payment_entry",
 		"validate": [
+			"cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.ensure_fiscal_year_for_payment",
 			"cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.validate_payment_entry",
 			"cash_flow_app.cash_flow_management.custom.payment_validations.validate_negative_balance",
 			"cash_flow_app.cash_flow_management.custom.payment_validations.warn_on_overdue_payments"

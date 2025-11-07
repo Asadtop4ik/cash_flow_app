@@ -80,8 +80,7 @@
    "fieldname": "transaction_date",
    "fieldtype": "Datetime",
    "in_list_view": 1,
-   "label": "Date",
-   "read_only": 1
+   "label": "Date"
   },
   {
    "fieldname": "section_break_items",

@@ -7,6 +7,77 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate
 
+
+def ensure_fiscal_year_exists(date):
+    """
+    🔧 DYNAMIC: Ensure Fiscal Year exists for the given date
+    Creates it automatically if missing (for historical data entry)
+    
+    Args:
+        date: Date to check (string or date object)
+    
+    Returns:
+        str: Fiscal Year name (e.g., "2024")
+    """
+    from datetime import datetime
+    
+    date_obj = getdate(date)
+    year = date_obj.year
+    year_str = str(year)
+    
+    # Check if Fiscal Year exists
+    if frappe.db.exists("Fiscal Year", year_str):
+        # Check if it's disabled
+        fy = frappe.get_doc("Fiscal Year", year_str)
+        if fy.disabled:
+            print(f"   ⚠️  Fiscal Year {year_str} is disabled, enabling it...")
+            fy.disabled = 0
+            fy.save(ignore_permissions=True)
+            frappe.db.commit()
+            print(f"   ✅ Fiscal Year {year_str} enabled!")
+        return year_str
+    
+    # Create new Fiscal Year
+    print(f"   📅 Creating Fiscal Year {year_str}...")
+    
+    try:
+        fy = frappe.get_doc({
+            "doctype": "Fiscal Year",
+            "year": year_str,
+            "year_start_date": f"{year}-01-01",
+            "year_end_date": f"{year}-12-31",
+            "disabled": 0
+        })
+        fy.insert(ignore_permissions=True)
+        frappe.db.commit()
+        
+        print(f"   ✅ Fiscal Year {year_str} created successfully!")
+        return year_str
+        
+    except Exception as e:
+        print(f"   ❌ Error creating Fiscal Year {year_str}: {e}")
+        # Try to get it anyway (maybe race condition)
+        if frappe.db.exists("Fiscal Year", year_str):
+            return year_str
+        raise
+
+
+def ensure_fiscal_year_for_payment(doc, method=None):
+    """
+    🔧 VALIDATE HOOK: Ensure Fiscal Year exists BEFORE validation
+    This allows historical Payment Entries (2023, 2024, etc.) to be submitted
+    """
+    if not doc.posting_date:
+        return
+    
+    try:
+        ensure_fiscal_year_exists(doc.posting_date)
+        print(f"   ✅ Fiscal Year ensured for posting_date: {doc.posting_date}")
+    except Exception as e:
+        frappe.log_error(f"Failed to ensure Fiscal Year for {doc.posting_date}: {e}", "Fiscal Year Error")
+        frappe.throw(_("Could not create Fiscal Year for date {0}. Please contact administrator.").format(doc.posting_date))
+
+
 def on_submit_payment_entry(doc, method=None):
     """
     Link payment to Sales Order and update advance_paid
@@ -17,6 +88,14 @@ def on_submit_payment_entry(doc, method=None):
     print(f"   Payment Type: {doc.payment_type}")
     print(f"   Contract Reference: {doc.custom_contract_reference}")
     print(f"   Paid Amount: {doc.paid_amount}")
+    
+    # ✅ IMPORTANT: Ensure Fiscal Year exists for posting_date
+    # This allows entering historical contracts (2023, 2021, etc.)
+    try:
+        ensure_fiscal_year_exists(doc.posting_date)
+    except Exception as e:
+        frappe.log_error(f"Failed to ensure Fiscal Year for {doc.posting_date}: {e}", "Fiscal Year Error")
+        # Continue anyway - let Frappe handle the error if it's critical
     
     # Only process if contract reference is set
     if not doc.custom_contract_reference:
@@ -915,11 +994,14 @@ def _create_downpayment_draft(new_app, new_so_name):
         default_receivable = frappe.get_cached_value("Company", company, "default_receivable_account")
         default_cash = frappe.get_cached_value("Company", company, "default_cash_account") or frappe.get_cached_value("Company", company, "default_bank_account")
         
+        # ✅ IMPORTANT: Use custom_start_date for posting_date (for historical entries)
+        posting_date = frappe.utils.getdate(new_app.get("custom_start_date") or new_app.transaction_date)
+        
         new_pe = frappe.new_doc("Payment Entry")
         new_pe.payment_type = "Receive"
         new_pe.party_type = "Customer"
         new_pe.party = new_app.customer
-        new_pe.posting_date = frappe.utils.today()
+        new_pe.posting_date = posting_date  # ✅ Use custom_start_date
         new_pe.paid_amount = downpayment_amount
         new_pe.received_amount = downpayment_amount
         new_pe.mode_of_payment = "Cash"

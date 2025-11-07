@@ -270,6 +270,10 @@ class InstallmentApplication(Document):
 
             # Get company
             company = frappe.defaults.get_user_default("Company")
+            
+            # ✅ IMPORTANT: Use custom_start_date for posting_date (for historical entries)
+            # This allows entering old contracts with correct payment dates
+            posting_date = getdate(self.get("custom_start_date") or self.transaction_date)
 
             # Create Payment Entry
             pe = frappe.get_doc({
@@ -279,7 +283,7 @@ class InstallmentApplication(Document):
                 "party_type": "Customer",
                 "party": self.customer,
                 "company": company,
-                "posting_date": self.transaction_date,
+                "posting_date": posting_date,  # ✅ Use custom_start_date
                 "paid_amount": flt(self.downpayment_amount),
                 "received_amount": flt(self.downpayment_amount),
                 "paid_to": default_cash_account,
@@ -288,7 +292,7 @@ class InstallmentApplication(Document):
                 "source_exchange_rate": 1.0,
                 "target_exchange_rate": 1.0,
                 "reference_no": sales_order_name,
-                "reference_date": self.transaction_date,
+                "reference_date": posting_date,  # ✅ Use same date
                 "custom_counterparty_category": "Klient",
                 "custom_contract_reference": sales_order_name,
                 "mode_of_payment": "Naqd",
