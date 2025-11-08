@@ -10,6 +10,7 @@ after_migrate = [
 	"cash_flow_app.utils.fixtures.force_sync_custom_fields",
 	"cash_flow_app.utils.fixtures.force_sync_property_setters",
 	"cash_flow_app.utils.fixtures.force_sync_docperms",  # Prevent duplicate permissions
+	"cash_flow_app.utils.setup_mode_of_payment.setup_mode_of_payment_accounts",  # Setup Mode of Payment accounts
 ]
 
 doc_events = {
