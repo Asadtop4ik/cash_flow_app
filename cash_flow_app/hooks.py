@@ -265,6 +265,8 @@ fixtures = [
         "dt": "Report",
         "filters": [["module", "=", "Cash Flow Management"]]
     },
+
+    
     # OPTIONAL: Uncomment if you change reports via UI
     # Usually not needed - reports are code-based
     
