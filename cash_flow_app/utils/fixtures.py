@@ -177,36 +177,36 @@ def force_sync_docperms():
 		print(f"⚠️  DocPerm sync failed: {e}")
 
 
-# def force_sync_reports():
-# 	"""
-# 	Force import Report fixtures to sync UI changes (add_total_row, etc.)
+def force_sync_reports():
+	"""
+	Force import Report fixtures to sync UI changes (add_total_row, etc.)
 	
-# 	Report has migration_hash, but UI changes (like add_total_row setting)
-# 	are not always reflected without force import.
-# 	"""
-# 	try:
-# 		fixture_path = frappe.get_app_path("cash_flow_app", "fixtures", "report.json")
+	Report has migration_hash, but UI changes (like add_total_row setting)
+	are not always reflected without force import.
+	"""
+	try:
+		fixture_path = frappe.get_app_path("cash_flow_app", "fixtures", "report.json")
 		
-# 		if not os.path.exists(fixture_path):
-# 			return
+		if not os.path.exists(fixture_path):
+			return
 		
-# 		frappe.flags.in_migrate = True
+		frappe.flags.in_migrate = True
 		
-# 		import_file_by_path(
-# 			fixture_path,
-# 			force=True,
-# 			data_import=True,
-# 			reset_permissions=True
-# 		)
+		import_file_by_path(
+			fixture_path,
+			force=True,
+			data_import=True,
+			reset_permissions=True
+		)
 		
-# 		frappe.db.commit()
-# 		print("✅ Report fixtures synced successfully")
+		frappe.db.commit()
+		print("✅ Report fixtures synced successfully")
 		
-# 	except Exception as e:
-# 		frappe.log_error(
-# 			message=str(e),
-# 			title="Report Force Sync Failed"
-# 		)
-# 		print(f"⚠️  Report sync failed: {e}")
+	except Exception as e:
+		frappe.log_error(
+			message=str(e),
+			title="Report Force Sync Failed"
+		)
+		print(f"⚠️  Report sync failed: {e}")
 
 
