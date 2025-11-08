@@ -1,7 +1,7 @@
 app_name = "cash_flow_app"
 app_title = "Cash Flow Management"
 app_publisher = "AsadStack"
-app_description = "USD-only cash and installment management for ERPNext"
+app_description = "USD-only cash and installment management for ERPNext with auto-deployment"
 app_email = "asadbek.backend@gmail.com"
 app_license = "mit"
 
@@ -266,7 +266,7 @@ fixtures = [
         "filters": [["module", "=", "Cash Flow Management"]]
     },
 
-    
+
     # OPTIONAL: Uncomment if you change reports via UI
     # Usually not needed - reports are code-based
     
