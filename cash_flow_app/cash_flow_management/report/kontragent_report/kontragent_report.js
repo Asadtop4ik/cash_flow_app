@@ -1,49 +1,121 @@
 // Kontragent Report - JavaScript
 // Click on Party Name → Open personal dashboard/form
 
-frappe.provide('frappe.views');
+frappe.query_reports["Kontragent Report"] = {
+    // ✅ Filters (agar kerak bo'lsa)
+    "filters": [
+        {
+            "fieldname": "from_date",
+            "label": __("From Date"),
+            "fieldtype": "Date",
+            "default": frappe.datetime.year_start(),
+            "reqd": 1
+        },
+        {
+            "fieldname": "to_date",
+            "label": __("To Date"),
+            "fieldtype": "Date",
+            "default": frappe.datetime.get_today(),
+            "reqd": 1
+        },
+        {
+            "fieldname": "party_type",
+            "label": __("Party Type"),
+            "fieldtype": "Select",
+            "options": ["", "Customer", "Supplier"],
+            "default": ""
+        },
+        {
+            "fieldname": "party",
+            "label": __("Party"),
+            "fieldtype": "Dynamic Link",
+            "options": "party_type"
+        }
+    ],
 
-frappe.views.QueryReport = frappe.views.QueryReport.extend({
-    setup_click_handlers: function() {
+    // ✅ Report yuklanganida styling qo'llash
+    onload: function(report) {
+        frappe.after_ajax(() => {
+            this.add_total_row_styling();
+            this.setup_click_handlers(report);
+        });
+    },
+
+    // ✅ Har refresh bo'lganda styling qayta qo'llash
+    refresh: function(report) {
+        this.add_total_row_styling();
+        this.setup_click_handlers(report);
+    },
+
+    // ✅ TOTAL qatorlarini bold qilish funksiyasi
+    add_total_row_styling: function() {
+        setTimeout(() => {
+            const rows = document.querySelectorAll('.dt-row');
+
+            rows.forEach(row => {
+                // "TOTAL" yoki "CUSTOMER TOTAL" yoki "SUPPLIER TOTAL" so'zi bor qatorlarni topish
+                const cells = row.querySelectorAll('.dt-cell__content');
+
+                cells.forEach(cell => {
+                    const text = cell.textContent.trim();
+
+                    // Agar cell "TOTAL" so'zini o'z ichiga olsa
+                    if (text.includes('TOTAL') || text === 'CUSTOMER TOTAL' || text === 'SUPPLIER TOTAL') {
+                        // Butun qatorni bold qilish
+                        const allCells = row.querySelectorAll('.dt-cell__content');
+                        allCells.forEach(c => {
+                            c.style.fontWeight = 'bold';
+                            c.style.backgroundColor = '#f0f0f0';
+                            c.style.fontSize = '14px';
+                        });
+
+                        // Butun rowga background
+                        row.style.backgroundColor = '#f5f5f5';
+                    }
+                });
+            });
+        }, 150);
+    },
+
+    // ✅ Party name click handlerlari
+    setup_click_handlers: function(report) {
         const self = this;
 
-        // Listen for party name clicks
-        this.$result.on('click', 'a[data-fieldname="party"]', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
+        // Biroz kutib, DOM elementlari yuklanishini kutamiz
+        setTimeout(() => {
+            // Party name ustiga click qilish
+            const partyLinks = document.querySelectorAll('[data-fieldname="party"] a');
 
-            const party_name = $(this).text().trim();
-            const $row = $(this).closest('tr');
-            const party_type = $row.find('[data-fieldname="party_type"]').text().trim();
+            partyLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
 
-            console.log('Party clicked:', {party_name, party_type});
+                    const party_name = this.textContent.trim();
+                    const row = this.closest('.dt-row');
 
-            // Don't navigate if TOTAL row
-            if (party_name === 'TOTAL') {
-                return;
-            }
+                    if (!row) return;
 
-            // Open Party's personal form/dashboard
-            if (party_type === 'Customer') {
-                // Open Customer form (personal dashboard)
-                frappe.set_route('Form', 'Customer', party_name);
-            }
-            else if (party_type === 'Supplier') {
-                // Open Supplier form (personal dashboard)
-                frappe.set_route('Form', 'Supplier', party_name);
-            }
-        });
+                    // Party type topish
+                    const partyTypeCell = row.querySelector('[data-fieldname="party_type"] .dt-cell__content');
+                    const party_type = partyTypeCell ? partyTypeCell.textContent.trim() : '';
+
+                    console.log('Party clicked:', {party_name, party_type});
+
+                    // TOTAL qatorlarni ignore qilish
+                    if (party_type.includes('TOTAL') || party_name.includes('TOTAL')) {
+                        return;
+                    }
+
+                    // Party formiga o'tish
+                    if (party_type === 'Customer') {
+                        frappe.set_route('Form', 'Customer', party_name);
+                    }
+                    else if (party_type === 'Supplier') {
+                        frappe.set_route('Form', 'Supplier', party_name);
+                    }
+                });
+            });
+        }, 200);
     }
-});
-
-// Alternative: Using DataTable row click
-cur_list && cur_list.settings && (cur_list.settings.row_action = function(row_name, data) {
-    if (data.party && data.party !== 'TOTAL') {
-        if (data.party_type === 'Customer') {
-            frappe.set_route('Form', 'Customer', data.party);
-        }
-        else if (data.party_type === 'Supplier') {
-            frappe.set_route('Form', 'Supplier', data.party);
-        }
-    }
-});
+};

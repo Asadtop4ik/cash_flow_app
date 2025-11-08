@@ -23,8 +23,12 @@ def execute(filters=None):
 
 	columns = get_columns(filters)
 	data = get_data(filters)
+	# ✅ CSS qo'shish
+	chart = None
+	report_summary = None
+	skip_total_row = False
 
-	return columns, data
+	return columns, data, None, chart, report_summary
 
 
 def get_columns(filters):
@@ -276,7 +280,7 @@ def get_data(filters):
 	# ✅ ADD GRAND TOTAL ROW
 	if data:
 		grand_total_row = {
-			"classification": "",
+			"classification": "<b>Jami</b>",
 			"customer_name": "",
 			"contract_link": "",
 			"total_amount": grand_total_amount,

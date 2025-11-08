@@ -87,7 +87,7 @@ def get_data(filters):
 		), as_dict=True)
 
 		cust_total = {
-			'party': '',
+			'party': "<b>Jami</b>",
 			'party_type': 'CUSTOMER TOTAL',
 			'opening_debit': 0,
 			'opening_credit': 0,
@@ -176,7 +176,7 @@ def get_data(filters):
 		), as_dict=True)
 
 		supp_total = {
-			'party': '',
+			'party': "<b>Jami</b>",
 			'party_type': 'SUPPLIER TOTAL',
 			'opening_debit': 0,
 			'opening_credit': 0,
