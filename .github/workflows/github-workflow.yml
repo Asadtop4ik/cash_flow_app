@@ -133,62 +133,63 @@ jobs:
           # ============================================
           
           ssh root@${{ secrets.SERVER_IP }} << ENDSSH
-            # Export variables for frappe user session
-            export SITE_NAME="${{ secrets.SITE_NAME }}"
-            export BENCH_PATH="${{ env.BENCH_PATH }}"
-            export APP_NAME="${APP_NAME}"
-            
-            # Switch to frappe user for bench operations
-            su - frappe << 'FRAPPE_EOF'
-          set -e
-          cd \${BENCH_PATH}
+            # Switch to frappe user and pass environment variables
+            # Use su -c with inline script to preserve env vars
+            su - frappe -c "
+              export SITE_NAME='${{ secrets.SITE_NAME }}'
+              export BENCH_PATH='${{ env.BENCH_PATH }}'
+              export APP_NAME='${APP_NAME}'
+              export BRANCH_NAME='${{ github.ref_name }}'
+              
+              set -e
+              cd \${BENCH_PATH}
           
           # Enable maintenance mode
-          echo "🔧 Enabling maintenance mode..."
+          echo '🔧 Enabling maintenance mode...'
           bench --site \${SITE_NAME} set-maintenance-mode on || true
           
           # Pull latest code - Auto-detect remote name
-          echo "📥 Pulling latest code for \${APP_NAME}..."
+          echo '📥 Pulling latest code for '\${APP_NAME}'...'
           cd apps/\${APP_NAME}
           
           # Detect remote name (origin or upstream)
           REMOTE_NAME=\$(git remote | head -1)
-          echo "🔗 Using remote: \${REMOTE_NAME}"
+          echo '🔗 Using remote: '\${REMOTE_NAME}
           
           # Pull latest changes
           git fetch \${REMOTE_NAME}
-          git reset --hard \${REMOTE_NAME}/${{ github.ref_name }}
+          git reset --hard \${REMOTE_NAME}/\${BRANCH_NAME}
           
-          echo "✅ Code updated to latest commit:"
+          echo '✅ Code updated to latest commit:'
           git log -1 --oneline
           
           cd \${BENCH_PATH}
           
           # Install dependencies
-          echo "📦 Installing Python dependencies..."
+          echo '📦 Installing Python dependencies...'
           bench setup requirements || true
           
           # ============================================
           # CRITICAL: Run migrations to apply fixtures
           # ============================================
-          echo "🗄️  Running database migrations..."
+          echo '🗄️  Running database migrations...'
           bench --site \${SITE_NAME} migrate
           
           # Build assets
-          echo "🎨 Building frontend assets..."
+          echo '🎨 Building frontend assets...'
           bench build --app \${APP_NAME}
           
           # Clear cache (ALWAYS after migrate!)
-          echo "🧹 Clearing cache..."
+          echo '🧹 Clearing cache...'
           bench --site \${SITE_NAME} clear-cache
           bench --site \${SITE_NAME} clear-website-cache
           
           # Disable maintenance mode
-          echo "✅ Disabling maintenance mode..."
+          echo '✅ Disabling maintenance mode...'
           bench --site \${SITE_NAME} set-maintenance-mode off
           
-          echo "✅ Frappe user tasks completed!"
-          FRAPPE_EOF
+          echo '✅ Frappe user tasks completed!'
+          "
           
           # Restart services (as root)
           echo "🔄 Restarting services..."
