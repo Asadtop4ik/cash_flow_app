@@ -133,7 +133,7 @@ def force_sync_docperms():
 	Problem: When you change permissions via UI, Frappe creates
 	new records with random names. This causes duplicates in fixtures.
 	
-	Solution: Force import after migrate to ensure single source of truth.
+	Solution: DELETE all existing Operator DocPerms, then import clean fixture.
 	"""
 	try:
 		fixture_path = frappe.get_app_path("cash_flow_app", "fixtures", "docperm.json")
@@ -141,6 +141,19 @@ def force_sync_docperms():
 		if not os.path.exists(fixture_path):
 			return
 		
+		print("🗑️  Deleting existing Operator DocPerms...")
+		
+		# CRITICAL: Delete ALL Operator DocPerms first
+		# This prevents duplicates since DocPerm has random names
+		frappe.db.sql("""
+			DELETE FROM `tabDocPerm`
+			WHERE role = 'Operator'
+		""")
+		frappe.db.commit()
+		
+		print("✅ Old DocPerms deleted")
+		
+		# Now import clean fixture
 		frappe.flags.in_migrate = True
 		
 		import_file_by_path(
@@ -151,7 +164,10 @@ def force_sync_docperms():
 		)
 		
 		frappe.db.commit()
-		print("✅ DocPerm synced successfully")
+		
+		# Verify
+		count = frappe.db.count('DocPerm', {'role': 'Operator'})
+		print(f"✅ DocPerm synced successfully ({count} permissions)")
 		
 	except Exception as e:
 		frappe.log_error(
