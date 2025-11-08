@@ -261,10 +261,10 @@ fixtures = [
     # But fixtures ensure UI changes (add_total_row, etc.) sync
     # NOTE: Report code-based changes auto-deploy via git
     #       UI-based changes need fixtures export
-    # {
-    #     "dt": "Report",
-    #     "filters": [["module", "=", "Cash Flow Management"]]
-    # },
+    {
+        "dt": "Report",
+        "filters": [["module", "=", "Cash Flow Management"]]
+    },
     # OPTIONAL: Uncomment if you change reports via UI
     # Usually not needed - reports are code-based
     
