@@ -133,13 +133,14 @@ jobs:
           # ============================================
           
           ssh root@${{ secrets.SERVER_IP }} << ENDSSH
-            # Export variables for frappe user session
-            export SITE_NAME="${{ secrets.SITE_NAME }}"
-            export BENCH_PATH="${{ env.BENCH_PATH }}"
-            export APP_NAME="${APP_NAME}"
-            
-            # Switch to frappe user for bench operations
-            su - frappe << 'FRAPPE_EOF'
+            # Pass environment variables to frappe user
+            # Using double-quote heredoc to expand variables
+            su - frappe << EOF
+          # Set environment variables inside frappe shell
+          export SITE_NAME="${{ secrets.SITE_NAME }}"
+          export BENCH_PATH="${{ env.BENCH_PATH }}"
+          export APP_NAME="${APP_NAME}"
+          
           set -e
           cd \${BENCH_PATH}
           
@@ -188,7 +189,7 @@ jobs:
           bench --site \${SITE_NAME} set-maintenance-mode off
           
           echo "✅ Frappe user tasks completed!"
-          FRAPPE_EOF
+          EOF
           
           # Restart services (as root)
           echo "🔄 Restarting services..."
