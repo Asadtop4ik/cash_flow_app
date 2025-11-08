@@ -1,0 +1,102 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"G4PKuV_6vA\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Operator Panel</b></span>\",\"col\":12}},{\"id\":\"j-fgtiLPGp\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Shartnoma\",\"col\":3}},{\"id\":\"3yqWlUjizu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"To'lov Kalendari\",\"col\":3}},{\"id\":\"n0SwAEp2LR\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Shartnoma pdf chiqarish\",\"col\":3}},{\"id\":\"NraCygvSL4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Kassa kirim chiqim\",\"col\":3}},{\"id\":\"yxkDsmEHLC\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Kassa Hisoboti\",\"col\":3}},{\"id\":\"OP0wZOurLb\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Postavshiklar\",\"col\":3}},{\"id\":\"4z-k_xd60R\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Mijozlar\",\"col\":3}},{\"id\":\"8V42wiajLv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Postavshik reporti\",\"col\":3}},{\"id\":\"kA7A5D-KOv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Kontragent reporti\",\"col\":3}}]",
+ "creation": "2025-11-08 23:15:00.810179",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "idx": 0,
+ "indicator_color": "cyan",
+ "is_hidden": 0,
+ "label": "Operator Paneli",
+ "links": [],
+ "modified": "2025-11-08 23:58:36.435204",
+ "modified_by": "Administrator",
+ "module": "Cash Flow Management",
+ "name": "Operator Paneli",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Administrator"
+  },
+  {
+   "role": "Operator"
+  }
+ ],
+ "sequence_id": 1.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "To'lov Kalendari",
+   "link_to": "All Customer Payment",
+   "report_ref_doctype": "Installment Application",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Shartnoma",
+   "link_to": "Installment Application",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Kassa Hisoboti",
+   "link_to": "Daily Cash Flow",
+   "report_ref_doctype": "Payment Entry",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Postavshiklar",
+   "link_to": "Supplier",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Postavshik reporti",
+   "link_to": "Supplier Debt Analysis",
+   "report_ref_doctype": "Supplier",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Kontragent reporti",
+   "link_to": "Kontragent Report",
+   "report_ref_doctype": "GL Entry",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Mijozlar",
+   "link_to": "Customer",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Shartnoma pdf chiqarish",
+   "link_to": "Sales Order",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Kassa kirim chiqim",
+   "link_to": "Payment Entry",
+   "type": "DocType"
+  }
+ ],
+ "title": "Operator Paneli"
+}

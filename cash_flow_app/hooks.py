@@ -158,30 +158,145 @@ doctype_js = {
 # ❌ MUAMMO: Standard fixtures export DocPerm va boshqa DocType larni
 #    har safar DUPLICATE yaratib qo'yadi, chunki ularning migration_hash yo'q.
 #
-# ✅ YECHIM: fixtures list ni bo'sh qoldirish va after_migrate hook da
-#    force_sync_* functions ishlatish (fixtures.py ga qarang).
+# ✅ YECHIM: Faqat SAFE fixtures (Custom Field, Property Setter) export qilinadi.
+#    DocPerm kabi duplicate yaratadigan DocType lar force_sync ishlatadi.
 #
-# EXPORT UCHUN (manual):
+# EXPORT UCHUN:
 #   bench --site your-site export-fixtures
 #   Bu command quyidagi fixture file larni yangilaydi:
-#   - custom_field.json
-#   - property_setter.json  
-#   - docperm.json
-#   - role.json
-#   - uom.json
-#   - item_group.json
-#   - workspace.json
-#   - mode_of_payment.json
+#   - custom_field.json ✅ (safe - migration_hash bor)
+#   - property_setter.json ✅ (safe)
 #
 # IMPORT/SYNC (automatic on migrate):
-#   after_migrate hooks ishga tushadi va force_sync qiladi
+#   after_migrate hooks ishga tushadi va:
+#   - Custom Field & Property Setter: force_sync (double check)
+#   - DocPerm: DELETE + IMPORT (clean)
 #
 # ============================================
 
-# ⚠️ MUHIM: Bu list bo'sh bo'lishi kerak!
-# Export uchun fixtures/ papkada JSON file lar manual yaratilgan.
-# Migrate da ular force_sync orqali import bo'ladi.
-fixtures = []
+# ============================================
+# FIXTURES - HYBRID APPROACH (Optimal!)
+# ============================================
+# ✅ SAFE FIXTURES: Standard export (migration_hash bor)
+# ❌ UNSAFE FIXTURES: force_sync (duplicate yaratadi)
+# ⚠️ STATIC FIXTURES: Manual export (kam o'zgaradi)
+#
+# CATEGORIZATION:
+# 
+# SAFE (auto-export via bench export-fixtures):
+#   - Custom Field ✅ (migration_hash)
+#   - Property Setter ✅ (migration_hash)
+#   - Workspace ✅ (migration_hash)
+#
+# UNSAFE (force_sync - DELETE + IMPORT):
+#   - DocPerm ❌ (random name, har doim duplicate)
+#
+# STATIC (manual export faqat o'zgarganda):
+#   - Role ⚠️ (deyarli hech qachon o'zgarmaydi)
+#   - UOM ⚠️ (deyarli hech qachon o'zgarmaydi)
+#   - Item Group ⚠️ (deyarli hech qachon o'zgarmaydi)
+#   - Mode of Payment ⚠️ (server-specific config)
+#
+# ============================================
+# WORKFLOW:
+# 
+# 1. UI da Custom Field/Property Setter qo'shsangiz:
+#    → bench export-fixtures ✅
+#    → Git commit + push ✅
+#    → Server avtomatik sync ✅
+#
+# 2. UI da DocPerm o'zgartirsangiz:
+#    → Custom script (utils/fixtures.py) ✅
+#    → Git commit + push ✅
+#    → Server force_sync (DELETE + IMPORT) ✅
+#
+# 3. Role/UOM/Item Group o'zgarsa (rare!):
+#    → Manual JSON edit ✅
+#    → Git commit + push ✅
+#
+# ============================================
+
+fixtures = [
+    # ============================================
+    # 1. CUSTOM FIELDS - SAFE ✅
+    # ============================================
+    # Has migration_hash - no duplicates
+    # Auto-export via: bench export-fixtures
+    {
+        "dt": "Custom Field",
+        "filters": [["module", "=", "Cash Flow Management"]]
+    },
+    
+    # ============================================
+    # 2. PROPERTY SETTERS - SAFE ✅
+    # ============================================
+    # Has migration_hash - no duplicates
+    # Auto-export via: bench export-fixtures
+    {
+        "dt": "Property Setter",
+        "filters": [["doc_type", "in", [
+            "Customer",
+            "Installment Application",
+            "Item",
+            "Payment Entry",
+            "Sales Order",
+            "Supplier"
+        ]]]
+    },
+    
+    # ============================================
+    # 3. WORKSPACE - SAFE ✅
+    # ============================================
+    # Has migration_hash - no duplicates
+    # Auto-export via: bench export-fixtures
+    {
+        "dt": "Workspace",
+        "filters": [["module", "=", "Cash Flow Management"]]
+    },
+    
+    # ============================================
+    # 4. CUSTOM REPORTS - SAFE ✅
+    # ============================================
+    # Report JSON files auto-sync from app/report/ folder
+    # But fixtures ensure UI changes (add_total_row, etc.) sync
+    # NOTE: Report code-based changes auto-deploy via git
+    #       UI-based changes need fixtures export
+    # {
+    #     "dt": "Report",
+    #     "filters": [["module", "=", "Cash Flow Management"]]
+    # },
+    # OPTIONAL: Uncomment if you change reports via UI
+    # Usually not needed - reports are code-based
+    
+    # ============================================
+    # NOTE: DocPerm NOT included here!
+    # DocPerm uses force_sync (DELETE + IMPORT)
+    # See: after_migrate hooks below
+    # ============================================
+    
+    # ============================================
+    # STATIC FIXTURES (commented - manual only):
+    # ============================================
+    # Uncomment only when these need to be exported
+    # (very rare - usually only during initial setup)
+    #
+    # {
+    #     "dt": "Role",
+    #     "filters": [["name", "in", ["Operator"]]]
+    # },
+    # {
+    #     "dt": "UOM",
+    #     "filters": [["name", "in", ["Dona"]]]
+    # },
+    # {
+    #     "dt": "Item Group",
+    #     "filters": [["name", "=", "Mahsulotlar"]]
+    # },
+    # {
+    #     "dt": "Mode of Payment",
+    #     "filters": [["name", "in", ["Naqd", "Terminal/Click"]]]
+    # },
+]
 
 # ❌ REMOVED: Duplicate doctype_js definition below (line 228)
 # It was overriding the main doctype_js at line 103
