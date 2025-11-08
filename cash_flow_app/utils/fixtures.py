@@ -181,8 +181,11 @@ def force_sync_reports():
 	"""
 	Force import Report fixtures to sync UI changes (add_total_row, etc.)
 	
-	Report has migration_hash, but UI changes (like add_total_row setting)
-	are not always reflected without force import.
+	CRITICAL: Frappe's import_file_by_path ignores force=True for non-DocType
+	documents when fixture.modified <= db.modified. This causes Report settings
+	to not sync even with force=True.
+	
+	Solution: DELETE reports first, then import clean fixture.
 	"""
 	try:
 		fixture_path = frappe.get_app_path("cash_flow_app", "fixtures", "report.json")
@@ -190,6 +193,24 @@ def force_sync_reports():
 		if not os.path.exists(fixture_path):
 			return
 		
+		# Read fixture to get report names
+		import json
+		with open(fixture_path, 'r') as f:
+			reports = json.load(f)
+		
+		report_names = [r['name'] for r in reports]
+		
+		print(f"🗑️  Deleting {len(report_names)} Cash Flow reports...")
+		
+		# DELETE all Cash Flow Management reports
+		for report_name in report_names:
+			if frappe.db.exists('Report', report_name):
+				frappe.delete_doc('Report', report_name, force=True, ignore_permissions=True)
+		
+		frappe.db.commit()
+		print("✅ Old reports deleted")
+		
+		# Now import clean fixture
 		frappe.flags.in_migrate = True
 		
 		import_file_by_path(
@@ -200,7 +221,7 @@ def force_sync_reports():
 		)
 		
 		frappe.db.commit()
-		print("✅ Report fixtures synced successfully")
+		print(f"✅ Report fixtures synced successfully ({len(report_names)} reports)")
 		
 	except Exception as e:
 		frappe.log_error(

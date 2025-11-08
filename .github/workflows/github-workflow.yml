@@ -133,13 +133,16 @@ jobs:
           # ============================================
           
           ssh root@${{ secrets.SERVER_IP }} << ENDSSH
+            # Extract app name from repository for this SSH session
+            APP_NAME=\$(basename "${{ github.repository }}")
+            
             # Pass environment variables to frappe user
             # Using double-quote heredoc to expand variables
-            su - frappe << EOF
+            su - frappe << 'FRAPPE_EOF'
           # Set environment variables inside frappe shell
           export SITE_NAME="${{ secrets.SITE_NAME }}"
           export BENCH_PATH="${{ env.BENCH_PATH }}"
-          export APP_NAME="${APP_NAME}"
+          export APP_NAME="\$(basename "${{ github.repository }}")"
           
           set -e
           cd \${BENCH_PATH}
@@ -189,7 +192,7 @@ jobs:
           bench --site \${SITE_NAME} set-maintenance-mode off
           
           echo "✅ Frappe user tasks completed!"
-          EOF
+          FRAPPE_EOF
           
           # Restart services (as root)
           echo "🔄 Restarting services..."
