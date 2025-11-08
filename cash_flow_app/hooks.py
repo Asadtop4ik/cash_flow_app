@@ -153,77 +153,35 @@ doctype_js = {
 # --------
 
 # ============================================
-# FIXTURES - DATABASE CUSTOMIZATIONS EXPORT
+# FIXTURES - DISABLED (Using force_sync instead)
 # ============================================
-# Ushbu ro'yxat `bench export-fixtures` komandasi ishga tushganda 
-# qaysi ma'lumotlarni JSON ga export qilishni belgilaydi.
-# Bu fixtures SERVER bilan LOCAL ni sync qilish uchun ishlatiladi.
+# ❌ MUAMMO: Standard fixtures export DocPerm va boshqa DocType larni
+#    har safar DUPLICATE yaratib qo'yadi, chunki ularning migration_hash yo'q.
+#
+# ✅ YECHIM: fixtures list ni bo'sh qoldirish va after_migrate hook da
+#    force_sync_* functions ishlatish (fixtures.py ga qarang).
+#
+# EXPORT UCHUN (manual):
+#   bench --site your-site export-fixtures
+#   Bu command quyidagi fixture file larni yangilaydi:
+#   - custom_field.json
+#   - property_setter.json  
+#   - docperm.json
+#   - role.json
+#   - uom.json
+#   - item_group.json
+#   - workspace.json
+#   - mode_of_payment.json
+#
+# IMPORT/SYNC (automatic on migrate):
+#   after_migrate hooks ishga tushadi va force_sync qiladi
+#
+# ============================================
 
-fixtures = [
-    {
-        "dt": "Role",
-        "filters": [["name", "in", ["Operator"]]]
-    },
-    
-    {
-        "dt": "DocPerm",
-        "filters": [["role", "=", "Operator"]]
-    },
-    
-    # ============================================
-    # 2. CUSTOM FIELDS - Module filter (OPTIMAL!)
-    # ============================================
-    # SABAB: DocType filter ishlatish boshqa module larni ham export qiladi.
-    # Masalan: Customer DocType da ERPNext module custom field lari ham bor.
-    # Module filter ishlatib, FAQAT bizning app ga tegishli field larni olamiz.
-    # 
-    # QANDAY ISHLAYDI:
-    # - Siz UI da Custom Field yaratganingizda module = "Cash Flow Management" qo'yasiz
-    # - Base DocType (Customer, Payment Entry, etc.) ga qo'shishingizdan qat'iy nazar
-    # - Barcha "Cash Flow Management" module field lari export bo'ladi
-    {
-        "dt": "Custom Field",
-        "filters": [["module", "=", "Cash Flow Management"]]
-    },
-    
-    # ============================================
-    # 3. PROPERTY SETTERS - Field customizations
-    # ============================================
-    # Audit: 134 ta Property Setter topildi
-    # Customer: 24, Item: 42, Payment Entry: 20, Supplier: 34, etc.
-    {
-        "dt": "Property Setter",
-        "filters": [["doc_type", "in", [
-            # Audit: Customer (24), Item (42), Payment Entry (20), Supplier (34)
-            # Sales Order (11), Installment Application (3)
-            "Customer",
-            "Installment Application",
-            "Item",
-            "Payment Entry",
-            "Sales Order",
-            "Supplier"
-        ]]]
-    },
-    
-    # ============================================
-    # 4. UOM (Unit of Measure)
-    # ============================================
-    # Audit: 240 ta UOM bor, faqat "Dona" ni export qilamiz
-    {
-        "dt": "UOM",
-        "filters": [["name", "in", ["Dona"]]]
-    },
-    
-    # ============================================
-    # 5. ITEM GROUP
-    # ============================================
-    # Audit: "Mahsulotlar" custom group topildi
-    {
-        "dt": "Item Group",
-        "filters": [["name", "=", "Mahsulotlar"]]
-    },
-
-]
+# ⚠️ MUHIM: Bu list bo'sh bo'lishi kerak!
+# Export uchun fixtures/ papkada JSON file lar manual yaratilgan.
+# Migrate da ular force_sync orqali import bo'ladi.
+fixtures = []
 
 # ❌ REMOVED: Duplicate doctype_js definition below (line 228)
 # It was overriding the main doctype_js at line 103
