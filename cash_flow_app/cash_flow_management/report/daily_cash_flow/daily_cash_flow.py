@@ -126,9 +126,9 @@ def get_conditions(filters):
 	if filters.get("to_date"):
 		conditions.append("pe.posting_date <= %(to_date)s")
 
-	# ✅ Yangi filter (KASSA / CASH REGISTER)
-	if filters.get("custom_cashier"):
-		conditions.append("pe.custom_cashier = %(custom_cashier)s")
+	# ✅ Yangi filter ( CASH REGISTER)
+	if filters.get("cash_account"):
+		conditions.append("(pe.paid_from = %(cash_account)s OR pe.paid_to = %(cash_account)s)")
 
 	if filters.get("counterparty_category"):
 		conditions.append("pe.custom_counterparty_category = %(counterparty_category)s")

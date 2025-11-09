@@ -183,7 +183,7 @@ doctype_js = {
 # ⚠️ STATIC FIXTURES: Manual export (kam o'zgaradi)
 #
 # CATEGORIZATION:
-# 
+#
 # SAFE (auto-export via bench export-fixtures):
 #   - Custom Field ✅ (migration_hash)
 #   - Property Setter ✅ (migration_hash)
@@ -200,7 +200,7 @@ doctype_js = {
 #
 # ============================================
 # WORKFLOW:
-# 
+#
 # 1. UI da Custom Field/Property Setter qo'shsangiz:
 #    → bench export-fixtures ✅
 #    → Git commit + push ✅
@@ -218,87 +218,66 @@ doctype_js = {
 # ============================================
 
 fixtures = [
-    # ============================================
-    # 1. CUSTOM FIELDS - SAFE ✅
-    # ============================================
-    # Has migration_hash - no duplicates
-    # Auto-export via: bench export-fixtures
-    {
-        "dt": "Custom Field",
-        "filters": [["module", "=", "Cash Flow Management"]]
-    },
-    
-    # ============================================
-    # 2. PROPERTY SETTERS - SAFE ✅
-    # ============================================
-    # Has migration_hash - no duplicates
-    # Auto-export via: bench export-fixtures
-    {
-        "dt": "Property Setter",
-        "filters": [["doc_type", "in", [
-            "Customer",
-            "Installment Application",
-            "Item",
-            "Payment Entry",
-            "Sales Order",
-            "Supplier"
-        ]]]
-    },
-    
-    # ============================================
-    # 3. WORKSPACE - SAFE ✅
-    # ============================================
-    # Has migration_hash - no duplicates
-    # Auto-export via: bench export-fixtures
-    {
-        "dt": "Workspace",
-        "filters": [["module", "=", "Cash Flow Management"]]
-    },
-    
-    # ============================================
-    # 4. CUSTOM REPORTS - SAFE ✅
-    # ============================================
-    # Report JSON files auto-sync from app/report/ folder
-    # But fixtures ensure UI changes (add_total_row, etc.) sync
-    # NOTE: Report code-based changes auto-deploy via git
-    #       UI-based changes need fixtures export
-    {
-        "dt": "Report",
-        "filters": [["module", "=", "Cash Flow Management"]]
-    },
+	# ============================================
+	# 1. CUSTOM FIELDS - SAFE ✅
+	# ============================================
+	{
+		"dt": "Custom Field",
+		"filters": [["module", "=", "Cash Flow Management"]]
+	},
 
+	# ============================================
+	# 2. PROPERTY SETTERS - SAFE ✅
+	# ============================================
+	{
+		"dt": "Property Setter",
+		"filters": [["doc_type", "in", [
+			"Customer",
+			"Installment Application",
+			"Item",
+			"Payment Entry",
+			"Sales Order",
+			"Supplier"
+		]]]
+	},
 
-    # OPTIONAL: Uncomment if you change reports via UI
-    # Usually not needed - reports are code-based
-    
-    # ============================================
-    # NOTE: DocPerm NOT included here!
-    # DocPerm uses force_sync (DELETE + IMPORT)
-    # See: after_migrate hooks below
-    # ============================================
-    
-    # ============================================
-    # STATIC FIXTURES (commented - manual only):
-    # ============================================
-    # Uncomment only when these need to be exported
-    # (very rare - usually only during initial setup)
-    #
-    # {
-    #     "dt": "Role",
-    #     "filters": [["name", "in", ["Operator"]]]
-    # },
-    # {
-    #     "dt": "UOM",
-    #     "filters": [["name", "in", ["Dona"]]]
-    # },
-    # {
-    #     "dt": "Item Group",
-    #     "filters": [["name", "=", "Mahsulotlar"]]
-    # },
-    # {
-    #     "dt": "Mode of Payment",
-    #     "filters": [["name", "in", ["Naqd", "Terminal/Click"]]]
-    # },
+	# ============================================
+	# 3. WORKSPACE - SAFE ✅
+	# ============================================
+	{
+		"dt": "Workspace",
+		"filters": [["module", "=", "Cash Flow Management"]]
+	},
+
+	# ============================================
+	# 4. CUSTOM REPORTS - SAFE ✅
+	# ============================================
+	{
+		"dt": "Report",
+		"filters": [["module", "=", "Cash Flow Management"]]
+	},
+
+	# ============================================
+	# 5. CASH - B ACCOUNT - SPECIFIC ✅
+	# ============================================
+	# Specific account names to avoid exporting all ERPNext accounts
+	{
+		"dt": "Account",
+		"filters": [
+			["name", "in", ["Cash - B - A"]]
+		]
+	},
+
+	# ============================================
+	# 6. NAQD B MODE OF PAYMENT - SPECIFIC ✅
+	# ============================================
+	# Specific mode of payment to avoid exporting all ERPNext modes
+	{
+		"dt": "Mode of Payment",
+		"filters": [
+			["name", "in", ["Naqd B"]]
+		]
+	}
 ]
 
 # ❌ REMOVED: Duplicate doctype_js definition below (line 228)

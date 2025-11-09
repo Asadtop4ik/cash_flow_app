@@ -1,18 +1,20 @@
 [
  {
+  "accounts": [
+   {
+    "company": "AsadStack",
+    "default_account": "Cash - B - A",
+    "parent": "Naqd B",
+    "parentfield": "accounts",
+    "parenttype": "Mode of Payment"
+   }
+  ],
   "docstatus": 0,
   "doctype": "Mode of Payment",
   "enabled": 1,
-  "mode_of_payment": "Terminal/Click",
-  "name": "Terminal/Click",
-  "type": "Cash"
- },
- {
-  "docstatus": 0,
-  "doctype": "Mode of Payment",
-  "enabled": 1,
-  "mode_of_payment": "Naqd",
-  "name": "Naqd",
+  "mode_of_payment": "Naqd B",
+  "modified": "2025-11-09 12:58:02.794126",
+  "name": "Naqd B",
   "type": "Cash"
  }
 ]
