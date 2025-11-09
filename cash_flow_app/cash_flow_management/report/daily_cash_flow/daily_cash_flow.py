@@ -91,6 +91,9 @@ def get_columns():
 def get_data(filters):
 	conditions = get_conditions(filters)
 
+	# ✅ cash_account parametrini qo'shish
+	cash_account = filters.get("cash_account")
+
 	query = f"""
 		SELECT
 			pe.posting_date,
@@ -100,18 +103,39 @@ def get_data(filters):
 			pe.custom_counterparty_category AS counterparty_category,
 			CASE
 				WHEN pe.party_type IN ('Customer', 'Supplier', 'Employee') THEN pe.party_name
+				WHEN pe.payment_type = 'Internal Transfer' THEN
+					CASE
+						WHEN pe.paid_to = %(cash_account)s THEN CONCAT('From: ', pe.paid_from)
+						WHEN pe.paid_from = %(cash_account)s THEN CONCAT('To: ', pe.paid_to)
+						ELSE pe.paid_to
+					END
 				ELSE pe.paid_to
 			END AS party,
-			CASE WHEN pe.payment_type = 'Pay' THEN pe.paid_amount ELSE 0 END AS debit,
-			CASE WHEN pe.payment_type = 'Receive' THEN pe.paid_amount ELSE 0 END AS credit
+
+			CASE
+				WHEN pe.payment_type = 'Pay' THEN pe.paid_amount
+				WHEN pe.payment_type = 'Internal Transfer' AND pe.paid_from = %(cash_account)s THEN pe.paid_amount
+				ELSE 0
+			END AS debit,
+
+			CASE
+				WHEN pe.payment_type = 'Receive' THEN pe.paid_amount
+				WHEN pe.payment_type = 'Internal Transfer' AND pe.paid_to = %(cash_account)s THEN pe.received_amount
+				ELSE 0
+			END AS credit
+
 		FROM `tabPayment Entry` pe
 		WHERE pe.docstatus = 1
 		{conditions}
 		ORDER BY pe.posting_date, pe.creation
 	"""
 
-	return frappe.db.sql(query, filters, as_dict=1)
+	# ✅ cash_account parametrini filters'ga qo'shish
+	query_filters = dict(filters)
+	if not query_filters.get('cash_account'):
+		query_filters['cash_account'] = ''
 
+	return frappe.db.sql(query, query_filters, as_dict=1)
 
 # ============================================================
 # ✅ CONDITIONS
