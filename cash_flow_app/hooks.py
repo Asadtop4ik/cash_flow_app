@@ -5,6 +5,11 @@ app_description = "USD-only cash and installment management for ERPNext with aut
 app_email = "asadbek.backend@gmail.com"
 app_license = "mit"
 
+# After install hook - setup company and accounts
+after_install = [
+	"cash_flow_app.utils.setup_accounts.setup_cash_accounts",
+]
+
 # After migrate hooks - force sync fixtures without migration_hash
 after_migrate = [
 	"cash_flow_app.utils.fixtures.force_sync_custom_fields",
@@ -256,28 +261,24 @@ fixtures = [
 		"dt": "Report",
 		"filters": [["module", "=", "Cash Flow Management"]]
 	},
-
+	
 	# ============================================
-	# 5. CASH - B ACCOUNT - SPECIFIC ✅
+	# 5. ROLE - SAFE ✅
 	# ============================================
-	# Specific account names to avoid exporting all ERPNext accounts
 	{
-		"dt": "Account",
-		"filters": [
-			["name", "in", ["Cash - B - A"]]
-		]
-	},
-
-	# ============================================
-	# 6. NAQD B MODE OF PAYMENT - SPECIFIC ✅
-	# ============================================
-	# Specific mode of payment to avoid exporting all ERPNext modes
-	{
-		"dt": "Mode of Payment",
-		"filters": [
-			["name", "in", ["Naqd B"]]
-		]
+		"dt": "Role",
+		"filters": [["name", "in", ["Operator"]]]
 	}
+	
+	# ============================================
+	# NOTE: Following fixtures removed - now created dynamically
+	# See: cash_flow_app.utils.setup_accounts.setup_cash_accounts
+	# - Account (Cash - B and hierarchy)
+	# - Mode of Payment (Naqd B)
+	# - Item Group (Mahsulotlar) 
+	# - UOM (custom units)
+	# This ensures compatibility with any company name/structure
+	# ============================================
 ]
 
 # ❌ REMOVED: Duplicate doctype_js definition below (line 228)
