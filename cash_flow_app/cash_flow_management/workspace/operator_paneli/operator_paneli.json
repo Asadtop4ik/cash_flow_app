@@ -1,7 +1,7 @@
 {
  "charts": [],
- "content": "[{\"id\":\"G4PKuV_6vA\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Operator Panel</b></span>\",\"col\":12}},{\"id\":\"RvvPWP-Gg-\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"ovpEJcsEFk\",\"type\":\"card\",\"data\":{\"card_name\":\"Doc Types\",\"col\":4}}]",
- "creation": "2025-11-09 23:43:46.788392",
+ "content": "[{\"id\":\"G4PKuV_6vA\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Operator Panel</b></span>\",\"col\":12}},{\"id\":\"RvvPWP-Gg-\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"ovpEJcsEFk\",\"type\":\"card\",\"data\":{\"card_name\":\"Ma'lumot Kiritish\",\"col\":4}}]",
+ "creation": "2025-11-10 00:26:44.713604",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -63,7 +63,7 @@
   {
    "hidden": 0,
    "is_query_report": 1,
-   "label": "Net Balance",
+   "label": "Kassa Qoldiq",
    "link_count": 0,
    "link_to": "Net Balance",
    "link_type": "Report",
@@ -73,7 +73,7 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Doc Types",
+   "label": "Ma'lumot Kiritish",
    "link_count": 5,
    "link_type": "DocType",
    "onboard": 0,
@@ -130,7 +130,7 @@
    "type": "Link"
   }
  ],
- "modified": "2025-11-10 00:18:28.533942",
+ "modified": "2025-11-10 00:32:14.301657",
  "modified_by": "Administrator",
  "module": "Cash Flow Management",
  "name": "Operator Paneli",
