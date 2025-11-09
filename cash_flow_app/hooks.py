@@ -5,13 +5,14 @@ app_description = "USD-only cash and installment management for ERPNext with aut
 app_email = "asadbek.backend@gmail.com"
 app_license = "mit"
 
-# After install hook - setup company and accounts
+# After install hook - setup company and accounts (one-time setup)
 after_install = [
 	"cash_flow_app.utils.setup_accounts.setup_cash_accounts",
 ]
 
 # After migrate hooks - force sync fixtures without migration_hash
 after_migrate = [
+	"cash_flow_app.utils.setup_accounts.setup_cash_accounts",  # Ensure accounts exist
 	"cash_flow_app.utils.fixtures.force_sync_custom_fields",
 	"cash_flow_app.utils.fixtures.force_sync_property_setters",
 	"cash_flow_app.utils.fixtures.force_sync_docperms",  # Prevent duplicate permissions
