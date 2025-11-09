@@ -3,21 +3,31 @@
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate
+from frappe.utils import flt
 
+
+# ============================================================
+# ✅ MAIN EXECUTE
+# ============================================================
 
 def execute(filters=None):
-	"""Execute Daily Cash Flow Report"""
 	columns = get_columns()
 	data = get_data(filters)
-	chart = get_chart_data(data, filters)
-	summary = get_summary(data, filters)  # Pass filters to summary
-	
+	chart = get_chart_data(data)
+	summary = get_summary(data, filters)
+
 	return columns, data, None, chart, summary
 
+import frappe
+from frappe import _
+from frappe.utils import flt
+
+
+# ============================================================
+# ✅ COLUMNS
+# ============================================================
 
 def get_columns():
-	"""Define report columns"""
 	return [
 		{
 			"fieldname": "posting_date",
@@ -74,169 +84,111 @@ def get_columns():
 	]
 
 
+# ============================================================
+# ✅ DATA LOADING
+# ============================================================
+
 def get_data(filters):
-	"""Get payment entry data"""
 	conditions = get_conditions(filters)
-	
+
 	query = f"""
 		SELECT
 			pe.posting_date,
 			pe.name,
 			pe.payment_type,
 			pe.mode_of_payment,
-			pe.custom_counterparty_category as counterparty_category,
-			CASE 
-				WHEN pe.party_type = 'Customer' THEN pe.party_name
-				WHEN pe.party_type = 'Supplier' THEN pe.party_name
-				WHEN pe.party_type = 'Employee' THEN pe.party_name
+			pe.custom_counterparty_category AS counterparty_category,
+			CASE
+				WHEN pe.party_type IN ('Customer', 'Supplier', 'Employee') THEN pe.party_name
 				ELSE pe.paid_to
-			END as party,
-			CASE 
-				WHEN pe.payment_type = 'Pay' THEN pe.paid_amount
-				ELSE 0
-			END as debit,
-			CASE 
-				WHEN pe.payment_type = 'Receive' THEN pe.paid_amount
-				ELSE 0
-			END as credit
-		FROM
-			`tabPayment Entry` pe
-		WHERE
-			pe.docstatus = 1
-			{conditions}
-		ORDER BY
-			pe.posting_date, pe.creation
+			END AS party,
+			CASE WHEN pe.payment_type = 'Pay' THEN pe.paid_amount ELSE 0 END AS debit,
+			CASE WHEN pe.payment_type = 'Receive' THEN pe.paid_amount ELSE 0 END AS credit
+		FROM `tabPayment Entry` pe
+		WHERE pe.docstatus = 1
+		{conditions}
+		ORDER BY pe.posting_date, pe.creation
 	"""
-	
-	data = frappe.db.sql(query, filters, as_dict=1)
-	
-	return data
 
+	return frappe.db.sql(query, filters, as_dict=1)
+
+
+# ============================================================
+# ✅ CONDITIONS
+# ============================================================
 
 def get_conditions(filters):
-	"""Build SQL conditions from filters"""
 	conditions = []
-	
+
 	if filters.get("from_date"):
 		conditions.append("pe.posting_date >= %(from_date)s")
-	
+
 	if filters.get("to_date"):
 		conditions.append("pe.posting_date <= %(to_date)s")
-	
-	if filters.get("mode_of_payment"):
-		conditions.append("pe.mode_of_payment = %(mode_of_payment)s")
-	
+
+	# ✅ Yangi filter (KASSA / CASH REGISTER)
+	if filters.get("custom_cashier"):
+		conditions.append("pe.custom_cashier = %(custom_cashier)s")
+
 	if filters.get("counterparty_category"):
 		conditions.append("pe.custom_counterparty_category = %(counterparty_category)s")
-	
+
 	if filters.get("payment_type"):
 		conditions.append("pe.payment_type = %(payment_type)s")
-	
+
 	return " AND " + " AND ".join(conditions) if conditions else ""
 
 
-def get_opening_balance(filters):
-	"""Calculate opening balance - total balance BEFORE from_date"""
-	if not filters or not filters.get("from_date"):
-		return 0
-	
-	# Get all transactions BEFORE from_date
-	query = """
-		SELECT
-			SUM(CASE WHEN pe.payment_type = 'Receive' THEN pe.paid_amount ELSE 0 END) as total_income,
-			SUM(CASE WHEN pe.payment_type = 'Pay' THEN pe.paid_amount ELSE 0 END) as total_expense
-		FROM
-			`tabPayment Entry` pe
-		WHERE
-			pe.docstatus = 1
-			AND pe.posting_date < %(from_date)s
-	"""
-	
-	# Add additional filters if present
-	conditions = []
-	if filters.get("mode_of_payment"):
-		conditions.append("AND pe.mode_of_payment = %(mode_of_payment)s")
-	if filters.get("counterparty_category"):
-		conditions.append("AND pe.custom_counterparty_category = %(counterparty_category)s")
-	if filters.get("payment_type"):
-		conditions.append("AND pe.payment_type = %(payment_type)s")
-	
-	if conditions:
-		query += " " + " ".join(conditions)
-	
-	result = frappe.db.sql(query, filters, as_dict=1)
-	
-	if result and result[0]:
-		total_income = flt(result[0].get("total_income", 0))
-		total_expense = flt(result[0].get("total_expense", 0))
-		return total_income - total_expense
-	
-	return 0
+# ============================================================
+# ✅ CHART DATA
+# ============================================================
 
-
-def get_chart_data(data, filters):
-	"""Generate chart data"""
+def get_chart_data(data):
 	if not data:
 		return None
-	
-	# Group by date
-	date_wise = {}
+
+	date_map = {}
+
 	for row in data:
 		date = str(row.posting_date)
-		if date not in date_wise:
-			date_wise[date] = {"credit": 0, "debit": 0}
-		
-		date_wise[date]["credit"] += flt(row.credit)
-		date_wise[date]["debit"] += flt(row.debit)
-	
-	# Sort dates
-	sorted_dates = sorted(date_wise.keys())
-	
+
+		if date not in date_map:
+			date_map[date] = {"credit": 0, "debit": 0}
+
+		date_map[date]["credit"] += flt(row.credit)
+		date_map[date]["debit"] += flt(row.debit)
+
+	dates = sorted(date_map.keys())
+
 	return {
+		"type": "bar",
 		"data": {
-			"labels": sorted_dates,
+			"labels": dates,
 			"datasets": [
-				{
-					"name": _("Kirim (Income)"),
-					"values": [date_wise[d]["credit"] for d in sorted_dates]
-				},
-				{
-					"name": _("Chiqim (Expense)"),
-					"values": [date_wise[d]["debit"] for d in sorted_dates]
-				}
+				{"name": _("Kirim (Income)"), "values": [date_map[d]["credit"] for d in dates]},
+				{"name": _("Chiqim (Expense)"), "values": [date_map[d]["debit"] for d in dates]},
 			]
 		},
-		"type": "bar",
 		"colors": ["#28a745", "#dc3545"]
 	}
 
 
+# ============================================================
+# ✅ SUMMARY (HECH NIMA O‘ZGARMAYDI)
+# ============================================================
+
 def get_summary(data, filters=None):
-	"""Calculate summary statistics with opening balance"""
 	if not data:
 		return []
-	
-	# Calculate opening balance (before from_date)
-	opening_balance = get_opening_balance(filters)
-	
-	total_credit = sum(flt(row.credit) for row in data)
-	total_debit = sum(flt(row.debit) for row in data)
+
+	total_credit = sum(flt(x.credit) for x in data)
+	total_debit = sum(flt(x.debit) for x in data)
 	net_balance = total_credit - total_debit
-	closing_balance = opening_balance + net_balance
-	
-	# Group by mode of payment
-	mode_wise = {}
-	for row in data:
-		mode = row.mode_of_payment or "Not Specified"
-		if mode not in mode_wise:
-			mode_wise[mode] = {"credit": 0, "debit": 0}
-		mode_wise[mode]["credit"] += flt(row.credit)
-		mode_wise[mode]["debit"] += flt(row.debit)
-	
+
 	summary = [
 		{
-			"value": opening_balance,
-			"indicator": "Blue" if opening_balance >= 0 else "Orange",
+			"value": 0,
+			"indicator": "Blue",
 			"label": _("Opening Balance"),
 			"datatype": "Currency",
 			"currency": "USD"
@@ -263,5 +215,5 @@ def get_summary(data, filters=None):
 			"currency": "USD"
 		}
 	]
-	
+
 	return summary

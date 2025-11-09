@@ -35,12 +35,20 @@ frappe.query_reports["Daily Cash Flow"] = {
 			"label": __("Category"),
 			"fieldtype": "Link",
 			"options": "Counterparty Category"
+		},
+
+		// ✅ ✅ ✅ KASSA FILTER (SEN SO'RAGAN)
+		{
+			"fieldname": "custom_cashier",
+			"label": __("Kassa"),
+			"fieldtype": "Link",
+			"options": "Cash Register"
 		}
 	],
-	
+
 	"formatter": function(value, row, column, data, default_formatter) {
 		value = default_formatter(value, row, column, data);
-		
+
 		if (column.fieldname == "payment_type") {
 			if (data && data.payment_type == "Receive") {
 				value = `<span class="badge badge-success">Kirim</span>`;
@@ -48,7 +56,7 @@ frappe.query_reports["Daily Cash Flow"] = {
 				value = `<span class="badge badge-danger">Chiqim</span>`;
 			}
 		}
-		
+
 		if (column.fieldname == "balance") {
 			if (data && data.balance < 0) {
 				value = `<span style="color: red; font-weight: bold;">${value}</span>`;
@@ -56,7 +64,7 @@ frappe.query_reports["Daily Cash Flow"] = {
 				value = `<span style="color: green; font-weight: bold;">${value}</span>`;
 			}
 		}
-		
+
 		return value;
 	},
 	onload: function(report) {
