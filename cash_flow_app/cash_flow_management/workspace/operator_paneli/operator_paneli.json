@@ -1,7 +1,7 @@
 {
  "charts": [],
  "content": "[{\"id\":\"G4PKuV_6vA\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Operator Panel</b></span>\",\"col\":12}},{\"id\":\"RvvPWP-Gg-\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"ovpEJcsEFk\",\"type\":\"card\",\"data\":{\"card_name\":\"Ma'lumot Kiritish\",\"col\":4}}]",
- "creation": "2025-11-10 00:26:44.713604",
+ "creation": "2025-11-10 13:30:46.019673",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -11,65 +11,6 @@
  "is_hidden": 0,
  "label": "Operator Paneli",
  "links": [
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Reports",
-   "link_count": 5,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Kontragent Hisobot",
-   "link_count": 0,
-   "link_to": "Kontragent Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "To'lov Kalendari",
-   "link_count": 0,
-   "link_to": "All Customer Payment",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Pastavshik Hisoboti",
-   "link_count": 0,
-   "link_to": "Supplier Debt Analysis",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Kassa Hisoboti",
-   "link_count": 0,
-   "link_to": "Kassa Hisoboti",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Kassa Qoldiq",
-   "link_count": 0,
-   "link_to": "Net Balance",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
   {
    "hidden": 0,
    "is_query_report": 0,
@@ -128,9 +69,68 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Kontragent Hisobot",
+   "link_count": 0,
+   "link_to": "Kontragent Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "To'lov Kalendari",
+   "link_count": 0,
+   "link_to": "All Customer Payment",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Pastavshik Hisoboti",
+   "link_count": 0,
+   "link_to": "Supplier Debt Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Kassa Hisoboti",
+   "link_count": 0,
+   "link_to": "Kassa Hisoboti",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Kassa qoldiq",
+   "link_count": 0,
+   "link_to": "Qoldiq Summa",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2025-11-10 00:32:14.301657",
+ "modified": "2025-11-10 13:57:14.892737",
  "modified_by": "Administrator",
  "module": "Cash Flow Management",
  "name": "Operator Paneli",
@@ -148,74 +148,6 @@
   }
  ],
  "sequence_id": 1.0,
- "shortcuts": [
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "To'lov Kalendari",
-   "link_to": "All Customer Payment",
-   "report_ref_doctype": "Installment Application",
-   "type": "Report"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Shartnoma",
-   "link_to": "Installment Application",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Kassa Hisoboti",
-   "link_to": "Kassa Hisoboti",
-   "report_ref_doctype": "Payment Entry",
-   "type": "Report"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Postavshiklar",
-   "link_to": "Supplier",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Postavshik reporti",
-   "link_to": "Supplier Debt Analysis",
-   "report_ref_doctype": "Supplier",
-   "type": "Report"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Kontragent reporti",
-   "link_to": "Kontragent Report",
-   "report_ref_doctype": "GL Entry",
-   "type": "Report"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Mijozlar",
-   "link_to": "Customer",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Shartnoma pdf chiqarish",
-   "link_to": "Sales Order",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Kassa kirim chiqim",
-   "link_to": "Payment Entry",
-   "type": "DocType"
-  }
- ],
+ "shortcuts": [],
  "title": "Operator Paneli"
 }
