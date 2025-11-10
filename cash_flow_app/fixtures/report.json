@@ -11,6 +11,50 @@
   "javascript": null,
   "json": null,
   "letter_head": null,
+  "modified": "2025-11-09 23:10:25.180025",
+  "module": "Cash Flow Management",
+  "name": "Net Balance",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Payment Entry",
+  "reference_report": null,
+  "report_name": "Net Balance",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Net Balance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Operator"
+   },
+   {
+    "parent": "Net Balance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "Net Balance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts Manager"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
   "modified": "2025-10-26 17:07:25.969741",
   "module": "Cash Flow Management",
   "name": "Customer Payment Report",

@@ -1,7 +1,7 @@
 {
  "charts": [],
- "content": "[{\"id\":\"G4PKuV_6vA\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Operator Panel</b></span>\",\"col\":12}},{\"id\":\"j-fgtiLPGp\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Shartnoma\",\"col\":3}},{\"id\":\"3yqWlUjizu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"To'lov Kalendari\",\"col\":3}},{\"id\":\"n0SwAEp2LR\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Shartnoma pdf chiqarish\",\"col\":3}},{\"id\":\"NraCygvSL4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Kassa kirim chiqim\",\"col\":3}},{\"id\":\"yxkDsmEHLC\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Kassa Hisoboti\",\"col\":3}},{\"id\":\"OP0wZOurLb\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Postavshiklar\",\"col\":3}},{\"id\":\"4z-k_xd60R\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Mijozlar\",\"col\":3}},{\"id\":\"8V42wiajLv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Postavshik reporti\",\"col\":3}},{\"id\":\"kA7A5D-KOv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Kontragent reporti\",\"col\":3}}]",
- "creation": "2025-11-08 23:15:00.810179",
+ "content": "[{\"id\":\"G4PKuV_6vA\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Operator Panel</b></span>\",\"col\":12}},{\"id\":\"RvvPWP-Gg-\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"ovpEJcsEFk\",\"type\":\"card\",\"data\":{\"card_name\":\"Ma'lumot Kiritish\",\"col\":4}}]",
+ "creation": "2025-11-10 00:26:44.713604",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -10,8 +10,127 @@
  "indicator_color": "cyan",
  "is_hidden": 0,
  "label": "Operator Paneli",
- "links": [],
- "modified": "2025-11-08 23:58:36.435204",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Kontragent Hisobot",
+   "link_count": 0,
+   "link_to": "Kontragent Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "To'lov Kalendari",
+   "link_count": 0,
+   "link_to": "All Customer Payment",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Pastavshik Hisoboti",
+   "link_count": 0,
+   "link_to": "Supplier Debt Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Kassa Hisoboti",
+   "link_count": 0,
+   "link_to": "Daily Cash Flow",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Kassa Qoldiq",
+   "link_count": 0,
+   "link_to": "Net Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Ma'lumot Kiritish",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Mijozlar",
+   "link_count": 0,
+   "link_to": "Customer",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Pastavshiklar",
+   "link_count": 0,
+   "link_to": "Supplier",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Shartnoma",
+   "link_count": 0,
+   "link_to": "Installment Application",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Shartnoma PDF",
+   "link_count": 0,
+   "link_to": "Sales Order",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Kassa Kirim-chiqim",
+   "link_count": 0,
+   "link_to": "Payment Entry",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2025-11-10 00:32:14.301657",
  "modified_by": "Administrator",
  "module": "Cash Flow Management",
  "name": "Operator Paneli",
@@ -29,6 +148,7 @@
   }
  ],
  "sequence_id": 1.0,
+<<<<<<< HEAD
  "shortcuts": [
   {
    "color": "Grey",
@@ -98,5 +218,8 @@
    "type": "DocType"
   }
  ],
+=======
+ "shortcuts": [],
+>>>>>>> c59f1954e69dc1ffd69c6344bccc544f6d25ae2c
  "title": "Operator Paneli"
 }
