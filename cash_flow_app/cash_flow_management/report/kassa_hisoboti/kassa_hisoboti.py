@@ -1,10 +1,8 @@
-# Copyright (c) 2025, AsadStack and contributors
-# For license information, please see license.txt
+# Kassa Hisoboti Report
 
 import frappe
 from frappe import _
 from frappe.utils import flt
-
 
 # ============================================================
 # ✅ MAIN EXECUTE
@@ -13,15 +11,13 @@ from frappe.utils import flt
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
-	chart = get_chart_data(data)
 	summary = get_summary(data, filters)
 
-	return columns, data, None, chart, summary
+	return columns, data, None, summary
 
 import frappe
 from frappe import _
 from frappe.utils import flt
-
 
 # ============================================================
 # ✅ COLUMNS
@@ -82,7 +78,6 @@ def get_columns():
 			"width": 120
 		}
 	]
-
 
 # ============================================================
 # ✅ DATA LOADING
@@ -161,41 +156,6 @@ def get_conditions(filters):
 		conditions.append("pe.payment_type = %(payment_type)s")
 
 	return " AND " + " AND ".join(conditions) if conditions else ""
-
-
-# ============================================================
-# ✅ CHART DATA
-# ============================================================
-
-def get_chart_data(data):
-	if not data:
-		return None
-
-	date_map = {}
-
-	for row in data:
-		date = str(row.posting_date)
-
-		if date not in date_map:
-			date_map[date] = {"credit": 0, "debit": 0}
-
-		date_map[date]["credit"] += flt(row.credit)
-		date_map[date]["debit"] += flt(row.debit)
-
-	dates = sorted(date_map.keys())
-
-	return {
-		"type": "bar",
-		"data": {
-			"labels": dates,
-			"datasets": [
-				{"name": _("Kirim (Income)"), "values": [date_map[d]["credit"] for d in dates]},
-				{"name": _("Chiqim (Expense)"), "values": [date_map[d]["debit"] for d in dates]},
-			]
-		},
-		"colors": ["#28a745", "#dc3545"]
-	}
-
 
 # ============================================================
 # ✅ SUMMARY (HECH NIMA O‘ZGARMAYDI)

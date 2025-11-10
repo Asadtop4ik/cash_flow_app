@@ -1,7 +1,7 @@
 // Copyright (c) 2025, AsadStack and contributors
 // For license information, please see license.txt
 
-frappe.query_reports["Daily Cash Flow"] = {
+frappe.query_reports["Kassa Hisoboti"] = {
     "filters": [
        {
           "fieldname": "from_date",

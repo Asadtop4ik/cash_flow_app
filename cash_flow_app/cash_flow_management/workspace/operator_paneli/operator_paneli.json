@@ -45,14 +45,14 @@
    "link_to": "Installment Application",
    "type": "DocType"
   },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Kassa Hisoboti",
-   "link_to": "Daily Cash Flow",
-   "report_ref_doctype": "Payment Entry",
-   "type": "Report"
-  },
+    {
+     "color": "Grey",
+     "doc_view": "List",
+     "label": "Kassa Hisoboti",
+     "link_to": "Kassa Hisoboti",
+     "report_ref_doctype": "Payment Entry",
+     "type": "Report"
+    },
   {
    "color": "Grey",
    "doc_view": "List",

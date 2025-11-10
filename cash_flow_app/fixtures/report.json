@@ -119,39 +119,39 @@
   "letter_head": null,
   "modified": "2025-11-09 01:20:43.689615",
   "module": "Cash Flow Management",
-  "name": "Daily Cash Flow",
+    "name": "Kassa Hisoboti",
   "prepared_report": 0,
   "query": null,
   "ref_doctype": "Payment Entry",
   "reference_report": null,
-  "report_name": "Daily Cash Flow",
+    "report_name": "Kassa Hisoboti",
   "report_script": null,
   "report_type": "Script Report",
   "roles": [
-   {
-    "parent": "Daily Cash Flow",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Accounts Manager"
-   },
-   {
-    "parent": "Daily Cash Flow",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Accounts User"
-   },
-   {
-    "parent": "Daily Cash Flow",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Operator"
-   },
-   {
-    "parent": "Daily Cash Flow",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "System Manager"
-   }
+    {
+     "parent": "Kassa Hisoboti",
+     "parentfield": "roles",
+     "parenttype": "Report",
+     "role": "Accounts Manager"
+    },
+    {
+     "parent": "Kassa Hisoboti",
+     "parentfield": "roles",
+     "parenttype": "Report",
+     "role": "Accounts User"
+    },
+    {
+     "parent": "Kassa Hisoboti",
+     "parentfield": "roles",
+     "parenttype": "Report",
+     "role": "Operator"
+    },
+    {
+     "parent": "Kassa Hisoboti",
+     "parentfield": "roles",
+     "parenttype": "Report",
+     "role": "System Manager"
+    }
   ],
   "timeout": 0
  },

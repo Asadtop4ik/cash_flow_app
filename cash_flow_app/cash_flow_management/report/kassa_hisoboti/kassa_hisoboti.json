@@ -11,11 +11,11 @@
  "modified": "2025-10-13 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Flow Management",
- "name": "Daily Cash Flow",
+ "name": "Kassa Hisoboti",
  "owner": "Administrator",
  "prepared_report": 0,
  "ref_doctype": "Payment Entry",
- "report_name": "Daily Cash Flow",
+ "report_name": "Kassa Hisoboti",
  "report_type": "Script Report",
  "roles": [
   {
