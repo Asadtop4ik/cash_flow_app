@@ -94,8 +94,7 @@ def get_data(filters):
 			'transaction_debit': 0,
 			'transaction_credit': 0,
 			'closing_debit': 0,
-			'closing_credit': 0,
-			'bold': 1  # ✅ Bu qatorni bold qilish uchun
+			'closing_credit': 0
 		}
 
 		for c in customers:
@@ -184,8 +183,7 @@ def get_data(filters):
 			'transaction_debit': 0,
 			'transaction_credit': 0,
 			'closing_debit': 0,
-			'closing_credit': 0,
-			'bold': 1  # ✅ Bu qatorni bold qilish uchun
+			'closing_credit': 0
 		}
 
 		for s in suppliers:

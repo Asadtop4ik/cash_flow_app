@@ -1,8 +1,5 @@
 // Kontragent Report - JavaScript
-// Click on Party Name → Open personal dashboard/form
-
 frappe.query_reports["Kontragent Report"] = {
-    // ✅ Filters (agar kerak bo'lsa)
     "filters": [
         {
             "fieldname": "from_date",
@@ -33,55 +30,37 @@ frappe.query_reports["Kontragent Report"] = {
         }
     ],
 
-    // ✅ Report yuklanganida styling qo'llash
     onload: function(report) {
-        this.setup_click_handlers(report);
+        frappe.after_ajax(() => {
+            this.add_total_row_styling();
+        });
     },
 
-    // ✅ Har refresh bo'lganda click handlers qayta qo'llash
     refresh: function(report) {
-        this.setup_click_handlers(report);
+        this.add_total_row_styling();
     },
 
-    // ✅ Party name click handlerlari
-    setup_click_handlers: function(report) {
-        const self = this;
-
-        // Biroz kutib, DOM elementlari yuklanishini kutamiz
+    add_total_row_styling: function() {
         setTimeout(() => {
-            // Party name ustiga click qilish
-            const partyLinks = document.querySelectorAll('[data-fieldname="party"] a');
+            // Barcha qatorlarni topish
+            const rows = document.querySelectorAll('.dt-row');
 
-            partyLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    const party_name = this.textContent.trim();
-                    const row = this.closest('.dt-row');
-
-                    if (!row) return;
-
-                    // Party type topish
-                    const partyTypeCell = row.querySelector('[data-fieldname="party_type"] .dt-cell__content');
-                    const party_type = partyTypeCell ? partyTypeCell.textContent.trim() : '';
-
-                    console.log('Party clicked:', {party_name, party_type});
-
-                    // TOTAL qatorlarni ignore qilish
-                    if (party_type.includes('TOTAL') || party_name.includes('TOTAL')) {
-                        return;
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('.dt-cell__content');
+                
+                // Party Type (2-ustun) ni tekshirish
+                if (cells.length > 1) {
+                    const partyTypeText = cells[1].textContent.trim();
+                    
+                    // Agar "TOTAL" so'zi bo'lsa
+                    if (partyTypeText.includes('TOTAL')) {
+                        cells.forEach(cell => {
+                            cell.style.fontWeight = 'bold';
+                            cell.style.backgroundColor = '#f0f0f0';
+                        });
                     }
-
-                    // Party formiga o'tish
-                    if (party_type === 'Customer') {
-                        frappe.set_route('Form', 'Customer', party_name);
-                    }
-                    else if (party_type === 'Supplier') {
-                        frappe.set_route('Form', 'Supplier', party_name);
-                    }
-                });
+                }
             });
-        }, 200);
+        }, 100);
     }
 };

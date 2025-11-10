@@ -71,7 +71,6 @@ scheduler_events = {
         "cash_flow_app.cash_flow_management.api.payment_entry.update_all_customers_classification"
     ]
 }
-app_include_js = "cash_flow_app/public/js/kontragent_report.js"
 # Apps
 # ------------------
 
