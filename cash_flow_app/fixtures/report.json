@@ -1,6 +1,6 @@
 [
  {
-  "add_total_row": 0,
+  "add_total_row": 1,
   "add_translate_data": 0,
   "columns": [],
   "disabled": 0,
@@ -11,34 +11,40 @@
   "javascript": null,
   "json": null,
   "letter_head": null,
-  "modified": "2025-11-09 23:10:25.180025",
+  "modified": "2025-11-09 01:20:43.689615",
   "module": "Cash Flow Management",
-  "name": "Net Balance",
+  "name": "Daily Cash Flow",
   "prepared_report": 0,
   "query": null,
   "ref_doctype": "Payment Entry",
   "reference_report": null,
-  "report_name": "Net Balance",
+  "report_name": "Daily Cash Flow",
   "report_script": null,
   "report_type": "Script Report",
   "roles": [
    {
-    "parent": "Net Balance",
+    "parent": "Daily Cash Flow",
     "parentfield": "roles",
     "parenttype": "Report",
-    "role": "Operator"
+    "role": "Accounts Manager"
    },
    {
-    "parent": "Net Balance",
+    "parent": "Daily Cash Flow",
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "Accounts User"
    },
    {
-    "parent": "Net Balance",
+    "parent": "Daily Cash Flow",
     "parentfield": "roles",
     "parenttype": "Report",
-    "role": "Accounts Manager"
+    "role": "Operator"
+   },
+   {
+    "parent": "Daily Cash Flow",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
    }
   ],
   "timeout": 0
@@ -163,39 +169,39 @@
   "letter_head": null,
   "modified": "2025-11-09 01:20:43.689615",
   "module": "Cash Flow Management",
-    "name": "Kassa Hisoboti",
+  "name": "Kassa Hisoboti",
   "prepared_report": 0,
   "query": null,
   "ref_doctype": "Payment Entry",
   "reference_report": null,
-    "report_name": "Kassa Hisoboti",
+  "report_name": "Kassa Hisoboti",
   "report_script": null,
   "report_type": "Script Report",
   "roles": [
-    {
-     "parent": "Kassa Hisoboti",
-     "parentfield": "roles",
-     "parenttype": "Report",
-     "role": "Accounts Manager"
-    },
-    {
-     "parent": "Kassa Hisoboti",
-     "parentfield": "roles",
-     "parenttype": "Report",
-     "role": "Accounts User"
-    },
-    {
-     "parent": "Kassa Hisoboti",
-     "parentfield": "roles",
-     "parenttype": "Report",
-     "role": "Operator"
-    },
-    {
-     "parent": "Kassa Hisoboti",
-     "parentfield": "roles",
-     "parenttype": "Report",
-     "role": "System Manager"
-    }
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Operator"
+   },
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   }
   ],
   "timeout": 0
  },
@@ -608,6 +614,50 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "Operator"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2025-11-10 13:22:54.699430",
+  "module": "Cash Flow Management",
+  "name": "Qoldiq Summa",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Payment Entry",
+  "reference_report": null,
+  "report_name": "Qoldiq Summa",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Qoldiq Summa",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Operator"
+   },
+   {
+    "parent": "Qoldiq Summa",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "Qoldiq Summa",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts Manager"
    }
   ],
   "timeout": 0

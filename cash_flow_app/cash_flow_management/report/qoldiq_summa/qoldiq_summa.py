@@ -24,8 +24,8 @@ def get_columns():
 			"width": 300
 		},
 		{
-			"fieldname": "net_balance",
-			"label": _("Net Balance (USD)"),
+			"fieldname": "qoldiq_summa",
+			"label": _("Qoldiq summa (USD)"),
 			"fieldtype": "Currency",
 			"width": 300
 		}
@@ -42,7 +42,7 @@ def get_data(filters):
                 WHEN pe.payment_type = 'Receive' THEN pe.paid_amount
                 WHEN pe.payment_type = 'Pay' THEN -pe.paid_amount
                 ELSE 0
-            END), 0) as net_balance
+            END), 0) as qoldiq_summa
         FROM
             `tabCash Register` cr
         LEFT JOIN
@@ -66,13 +66,13 @@ def get_summary(data):
 	if not data:
 		return []
 
-	total_balance = sum([d.get('net_balance', 0) for d in data])
+	total_balance = sum([d.get('qoldiq_summa', 0) for d in data])
 
 	return [
 		{
 			"value": total_balance,
 			"indicator": "Green" if total_balance >= 0 else "Red",
-			"label": "Net Balance (USD)",
+			"label": "Qoldiq summa (USD)",
 			"datatype": "Currency",
 			"currency": "USD"
 		}

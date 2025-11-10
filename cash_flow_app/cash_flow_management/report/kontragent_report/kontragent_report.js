@@ -30,37 +30,18 @@ frappe.query_reports["Kontragent Report"] = {
         }
     ],
 
-    onload: function(report) {
-        frappe.after_ajax(() => {
-            this.add_total_row_styling();
-        });
-    },
+    "formatter": function(value, row, column, data, default_formatter) {
+        value = default_formatter(value, row, column, data);
 
-    refresh: function(report) {
-        this.add_total_row_styling();
-    },
+        // Agar party_type da "TOTAL" yoki party da "Jami" bo'lsa
+        if (data && (
+            (data.party_type && data.party_type.includes('TOTAL')) ||
+            (data.party && data.party === 'Jami')
+        )) {
+            // Butun qatorni bold qilish va background color
+            value = `<span style="font-weight: bold;">${value}</span>`;
+        }
 
-    add_total_row_styling: function() {
-        setTimeout(() => {
-            // Barcha qatorlarni topish
-            const rows = document.querySelectorAll('.dt-row');
-
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('.dt-cell__content');
-                
-                // Party Type (2-ustun) ni tekshirish
-                if (cells.length > 1) {
-                    const partyTypeText = cells[1].textContent.trim();
-                    
-                    // Agar "TOTAL" so'zi bo'lsa
-                    if (partyTypeText.includes('TOTAL')) {
-                        cells.forEach(cell => {
-                            cell.style.fontWeight = 'bold';
-                            cell.style.backgroundColor = '#f0f0f0';
-                        });
-                    }
-                }
-            });
-        }, 100);
+        return value;
     }
 };
