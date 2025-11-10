@@ -33,48 +33,14 @@ frappe.query_reports["Kontragent Report"] = {
         }
     ],
 
-    // ✅ Report yuklanganida styling qo'llash
+    // ✅ Report yuklanganida click handlers qo'llash
     onload: function(report) {
-        frappe.after_ajax(() => {
-            this.add_total_row_styling();
-            this.setup_click_handlers(report);
-        });
-    },
-
-    // ✅ Har refresh bo'lganda styling qayta qo'llash
-    refresh: function(report) {
-        this.add_total_row_styling();
         this.setup_click_handlers(report);
     },
 
-    // ✅ TOTAL qatorlarini bold qilish funksiyasi
-    add_total_row_styling: function() {
-        setTimeout(() => {
-            const rows = document.querySelectorAll('.dt-row');
-
-            rows.forEach(row => {
-                // "TOTAL" yoki "CUSTOMER TOTAL" yoki "SUPPLIER TOTAL" so'zi bor qatorlarni topish
-                const cells = row.querySelectorAll('.dt-cell__content');
-
-                cells.forEach(cell => {
-                    const text = cell.textContent.trim();
-
-                    // Agar cell "TOTAL" so'zini o'z ichiga olsa
-                    if (text.includes('TOTAL') || text === 'CUSTOMER TOTAL' || text === 'SUPPLIER TOTAL') {
-                        // Butun qatorni bold qilish
-                        const allCells = row.querySelectorAll('.dt-cell__content');
-                        allCells.forEach(c => {
-                            c.style.fontWeight = 'bold';
-                            c.style.backgroundColor = '#f0f0f0';
-                            c.style.fontSize = '14px';
-                        });
-
-                        // Butun rowga background
-                        row.style.backgroundColor = '#f5f5f5';
-                    }
-                });
-            });
-        }, 150);
+    // ✅ Har refresh bo'lganda click handlers qayta qo'llash
+    refresh: function(report) {
+        this.setup_click_handlers(report);
     },
 
     // ✅ Party name click handlerlari

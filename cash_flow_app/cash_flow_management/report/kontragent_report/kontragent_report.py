@@ -87,14 +87,15 @@ def get_data(filters):
 		), as_dict=True)
 
 		cust_total = {
-			'party': "<b>Jami</b>",
+			'party': "Jami",
 			'party_type': 'CUSTOMER TOTAL',
 			'opening_debit': 0,
 			'opening_credit': 0,
 			'transaction_debit': 0,
 			'transaction_credit': 0,
 			'closing_debit': 0,
-			'closing_credit': 0
+			'closing_credit': 0,
+			'bold': 1  # ✅ Bu qatorni bold qilish uchun
 		}
 
 		for c in customers:
@@ -176,14 +177,15 @@ def get_data(filters):
 		), as_dict=True)
 
 		supp_total = {
-			'party': "<b>Jami</b>",
+			'party': "Jami",
 			'party_type': 'SUPPLIER TOTAL',
 			'opening_debit': 0,
 			'opening_credit': 0,
 			'transaction_debit': 0,
 			'transaction_credit': 0,
 			'closing_debit': 0,
-			'closing_credit': 0
+			'closing_credit': 0,
+			'bold': 1  # ✅ Bu qatorni bold qilish uchun
 		}
 
 		for s in suppliers:
