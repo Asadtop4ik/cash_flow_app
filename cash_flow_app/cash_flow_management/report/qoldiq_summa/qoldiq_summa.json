@@ -14,11 +14,12 @@
  "modified": "2025-11-09 22:30:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Flow Management",
- "name": "Net Balance",
+ "name": "Qoldiq Summa",
+  "title": "Qoldiq Summa",
  "owner": "Administrator",
  "prepared_report": 0,
  "ref_doctype": "Payment Entry",
- "report_name": "Net Balance",
+ "report_name": "Qoldiq Summa",
  "report_type": "Script Report",
  "roles": [
   {
