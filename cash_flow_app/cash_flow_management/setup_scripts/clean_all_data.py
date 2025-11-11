@@ -11,11 +11,13 @@ def clean_all_data():
     
     # Define cleanup order (child → parent)
     cleanup_list = [
+        ('Advance Payment Ledger Entry', 'Advance Payment Ledger Entries'),
         ('Payment Entry', 'Payments'),
         ('Sales Order', 'Sales Orders'),
         ('Installment Application', 'Installment Applications'),
         ('Item', 'Items'),
-        ('Customer', 'Customers')
+        ('Customer', 'Customers'),
+        ('Supplier', 'Suppliers')
     ]
     
     for doctype, label in cleanup_list:
