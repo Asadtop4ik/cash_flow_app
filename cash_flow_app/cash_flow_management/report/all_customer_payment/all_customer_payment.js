@@ -40,35 +40,24 @@ frappe.query_reports["All Customer Payment"] = {
        }
     ],
 
-    // ✅ Styling funksiyalari ham shu ichida
-    onload: function(report) {
-       // Reportga CSS qo'shish
-       frappe.after_ajax(() => {
-          this.add_total_row_styling();
-       });
-    },
+   "formatter": function(value, row, column, data, default_formatter) {
+      value = default_formatter(value, row, column, data);
 
-    refresh: function(report) {
-       // Har refresh bo'lganda styling qo'llash
-       this.add_total_row_styling();
-    },
+      // classification fieldida 'Jami' borligini aniqlash (HTML taglarni olib tashlash)
+      let isJamiRow = false;
+      if (data) {
+         if (
+            (data.classification && data.classification.replace(/<[^>]*>?/gm, '') === 'Jami') ||
+            (data.customer === 'Jami') ||
+            (data.customer_name === 'Jami')
+         ) {
+            isJamiRow = true;
+         }
+      }
 
-    add_total_row_styling: function() {
-       setTimeout(() => {
-          // Barcha rowlarni topish
-          const rows = document.querySelectorAll('.dt-row');
-
-          if (rows.length > 0) {
-             // Oxirgi row (Jami row)
-             const lastRow = rows[rows.length - 1];
-
-             // Barcha celllarni bold qilish
-             const cells = lastRow.querySelectorAll('.dt-cell__content');
-             cells.forEach(cell => {
-                cell.style.fontWeight = 'bold';
-                cell.style.backgroundColor = '#f0f0f0'; // Opsional: background color
-             });
-          }
-       }, 100);
-    }
+      if (isJamiRow && value) {
+         value = `<span style="font-weight: bold;">${value}</span>`;
+      }
+      return value;
+   }
 };
