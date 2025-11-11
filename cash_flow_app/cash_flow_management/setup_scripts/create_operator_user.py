@@ -23,14 +23,13 @@ def create_operator_user():
         "email": email,
         "first_name": "Operator",
         "last_name": "User",
+        "new_password": password,
         "send_welcome_email": 0,
-        "user_type": "System User"
+        "user_type": "System User",
+        "enabled": 1
     })
 
     user.insert(ignore_permissions=True)
-
-    # Set password
-    user.set_password(password)
 
     # Add Operator role
     user.add_roles("Operator")
