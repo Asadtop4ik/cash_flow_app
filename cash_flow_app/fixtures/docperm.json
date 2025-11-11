@@ -368,7 +368,6 @@
   "role": "Operator",
   "select": 1,
   "share": 1,
-  "submit": 1,
   "write": 1
  }
 ]
