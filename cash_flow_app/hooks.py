@@ -114,7 +114,9 @@ doctype_js = {
     "Sales Order": "public/js/sales_order.js",
     "Payment Entry": "public/js/payment_entry.js",
     "Customer": "public/js/customer.js",
-    "Supplier": "public/js/supplier.js"
+    "Supplier": "public/js/supplier.js",
+	"Customer_button": "public/js/customer_button.js"
+
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -262,7 +264,7 @@ fixtures = [
 		"dt": "Report",
 		"filters": [["module", "=", "Cash Flow Management"]]
 	},
-	
+
 	# ============================================
 	# 5. ROLE - SAFE ✅
 	# ============================================
@@ -270,13 +272,13 @@ fixtures = [
 		"dt": "Role",
 		"filters": [["name", "in", ["Operator"]]]
 	}
-	
+
 	# ============================================
 	# NOTE: Following fixtures removed - now created dynamically
 	# See: cash_flow_app.utils.setup_accounts.setup_cash_accounts
 	# - Account (Cash - B and hierarchy)
 	# - Mode of Payment (Naqd B)
-	# - Item Group (Mahsulotlar) 
+	# - Item Group (Mahsulotlar)
 	# - UOM (custom units)
 	# This ensures compatibility with any company name/structure
 	# ============================================

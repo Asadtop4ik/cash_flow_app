@@ -95,10 +95,10 @@ frappe.query_reports["Supplier Debt Analysis"] = {
 			}
 		}
 
-		// Kassa (custom_cashier)
 		if (column.fieldname == "custom_cashier" && value && value.trim()) {
-			value = `<span style="background:#2563eb; color:white; padding:2px 6px; border-radius:3px; font-size:11px; font-weight:600;">${value}</span>`;
+			value = `<span style="background:#bbf7d0; color:#065f46; padding:2px 6px; border-radius:3px; font-size:11px; font-weight:600;">${value}</span>`;
 		}
+
 
 		return value;
 	},
