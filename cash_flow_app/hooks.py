@@ -92,7 +92,12 @@ scheduler_events = {
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/cash_flow_app/css/cash_flow_app.css"
-# app_include_js = "/assets/cash_flow_app/js/cash_flow_app.js"
+
+# Google Sheets Export - Universal
+app_include_js = [
+    "/assets/cash_flow_app/js/google_sheets_export.js",
+    "/assets/cash_flow_app/js/global_export_button.js"  # Global Navbar Export Button (Always Visible)
+]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/cash_flow_app/css/cash_flow_app.css"

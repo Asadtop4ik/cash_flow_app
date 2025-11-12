@@ -448,6 +448,11 @@ function render_empty_state(frm) {
 }
 
 function add_customer_action_buttons(frm) {
+    // 📊 Google Sheets Export - YANGI!
+    frm.add_custom_button(__('📊 Export to Google Sheets'), function() {
+        export_customer_to_sheets(frm);
+    }, __('Actions'));
+    
     // To'liq Hisobot
     frm.add_custom_button(__('📊 To\'liq Hisobot'), function() {
         frappe.set_route("query-report", "Customer Payment History", {
@@ -474,6 +479,58 @@ function add_customer_action_buttons(frm) {
         };
         frappe.set_route("List", "Sales Order");
     }, __('View'));
+}
+
+// Google Sheets Export Function
+function export_customer_to_sheets(frm) {
+    const d = new frappe.ui.Dialog({
+        title: __('Export Customer to Google Sheets'),
+        fields: [
+            {
+                fieldtype: 'HTML',
+                options: '<div class="alert alert-info">Export this customer data to Google Sheets</div>'
+            },
+            {
+                fieldtype: 'Data',
+                fieldname: 'sheet_name',
+                label: __('Sheet Name'),
+                default: `Customer_${frm.doc.name.replace(/ /g, '_')}`,
+                reqd: 1
+            },
+            {
+                fieldtype: 'Data',
+                fieldname: 'spreadsheet_id',
+                label: __('Spreadsheet ID (Optional)'),
+                description: __('Leave empty to create new')
+            }
+        ],
+        primary_action_label: __('Export'),
+        primary_action: function(values) {
+            frappe.call({
+                method: 'cash_flow_app.google_sheets_integration.export_to_google_sheets',
+                args: {
+                    doctype: 'Customer',
+                    filters: {'name': frm.doc.name},
+                    spreadsheet_id: values.spreadsheet_id || null,
+                    sheet_name: values.sheet_name
+                },
+                freeze: true,
+                freeze_message: __('Exporting...'),
+                callback: function(r) {
+                    if (r.message && r.message.success) {
+                        frappe.show_alert({message: '✅ Exported!', indicator: 'green'}, 3);
+                        if (r.message.url) {
+                            window.open(r.message.url, '_blank');
+                        }
+                    } else {
+                        frappe.msgprint(__('Export failed'));
+                    }
+                }
+            });
+            d.hide();
+        }
+    });
+    d.show();
 }
 
 // ✅ EXPORT ALL FUNCTIONS TO GLOBAL SCOPE (for debugging and console access)
