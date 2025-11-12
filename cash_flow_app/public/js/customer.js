@@ -448,7 +448,12 @@ function render_empty_state(frm) {
 }
 
 function add_customer_action_buttons(frm) {
-    // 📊 Google Sheets Export - YANGI!
+    // � Yangi Shartnoma - PRIMARY BUTTON (ko'k, katta)
+    frm.page.add_inner_button(__('📝 Yangi Shartnoma'), function() {
+        create_new_installment_application(frm);
+    }).addClass('btn-primary');
+    
+    // �📊 Google Sheets Export
     frm.add_custom_button(__('📊 Export to Google Sheets'), function() {
         export_customer_to_sheets(frm);
     }, __('Actions'));
@@ -479,6 +484,22 @@ function add_customer_action_buttons(frm) {
         };
         frappe.set_route("List", "Sales Order");
     }, __('View'));
+}
+
+// 📝 Yangi Shartnoma yaratish - Installment Application
+function create_new_installment_application(frm) {
+    if (!frm.doc.name) {
+        frappe.msgprint(__('Please save the customer first'));
+        return;
+    }
+    
+    // Yangi Installment Application yaratish va customer ma'lumotlarini to'ldirish
+    frappe.new_doc('Installment Application', {
+        customer: frm.doc.name,
+        customer_name: frm.doc.customer_name,
+        territory: frm.doc.territory,
+        customer_group: frm.doc.customer_group
+    });
 }
 
 // Google Sheets Export Function
