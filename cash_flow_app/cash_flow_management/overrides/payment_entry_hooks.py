@@ -29,7 +29,7 @@ def validate_payment_entry(doc, method=None):
     # TEMPORARILY DISABLED - Ensure counterparty category is set
     # if not doc.custom_counterparty_category:
     #     frappe.throw(_("Counterparty Category tanlanishi shart!"))
-    
+
     # IMPORTANT: For customer payments, contract reference is REQUIRED
     if doc.payment_type == "Receive" and doc.party_type == "Customer":
         if not doc.custom_contract_reference:
@@ -38,13 +38,13 @@ def validate_payment_entry(doc, method=None):
                   "Customer uchun to'lov qabul qilishda qaysi shartnomaga to'lov qilinayotganini ko'rsatish kerak."),
                 title=_("Shartnoma Tanlanmagan")
             )
-    
+
     # Validate counterparty category matches payment type (with permission handling)
     try:
         category = frappe.get_cached_doc("Counterparty Category", doc.custom_counterparty_category)
     except frappe.PermissionError:
         category = frappe.get_doc("Counterparty Category", doc.custom_counterparty_category, ignore_permissions=True)
-    
+
     # Income category faqat Receive uchun
     if doc.payment_type == "Receive" and category.category_type != "Income":
         frappe.throw(
@@ -52,7 +52,7 @@ def validate_payment_entry(doc, method=None):
               f"Selected category '{category.category_name}' is {category.category_type} type."),
             title=_("Invalid Category")
         )
-    
+
     # Expense category faqat Pay uchun
     if doc.payment_type == "Pay" and category.category_type != "Expense":
         frappe.throw(
@@ -60,7 +60,7 @@ def validate_payment_entry(doc, method=None):
               f"Selected category '{category.category_name}' is {category.category_type} type."),
             title=_("Invalid Category")
         )
-    
+
     # Still auto-fill if somehow contract is missing (backward compatibility)
     # But validation above will catch it
     if doc.payment_type == "Receive" and doc.party_type == "Customer" and not doc.custom_contract_reference:
@@ -76,7 +76,7 @@ def validate_payment_entry(doc, method=None):
                 fieldname="name",
                 order_by="transaction_date DESC"
             )
-            
+
             if latest_so:
                 doc.custom_contract_reference = latest_so
                 frappe.msgprint(
@@ -87,7 +87,7 @@ def validate_payment_entry(doc, method=None):
         except frappe.PermissionError:
             # Skip auto-fill if no permission
             pass
-    
+
     # If contract reference is set, validate it matches party
     if doc.custom_contract_reference:
         # Use db.get_value to avoid permission issues - this is system validation
@@ -99,14 +99,14 @@ def validate_payment_entry(doc, method=None):
             # If user doesn't have permission to read SO, skip validation
             # The linked SO will be validated on submit with proper permissions
             pass
-    
+
     # ✅ AUTO-FILL Payment Schedule Row if missing (CRITICAL FIX!)
     if doc.payment_type == "Receive" and doc.party_type == "Customer" and doc.custom_contract_reference:
         if not doc.custom_payment_schedule_row:
             try:
                 # Find FIRST UNPAID Payment Schedule row for this contract
                 schedule_row = frappe.db.sql("""
-                    SELECT 
+                    SELECT
                         ps.name,
                         ps.idx,
                         ps.payment_amount,
@@ -118,17 +118,17 @@ def validate_payment_entry(doc, method=None):
                     ORDER BY ps.idx
                     LIMIT 1
                 """, {'sales_order': doc.custom_contract_reference}, as_dict=1)
-                
+
                 if schedule_row:
                     doc.custom_payment_schedule_row = schedule_row[0].name
-                    
+
                     print(f"\n🔵 AUTO-FILLED Payment Schedule Row:")
                     print(f"   Schedule Row: {schedule_row[0].name}")
                     print(f"   Contract: {doc.custom_contract_reference}")
                     print(f"   Month: {schedule_row[0].idx}")
                     print(f"   Amount Due: {schedule_row[0].payment_amount}")
                     print(f"   Already Paid: {schedule_row[0].paid_amount}\n")
-                    
+
                     frappe.msgprint(
                         _("ℹ️ Avtomatik: {0}-oy to'lovi ({1} USD) bog'landi").format(
                             schedule_row[0].idx,
@@ -139,9 +139,65 @@ def validate_payment_entry(doc, method=None):
                     )
                 else:
                     print(f"\n⚠️ WARNING: No unpaid schedule rows found for {doc.custom_contract_reference}\n")
-                    
+
             except Exception as e:
                 print(f"\n❌ ERROR auto-filling payment schedule row: {str(e)}\n")
                 # Don't fail validation if auto-fill fails
                 pass
             pass
+
+
+@frappe.whitelist()
+def get_customer_from_sales_order(sales_order):
+	"""
+	Sales Order dan Customer ma'lumotlarini olish
+	"""
+	if not sales_order:
+		return {}
+
+	so_doc = frappe.get_doc("Sales Order", sales_order)
+
+	return {
+		"customer": so_doc.customer,
+		"customer_name": so_doc.customer_name
+	}
+
+
+@frappe.whitelist()
+def get_supplier_from_sales_order(sales_order):
+	"""
+	Sales Order orqali Installment Application topib, birinchi supplier-ni qaytarish
+	"""
+	if not sales_order:
+		return {}
+
+	# Sales Order bilan bog'langan Installment Application topish
+	installment_apps = frappe.get_all(
+		"Installment Application",
+		filters={"custom_sales_order": sales_order},
+		fields=["name"],
+		limit=1
+	)
+
+	if not installment_apps:
+		return {}
+
+	# Installment Application dan birinchi item-ni olish
+	installment_doc = frappe.get_doc("Installment Application", installment_apps[0].name)
+
+	if not installment_doc.items or len(installment_doc.items) == 0:
+		return {}
+
+	# Birinchi item-dan supplier olish
+	first_item = installment_doc.items[0]
+
+	if not first_item.custom_supplier:
+		return {}
+
+	# Supplier name olish
+	supplier_name = frappe.db.get_value("Supplier", first_item.custom_supplier, "supplier_name")
+
+	return {
+		"supplier": first_item.custom_supplier,
+		"supplier_name": supplier_name
+	}

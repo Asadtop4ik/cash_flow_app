@@ -19,6 +19,9 @@ after_migrate = [
 	"cash_flow_app.utils.fixtures.force_sync_reports",  # Sync Report UI changes (add_total_row, etc.)
 	"cash_flow_app.utils.setup_mode_of_payment.setup_mode_of_payment_accounts",  # Setup Mode of Payment accounts
 ]
+override_doctype_class = {
+    "Sales Order": "cash_flow_app.cash_flow_management.overrides.sales_order.CustomSalesOrder"
+}
 
 doc_events = {
     "Item": {

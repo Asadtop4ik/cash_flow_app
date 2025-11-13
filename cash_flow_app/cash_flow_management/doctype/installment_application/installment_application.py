@@ -5,20 +5,20 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import flt, add_months, getdate
 from frappe import _
-
+from frappe.utils import nowdate, getdate
 class InstallmentApplication(Document):
     def validate(self):
         """Validate before save"""
         self.calculate_totals()
         self.validate_payment_terms()
-        
+
         # Clear cancelled Sales Order link for amended documents
         if self.sales_order:
             frappe.logger().info(f"Checking SO link: {self.sales_order}")
             # Check if linked SO is cancelled using db query (faster and safer)
             so_status = frappe.db.get_value("Sales Order", self.sales_order, "docstatus")
             frappe.logger().info(f"SO Status: {so_status}")
-            
+
             if so_status == 2:  # Cancelled
                 frappe.logger().info(f"Clearing cancelled SO link: {self.sales_order}")
                 self.sales_order = None
@@ -94,7 +94,7 @@ class InstallmentApplication(Document):
     def on_submit(self):
         """Create Sales Order after submission"""
         self.status = "Approved"
-        
+
         # If this is an amended document, cancel old Sales Order and create new one
         if self.amended_from:
             old_doc = frappe.get_doc("Installment Application", self.amended_from)
@@ -103,7 +103,7 @@ class InstallmentApplication(Document):
                 if old_so.docstatus == 1:
                     old_so.cancel()
                     frappe.msgprint(_("Eski Sales Order {0} bekor qilindi").format(old_so.name), alert=True)
-            
+
             # Always create new SO for amended docs
             self.create_sales_order()
         elif not self.sales_order:
@@ -142,13 +142,13 @@ class InstallmentApplication(Document):
                 "conversion_factor": 1.0,
                 "custom_imei": item.get("imei")  # Copy IMEI if exists
             }
-            
+
             # Copy custom_notes if exists (for Sales Order)
             if item.get("custom_notes"):
                 so_item["description"] = item.get("custom_notes")
-            
+
             so.append("items", so_item)
-        
+
         # Add interest as separate item if exists
         if flt(self.custom_total_interest) > 0:
             # Check if "Interest Charge" item exists, if not create a generic description item
@@ -270,7 +270,7 @@ class InstallmentApplication(Document):
 
             # Get company
             company = frappe.defaults.get_user_default("Company")
-            
+
             # ✅ IMPORTANT: Use custom_start_date for posting_date (for historical entries)
             # This allows entering old contracts with correct payment dates
             posting_date = getdate(self.get("custom_start_date") or self.transaction_date)
@@ -324,28 +324,28 @@ class InstallmentApplication(Document):
         """Cancel related Sales Order"""
         print(f"\n🔴 on_cancel() CALLED for InstApp: {self.name}")
         frappe.logger().info(f"🔴 Cancelling Installment Application: {self.name}")
-        
+
         if self.sales_order:
             try:
                 print(f"   📋 Linked Sales Order: {self.sales_order}")
                 frappe.logger().info(f"Getting SO: {self.sales_order}")
-                
+
                 so = frappe.get_doc("Sales Order", self.sales_order, ignore_permissions=True)
-                
+
                 print(f"   📊 SO Status: {so.docstatus} ({['Draft', 'Submitted', 'Cancelled'][so.docstatus]})")
                 frappe.logger().info(f"SO {so.name} status: {so.docstatus}")
-                
+
                 if so.docstatus == 1:  # Submitted
                     print(f"   ⚠️  Cancelling Sales Order...")
                     frappe.logger().info(f"Cancelling SO {so.name}")
-                    
+
                     # Cancel SO - this will trigger on_cancel_sales_order hook
                     # which will cancel all linked Payment Entries
                     so.cancel()
-                    
+
                     print(f"   ✅ Sales Order cancelled: {so.name}")
                     frappe.logger().info(f"✅ SO {so.name} cancelled successfully")
-                    
+
                     frappe.msgprint(
                         _("✅ Sales Order {0} va bog'langan to'lovlar bekor qilindi").format(so.name),
                         alert=True
@@ -355,13 +355,13 @@ class InstallmentApplication(Document):
                     frappe.logger().info(f"SO {so.name} already cancelled")
                 else:
                     print(f"   ℹ️  Sales Order is draft, skipping cancel")
-                    
+
             except Exception as e:
                 print(f"   ❌ Error cancelling SO: {e}")
                 frappe.logger().error(f"Error cancelling SO {self.sales_order}: {e}")
                 import traceback
                 traceback.print_exc()
-                
+
                 # Don't throw - allow InstApp to be cancelled even if SO cancel fails
                 frappe.msgprint(
                     _("⚠️ Xatolik: Sales Order bekor qilinmadi. Qo'lda bekor qiling: {0}").format(self.sales_order),
@@ -375,3 +375,42 @@ class InstallmentApplication(Document):
         self.status = "Cancelled"
         print(f"   ✅ InstApp status updated to Cancelled")
 
+# installment_application.py - SODDA YECHIM
+# installment_application.py - SODDA YECHIM
+
+@frappe.whitelist()
+# installment_application.py - SODDA YECHIM
+
+@frappe.whitelist()
+def create_payment_entry_from_installment(source_name):
+	"""
+	Installment Application dan Payment Entry yaratish
+	Faqat ma'lumotlarni to'ldiradi, saqlamaydi
+	"""
+	# Sales Order ID olish
+	sales_order = frappe.db.get_value("Installment Application", source_name, "sales_order")
+
+	if not sales_order:
+		frappe.throw(_("Sales Order topilmadi!"))
+
+	# Installment Application ma'lumotlarini olish
+	source = frappe.get_doc("Installment Application", source_name)
+
+	# Payment Entry uchun ma'lumotlar
+	payment_data = {
+		"payment_type": "Receive",
+		"posting_date": nowdate(),
+		"mode_of_payment": "Naqd",
+		"party_type": "Customer",
+		"party": source.customer,  # Customer ID (link)
+		"party_name": source.customer_name,  # Customer nomi
+		"company": source.get("company") or frappe.defaults.get_user_default("Company"),
+		"remarks": f"Shartnoma: {source.name}\nSales Order: {sales_order}"
+	}
+
+	# Custom contract reference (agar field mavjud bo'lsa)
+	if frappe.db.exists("Custom Field",
+						{"dt": "Payment Entry", "fieldname": "custom_contract_reference"}):
+		payment_data["custom_contract_reference"] = sales_order
+
+	return payment_data
