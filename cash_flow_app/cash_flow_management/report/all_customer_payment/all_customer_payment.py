@@ -411,120 +411,137 @@ def get_all_contract_payments(contracts):
 
 
 def get_monthly_payment_status(schedule, payments, from_date, to_date):
-	"""Get monthly payment status with expected vs paid - showing remaining to pay"""
+	"""Get monthly payment status with sequential payment allocation"""
 	data = {}
-	current_date = getdate(from_date)
+
+	if not schedule:
+		return data
+
+	# Sort schedule by due date
+	sorted_schedule = sorted(schedule, key=lambda x: getdate(x["due_date"]))
+
+	if not sorted_schedule:
+		return data
+
+	# Get date range from schedule
+	all_due_dates = [getdate(s["due_date"]) for s in sorted_schedule]
+	min_due_date = min(all_due_dates)
+	max_due_date = max(all_due_dates)
+
+	# Adjust to filter dates
+	start_date = max(min_due_date, getdate(from_date))
+	end_date = min(max_due_date, getdate(to_date))
 
 	# Sort payments by date
 	sorted_payments = sorted(payments, key=lambda x: getdate(x["posting_date"]))
-	payment_idx = 0
-	cumulative_paid = 0
 
-	while current_date <= to_date:
-		month_key = f"month_{current_date.strftime('%Y_%m')}"
+	# Calculate total paid amount
+	total_paid = sum(flt(p["paid_amount"]) for p in sorted_payments)
 
-		# Get month boundaries
+	# Build list of all months with expected amounts
+	months_list = []
+	current_date = start_date.replace(day=1)
+
+	while current_date <= end_date:
 		month_start = current_date.replace(day=1)
 		if current_date.month == 12:
-			month_end = current_date.replace(year=current_date.year + 1, month=1,
-											 day=1) - timedelta(days=1)
+			month_end = current_date.replace(year=current_date.year + 1, month=1, day=1) - timedelta(days=1)
 		else:
-			month_end = current_date.replace(month=current_date.month + 1, day=1) - timedelta(
-				days=1)
+			month_end = current_date.replace(month=current_date.month + 1, day=1) - timedelta(days=1)
 
-		# Calculate expected payment for this month
-		expected_this_month = 0
-		for s in schedule:
-			due_date = getdate(s["due_date"])
-			if month_start <= due_date <= month_end:
-				expected_this_month += flt(s["payment_amount"])
+		# Expected amount for this month
+		expected = sum(
+			flt(s["payment_amount"])
+			for s in sorted_schedule
+			if month_start <= getdate(s["due_date"]) <= month_end
+		)
 
-		# Add payments made during or before this month to cumulative
-		while payment_idx < len(sorted_payments):
-			p = sorted_payments[payment_idx]
-			posting_date = getdate(p["posting_date"])
-			if posting_date <= month_end:
-				cumulative_paid += flt(p["paid_amount"])
-				payment_idx += 1
-			else:
-				break
-
-		# Calculate cumulative expected up to this month
-		cumulative_expected = 0
-		for s in schedule:
-			due_date = getdate(s["due_date"])
-			if due_date <= month_end:
-				cumulative_expected += flt(s["payment_amount"])
-
-		# Determine what to show for this month
-		if expected_this_month > 0:
-			# Calculate remaining debt for this specific month
-			remaining_debt = cumulative_expected - cumulative_paid
-
-			if remaining_debt <= 0:
-				# Fully paid (including this month)
-				data[month_key] = "To'landi"
-			else:
-				# Show remaining amount to pay for this month
-				amount_to_show = min(expected_this_month, remaining_debt)
-				data[month_key] = f"{amount_to_show:.0f}"
-		else:
-			data[month_key] = ""
+		if expected > 0:
+			months_list.append({
+				"date": current_date,
+				"month_key": f"month_{current_date.strftime('%Y_%m')}",
+				"expected": expected
+			})
 
 		current_date += relativedelta(months=1)
+
+	# Allocate payments sequentially through months
+	remaining_payment = total_paid
+
+	for month_data in months_list:
+		month_key = month_data["month_key"]
+		expected = month_data["expected"]
+
+		if remaining_payment >= expected:
+			# Fully paid
+			data[month_key] = "To'landi"
+			remaining_payment -= expected
+		elif remaining_payment > 0:
+			# Partially paid - show remaining amount
+			remaining_amount = expected - remaining_payment
+			data[month_key] = f"{remaining_amount:.0f}"
+			remaining_payment = 0
+		else:
+			# Not paid - show full expected amount
+			data[month_key] = f"{expected:.0f}"
 
 	return data
 
 
 def get_daily_payment_status(schedule, payments, from_date, to_date):
-	"""Get daily payment status with expected vs paid"""
+	"""Get daily payment status with sequential payment allocation"""
 	data = {}
+
+	if not schedule:
+		return data
+
+	# Sort schedule by due date
+	sorted_schedule = sorted(schedule, key=lambda x: getdate(x["due_date"]))
+
+	# Sort payments by date
+	sorted_payments = sorted(payments, key=lambda x: getdate(x["posting_date"]))
+
+	# Calculate total paid amount
+	total_paid = sum(flt(p["paid_amount"]) for p in sorted_payments)
+
+	# Build list of all days with expected amounts in date range
+	days_list = []
 	current_date = getdate(from_date)
 
-	while current_date <= to_date:
-		day_key = f"day_{current_date.strftime('%Y_%m_%d')}"
+	while current_date <= getdate(to_date):
+		# Expected amount for this day
+		expected = sum(
+			flt(s["payment_amount"])
+			for s in sorted_schedule
+			if getdate(s["due_date"]) == current_date
+		)
 
-		# Calculate expected payment for this day
-		expected = 0
-		for s in schedule:
-			due_date = getdate(s["due_date"])
-			if due_date == current_date:
-				expected += flt(s["payment_amount"])
-
-		# Calculate total payments up to this day
-		total_paid_until_day = 0
-		for p in payments:
-			posting_date = getdate(p["posting_date"])
-			if posting_date <= current_date:
-				total_paid_until_day += flt(p["paid_amount"])
-
-		# Calculate expected total until this day
-		expected_until_day = 0
-		for s in schedule:
-			due_date = getdate(s["due_date"])
-			if due_date <= current_date:
-				expected_until_day += flt(s["payment_amount"])
-
-		# Format: check if paid enough for this day's obligation
 		if expected > 0:
-			# If total paid covers expected until this day, mark as paid
-			if total_paid_until_day >= expected_until_day:
-				data[day_key] = "To'landi"
-			else:
-				# Calculate actual payment for this specific day
-				paid_this_day = 0
-				for p in payments:
-					posting_date = getdate(p["posting_date"])
-					if posting_date == current_date:
-						paid_this_day += flt(p["paid_amount"])
-
-				if paid_this_day > 0:
-					data[day_key] = f"{paid_this_day:.0f}/{expected:.0f}"
-				else:
-					data[day_key] = f"{expected:.0f}"
-		else:
-			data[day_key] = ""
+			days_list.append({
+				"date": current_date,
+				"day_key": f"day_{current_date.strftime('%Y_%m_%d')}",
+				"expected": expected
+			})
 
 		current_date += timedelta(days=1)
+
+	# Allocate payments sequentially through days
+	remaining_payment = total_paid
+
+	for day_data in days_list:
+		day_key = day_data["day_key"]
+		expected = day_data["expected"]
+
+		if remaining_payment >= expected:
+			# Fully paid
+			data[day_key] = "To'landi"
+			remaining_payment -= expected
+		elif remaining_payment > 0:
+			# Partially paid - show paid/expected format
+			data[day_key] = f"{remaining_payment:.0f}/{expected:.0f}"
+			remaining_payment = 0
+		else:
+			# Not paid - show full expected amount
+			data[day_key] = f"{expected:.0f}"
 
 	return data
