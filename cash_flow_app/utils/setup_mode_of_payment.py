@@ -22,13 +22,23 @@ def setup_mode_of_payment_accounts():
 		
 		for company in companies:
 			print(f"Processing company: {company.name}")
-			
+
 			# Get default Cash account for this company
+			# Prioritize "Cash - A" account, fallback to first Cash account found
 			cash_account = frappe.db.get_value("Account", {
-				"account_type": "Cash",
+				"account_name": "Cash",
 				"company": company.name,
-				"is_group": 0
+				"is_group": 0,
+				"account_type": "Cash"
 			}, "name")
+
+			# Fallback: if "Cash" not found, try to get first Cash account
+			if not cash_account:
+				cash_account = frappe.db.get_value("Account", {
+					"account_type": "Cash",
+					"company": company.name,
+					"is_group": 0
+				}, "name")
 			
 			if not cash_account:
 				print(f"  ⚠️  No Cash account found for {company.name}, skipping...")

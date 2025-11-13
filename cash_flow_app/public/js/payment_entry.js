@@ -12,14 +12,33 @@ frappe.ui.form.on('Payment Entry', {
                 }
             };
         });
-        
-        // Filter custom_cashier - faqat active cash registers
-        frm.set_query('custom_cashier', function() {
-            return {
-                filters: {
-                    'status': 'Active'
-                }
-            };
+
+        // Filter paid_to account - exclude Bank accounts for Internal Transfer
+        frm.set_query('paid_to', function() {
+            if (frm.doc.payment_type === 'Internal Transfer') {
+                return {
+                    filters: {
+                        'account_type': 'Cash',
+                        'is_group': 0,
+                        'company': frm.doc.company
+                    }
+                };
+            }
+            return {};
+        });
+
+        // Filter paid_from account - exclude Bank accounts for Internal Transfer
+        frm.set_query('paid_from', function() {
+            if (frm.doc.payment_type === 'Internal Transfer') {
+                return {
+                    filters: {
+                        'account_type': 'Cash',
+                        'is_group': 0,
+                        'company': frm.doc.company
+                    }
+                };
+            }
+            return {};
         });
     },
     
@@ -27,27 +46,6 @@ frappe.ui.form.on('Payment Entry', {
         // ✅ Set default mode of payment to Naqd
         if (frm.is_new() && !frm.doc.mode_of_payment) {
             frm.set_value('mode_of_payment', 'Naqd');
-        }
-        
-        // ✅ Set default cashier if only one active cash register exists
-        if (frm.is_new() && !frm.doc.custom_cashier) {
-            frappe.call({
-                method: 'frappe.client.get_list',
-                args: {
-                    doctype: 'Cash Register',
-                    filters: {
-                        status: 'Active'
-                    },
-                    fields: ['name'],
-                    limit: 2  // Get 2 to check if there's only 1
-                },
-                callback: function(r) {
-                    if (r.message && r.message.length === 1) {
-                        // Only 1 active cash register - set it automatically
-                        frm.set_value('custom_cashier', r.message[0].name);
-                    }
-                }
-            });
         }
         
         // ❌ REMOVED: Don't set default category - causes conflict on server deployment
@@ -120,28 +118,6 @@ frappe.ui.form.on('Payment Entry', {
     },
     
     mode_of_payment: function(frm) {
-        // ✅ Auto-set cashier for Naqd and Terminal/Click
-        if (frm.doc.mode_of_payment && (frm.doc.mode_of_payment === 'Naqd' || frm.doc.mode_of_payment === 'Terminal/Click')) {
-            if (!frm.doc.custom_cashier) {
-                frappe.call({
-                    method: 'frappe.client.get_list',
-                    args: {
-                        doctype: 'Cash Register',
-                        filters: {
-                            status: 'Active'
-                        },
-                        fields: ['name'],
-                        limit: 2
-                    },
-                    callback: function(r) {
-                        if (r.message && r.message.length === 1) {
-                            frm.set_value('custom_cashier', r.message[0].name);
-                        }
-                    }
-                });
-            }
-        }
-        
         // Auto-fill account based on mode of payment (standard ERPNext behavior)
         if (frm.doc.mode_of_payment) {
             erpnext.accounts.pos.get_payment_mode_account(frm, frm.doc.mode_of_payment, function(account) {
