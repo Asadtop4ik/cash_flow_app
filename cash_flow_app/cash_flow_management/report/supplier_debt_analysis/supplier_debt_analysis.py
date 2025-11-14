@@ -24,7 +24,7 @@ def execute(filters=None):
 
 
 def get_columns():
-	"""Define report columns - custom_cashier bilan"""
+	"""Define report columns - custom_cashier o'rniga Account"""
 	return [
 		{
 			"label": "Sana",
@@ -74,9 +74,9 @@ def get_columns():
 		},
 		{
 			"label": "Kassa",
-			"fieldname": "custom_cashier",
+			"fieldname": "cash_account",
 			"fieldtype": "Link",
-			"options": "Cash Register",
+			"options": "Account",
 			"width": 150
 		}
 	]
@@ -113,7 +113,7 @@ def get_data(filters):
 			(item.qty * item.rate) as kredit,
 			0 as debit,
 			COALESCE(ia.notes, '') as notes,
-			NULL as custom_cashier,
+			NULL as cash_account,
 			ia.creation,
 			'USD' as currency
 		FROM `tabInstallment Application` ia
@@ -125,8 +125,7 @@ def get_data(filters):
 	"""
 
 	# 2. Get Payment Entries (DEBIT - to'lov)
-	# FAQAT docstatus = 1 (Submitted)
-	# Cancel qilingan to'lovlar (docstatus = 2) hisobotda ko'rinmaydi
+	# paid_from yoki paid_to dan Cash account ni olish
 	payment_conditions = []
 	if from_date:
 		payment_conditions.append("AND DATE(pe.posting_date) >= %(from_date)s")
@@ -145,7 +144,14 @@ def get_data(filters):
 			0 as kredit,
 			pe.paid_amount as debit,
 			COALESCE(pe.remarks, '') as notes,
-			COALESCE(pe.custom_cashier, '') as custom_cashier,
+			COALESCE(
+				CASE
+					WHEN pe.payment_type = 'Pay' THEN pe.paid_from
+					WHEN pe.payment_type = 'Receive' THEN pe.paid_to
+					ELSE NULL
+				END,
+				''
+			) as cash_account,
 			pe.creation,
 			'USD' as currency
 		FROM `tabPayment Entry` pe
@@ -196,7 +202,6 @@ def get_data(filters):
 		return []
 
 	# 5. Calculate Nachalnaya Ostatok (from_date dan oldin qolgan qarz)
-	# FAQAT docstatus = 1 hisoblanadi
 	nachalnaya_ostatok = 0
 	if from_date:
 		nachalnaya_ostatok = get_nachalnaya_ostatok(supplier, from_date)
@@ -213,7 +218,7 @@ def get_data(filters):
 			'debit': 0 if nachalnaya_ostatok > 0 else abs(nachalnaya_ostatok),
 			'outstanding': nachalnaya_ostatok,
 			'notes': 'Avtomatik hisoblangan boshlang\'ich qoldiq',
-			'custom_cashier': None,
+			'cash_account': None,
 			'currency': 'USD',
 			'is_initial_row': 1
 		})
@@ -249,7 +254,7 @@ def get_data(filters):
 			'debit': total_debit,
 			'outstanding': final_outstanding,
 			'notes': None,
-			'custom_cashier': None,
+			'cash_account': None,
 			'currency': 'USD',
 			'is_total_row': 1
 		})
@@ -262,13 +267,11 @@ def get_nachalnaya_ostatok(supplier, from_date):
 	from_date dan OLDIN qolgan qarzni hisoblash
 	Formula: Oldingi Kredit - Oldingi Debit = Qoldiq
 	FAQAT docstatus = 1 (Submitted) hisoblanadi
-	Cancel qilingan hujjatlar (docstatus = 2) hisobga olinmaydi
 	"""
 	try:
 		from_date = getdate(from_date)
 
 		# Oldingi Kredit (from_date dan oldin qarzlar)
-		# FAQAT docstatus = 1
 		prev_kredit_query = """
 			SELECT COALESCE(SUM(item.qty * item.rate), 0) as total
 			FROM `tabInstallment Application` ia
@@ -281,7 +284,6 @@ def get_nachalnaya_ostatok(supplier, from_date):
 		prev_kredit = flt(prev_kredit_result[0].total) if prev_kredit_result else 0
 
 		# Oldingi Debit (from_date dan oldin to'lovlar)
-		# FAQAT docstatus = 1
 		prev_debit_query = """
 			SELECT COALESCE(SUM(paid_amount), 0) as total
 			FROM `tabPayment Entry`
@@ -305,7 +307,6 @@ def get_nachalnaya_ostatok(supplier, from_date):
 def get_summary(data, filters):
 	"""
 	Generate summary cards - moliyaviy dashboard
-	6 ta card: Boshlang'ich qoldiq, Jami Kredit, Jami Debit, To'lov operatsiyalari, Tovar operatsiyalari, Oxirgi qoldiq
 	"""
 	if not data:
 		return []
@@ -357,25 +358,19 @@ def get_summary(data, filters):
 	supplier = filters.get("supplier")
 	from_date = filters.get("from_date")
 
-	# 1. Nachalnaya Ostatok (avvalgi qarz)
+	# 1. Nachalnaya Ostatok
 	nachalnaya_ostatok = 0
 	if from_date:
 		nachalnaya_ostatok = get_nachalnaya_ostatok(supplier, from_date)
 
-	# 2. Total Kredit (yangi qarzlar)
+	# 2. Total Kredit
 	total_kredit = sum([flt(d.get('kredit', 0)) for d in data_without_special])
 
-	# 3. Total Debit (yangi to'lovlar)
+	# 3. Total Debit
 	total_debit = sum([flt(d.get('debit', 0)) for d in data_without_special])
 
-	# 4. Ostatok na Konets (oxirgi qarz qoldig'i)
+	# 4. Ostatok na Konets
 	ostatok_na_konets = nachalnaya_ostatok + total_kredit - total_debit
-
-	# 5. Oborot po Tovar (tovar tranzaksiyalari soni)
-	oborot_po_tovar = len([d for d in data_without_special if flt(d.get('kredit', 0)) > 0])
-
-	# 6. Denezhniy Oborot (to'lov tranzaksiyalari soni)
-	denezhniy_oborot = len([d for d in data_without_special if flt(d.get('debit', 0)) > 0])
 
 	summary = [
 		{
