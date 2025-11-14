@@ -19,8 +19,7 @@ def get_columns():
 		{
 			"fieldname": "kassa_name",
 			"label": _("Kassa Nomi"),
-			"fieldtype": "Link",
-			"options": "Cash Register",
+			"fieldtype": "Data",
 			"width": 300
 		},
 		{
@@ -33,31 +32,76 @@ def get_columns():
 
 
 def get_data(filters):
-	"""Get kassa balance data from Payment Entry"""
+	"""Get kassa balance data from Payment Entry using paid_from and paid_to"""
 
+	# Payment Type = 'Receive' bo'lsa paid_from dan pul kirib keladi (plus)
+	# Payment Type = 'Pay' bo'lsa paid_to ga pul chiqadi (minus)
 	query = """
         SELECT
-            cr.name as kassa_name,
-            COALESCE(SUM(CASE
-                WHEN pe.payment_type = 'Receive' THEN pe.paid_amount
-                WHEN pe.payment_type = 'Pay' THEN -pe.paid_amount
-                ELSE 0
-            END), 0) as qoldiq_summa
-        FROM
-            `tabCash Register` cr
-        LEFT JOIN
-            `tabPayment Entry` pe ON pe.custom_cashier = cr.name
-            AND pe.docstatus = 1
-        WHERE
-            cr.status = 'Active'
+            kassa_name,
+            SUM(amount) as qoldiq_summa
+        FROM (
+            -- Receive: paid_from dan pul kirib keladi
+            SELECT
+                pe.paid_from as kassa_name,
+                pe.paid_amount as amount
+            FROM
+                `tabPayment Entry` pe
+            WHERE
+                pe.docstatus = 1
+                AND pe.payment_type = 'Receive'
+                AND pe.paid_from IS NOT NULL
+                AND pe.paid_from != ''
+
+            UNION ALL
+
+            -- Pay: paid_to ga pul ketadi (minus)
+            SELECT
+                pe.paid_to as kassa_name,
+                -pe.paid_amount as amount
+            FROM
+                `tabPayment Entry` pe
+            WHERE
+                pe.docstatus = 1
+                AND pe.payment_type = 'Pay'
+                AND pe.paid_to IS NOT NULL
+                AND pe.paid_to != ''
+
+            UNION ALL
+
+            -- Internal Transfer: paid_from dan ayriladi
+            SELECT
+                pe.paid_from as kassa_name,
+                -pe.paid_amount as amount
+            FROM
+                `tabPayment Entry` pe
+            WHERE
+                pe.docstatus = 1
+                AND pe.payment_type = 'Internal Transfer'
+                AND pe.paid_from IS NOT NULL
+                AND pe.paid_from != ''
+
+            UNION ALL
+
+            -- Internal Transfer: paid_to ga qo'shiladi
+            SELECT
+                pe.paid_to as kassa_name,
+                pe.received_amount as amount
+            FROM
+                `tabPayment Entry` pe
+            WHERE
+                pe.docstatus = 1
+                AND pe.payment_type = 'Internal Transfer'
+                AND pe.paid_to IS NOT NULL
+                AND pe.paid_to != ''
+        ) as combined
         GROUP BY
-            cr.name
+            kassa_name
         ORDER BY
-            cr.name
+            kassa_name
     """
 
 	data = frappe.db.sql(query, as_dict=1)
-
 	return data
 
 

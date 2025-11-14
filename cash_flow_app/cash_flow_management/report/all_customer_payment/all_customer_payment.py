@@ -42,7 +42,7 @@ def get_columns(filters):
 		},
 		{
 			"fieldname": "customer_name",
-			"label": _("Customer Name"),
+			"label": _("Kilent Nomi"),
 			"fieldtype": "Link",
 			"options": "Customer",
 			"width": 150
@@ -56,37 +56,37 @@ def get_columns(filters):
 		},
 		{
 			"fieldname": "total_amount",
-			"label": _("Contract Amount"),
+			"label": _("Savdo Summasi"),
 			"fieldtype": "Currency",
 			"width": 120
 		},
 		{
 			"fieldname": "down_payment",
-			"label": _("Down Payment"),
+			"label": _("Bosh Tolov"),
 			"fieldtype": "Currency",
 			"width": 120
 		},
 		{
 			"fieldname": "total_finance_amount",
-			"label": _("Total Finance Amount"),
+			"label": _("Qoldiq Summa"),
 			"fieldtype": "Currency",
 			"width": 140
 		},
 		{
 			"fieldname": "monthly_payment",
-			"label": _("Monthly Payment"),
+			"label": _("Oylik Tolov"),
 			"fieldtype": "Currency",
 			"width": 120
 		},
 		{
 			"fieldname": "total_paid",
-			"label": _("Total Paid"),
+			"label": _("To'langan Summa"),
 			"fieldtype": "Currency",
 			"width": 120
 		},
 		{
 			"fieldname": "remaining",
-			"label": _("Remaining"),
+			"label": _("Qoldiq Qarz"),
 			"fieldtype": "Currency",
 			"width": 120
 		}
