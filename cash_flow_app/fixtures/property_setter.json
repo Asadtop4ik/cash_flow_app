@@ -2414,5 +2414,21 @@
   "property_type": "Check",
   "row_name": null,
   "value": "0"
+ },
+ {
+  "default_value": null,
+  "doc_type": "Payment Entry",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "payment_type",
+  "is_system_generated": 0,
+  "modified": "2025-11-14 13:05:58.634808",
+  "module": null,
+  "name": "Payment Entry-payment_type-in_list_view",
+  "property": "in_list_view",
+  "property_type": "Check",
+  "row_name": null,
+  "value": "0"
  }
 ]
