@@ -1,44 +1,74 @@
 /**
- * GLOBAL GOOGLE SHEETS EXPORT BUTTON
- * Har doim Navbar da ko'rinadi - 100% ishonchli
+ * OPERATOR PANEL GOOGLE SHEETS EXPORT BUTTON
+ * Faqat Operator Panelda ko'rinadi
  */
 
 frappe.provide('frappe.ui.toolbar');
 
 $(document).ready(function() {
-    console.log('🚀 Global Export Button Loading...');
+    console.log('🚀 Operator Panel Export Button Loading...');
     
     // Wait for navbar to be ready
     setTimeout(function() {
         add_export_to_navbar();
     }, 2000);
+    
+    // Re-check on route change
+    frappe.router.on('change', function() {
+        setTimeout(function() {
+            add_export_to_navbar();
+        }, 500);
+    });
 });
 
 function add_export_to_navbar() {
+    // Check if we are on Operator Panel page
+    const currentPath = window.location.pathname + window.location.hash;
+    const isOperatorPanel = currentPath.includes('/app/operator-paneli') || 
+                           currentPath.includes('/app/operator-panel') ||
+                           currentPath.includes('Operator%20Paneli') ||
+                           frappe.get_route()[0] === 'operator-paneli' ||
+                           frappe.get_route()[0] === 'Operator Paneli';
+    
     // Check if button already exists
-    if ($('#global-sheets-export-btn').length > 0) {
+    const buttonExists = $('#global-sheets-export-btn').length > 0;
+    
+    if (!isOperatorPanel && buttonExists) {
+        // Remove button if not on Operator Panel
+        $('#global-sheets-export-btn').remove();
+        console.log('❌ Export button removed (not on Operator Panel)');
+        return;
+    }
+    
+    if (!isOperatorPanel) {
+        // Don't add button if not on Operator Panel
+        return;
+    }
+    
+    if (buttonExists) {
         console.log('⚠️ Button already exists');
         return;
     }
     
-    console.log('✅ Adding Export button to navbar');
+    console.log('✅ Adding Export button to navbar (Operator Panel only)');
     
-    // Add button to navbar - IMPROVED: Bold Black Text
+    // Add button to navbar - Oq fon, qora matn, bold emas
     const exportBtn = $(`
         <li class="nav-item dropdown dropdown-help dropdown-mobile-header" id="global-sheets-export-btn">
             <a class="nav-link" onclick="show_global_export_dialog()" 
                style="cursor: pointer; 
-                      background: #2196F3; 
+                      background: #FFFFFF; 
                       color: #000000 !important; 
-                      font-weight: 900;
+                      font-weight: normal;
                       font-size: 14px;
                       padding: 8px 16px;
                       border-radius: 6px;
                       margin: 8px 8px 8px 0;
                       transition: all 0.2s ease;
-                      box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
-               onmouseover="this.style.background='#1976D2'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.2)';"
-               onmouseout="this.style.background='#2196F3'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';">
+                      border: 1px solid #d1d8dd;
+                      box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
+               onmouseover="this.style.background='#f5f7fa'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';"
+               onmouseout="this.style.background='#FFFFFF'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.05)';">
                 Sheet
             </a>
         </li>
