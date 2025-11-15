@@ -1,7 +1,7 @@
 {
  "charts": [],
  "content": "[{\"id\":\"G4PKuV_6vA\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Operator Panel</b></span>\",\"col\":12}},{\"id\":\"RvvPWP-Gg-\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"ovpEJcsEFk\",\"type\":\"card\",\"data\":{\"card_name\":\"Ma'lumot Kiritish\",\"col\":4}}]",
- "creation": "2025-11-10 13:30:46.019673",
+ "creation": "2025-11-15 13:21:37.177640",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -73,8 +73,18 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Mahsulotlar",
+   "link_count": 0,
+   "link_to": "Item",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Reports",
-   "link_count": 5,
+   "link_count": 6,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -128,9 +138,19 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "IMEI Qidiruv",
+   "link_count": 0,
+   "link_to": "IMEI Qidiruv",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2025-11-10 13:57:14.892737",
+ "modified": "2025-11-15 14:03:07.145866",
  "modified_by": "Administrator",
  "module": "Cash Flow Management",
  "name": "Operator Paneli",
