@@ -68,6 +68,16 @@ frappe.ui.form.on("Installment Application", {
 				create_payment_entry(frm);
 			}, __('Create'));
 		}
+
+		// ============================================
+		// YANGI: To'lovlarni ko'rish button
+		// Submitted va Cancelled ikkalasi uchun ham ishlaydi
+		// ============================================
+		if (frm.doc.sales_order && (frm.doc.docstatus === 1 || frm.doc.docstatus === 2)) {
+			frm.add_custom_button(__('To\'lovlarni ko\'rish'), function() {
+				view_filtered_payments(frm);
+			});
+		}
 	},
 
 	// Calculate button click
@@ -406,5 +416,20 @@ function setup_payment_type_handler(frm) {
 				frm.set_value('party', '');
 			}
 		}, 100);
+	});
+}
+
+// ============================================
+// YANGI FUNKSIYA: Payment Entry listga o'tish va filter qo'yish
+// ============================================
+function view_filtered_payments(frm) {
+	if (!frm.doc.sales_order) {
+		frappe.msgprint(__('Sales Order topilmadi!'));
+		return;
+	}
+
+	// Payment Entry list sahifasiga o'tish va filter qo'yish
+	frappe.set_route('List', 'Payment Entry', {
+		'custom_contract_reference': frm.doc.sales_order
 	});
 }
