@@ -66,10 +66,18 @@
     {% set customer_pinfl = customer_doc.custom_pinfl or "" %}
 
     {% set items = doc.items %}
+    {% set profit_percentage = doc.custom_finance_profit_percentage or 0 %}
+
+    {# Umumiy narx foiz bilan #}
     {% set total_price = doc.custom_grand_total_with_interest or doc.total_amount %}
     {% set monthly_payment = doc.monthly_payment %}
     {% set initial_payment = doc.downpayment_amount or 0 %}
-    {% set remaining_amount = doc.finance_amount %}
+
+    {# Qoldiq summa = (Tan narxi + Foiz) - Boshlang'ich to'lov #}
+    {% set tan_narxi = doc.total_amount %}
+    {% set tan_narxi_with_profit = tan_narxi + (tan_narxi * profit_percentage / 100) %}
+    {% set remaining_amount = tan_narxi_with_profit - initial_payment %}
+
     {% set installment_months = doc.installment_months %}
     {% set payment_schedule = doc.payment_schedule %}
 
@@ -98,13 +106,16 @@
         </thead>
         <tbody>
             {% for item in items %}
+            {# Har bir item uchun foiz qo'shilgan narx #}
+            {% set item_rate_with_profit = item.rate + (item.rate * profit_percentage / 100) %}
+            {% set item_amount_with_profit = item.amount + (item.amount * profit_percentage / 100) %}
             <tr>
                 <td class="center">{{ loop.index }}</td>
                 <td>{{ item.item_name }}</td>
                 <td class="center">дона</td>
                 <td class="center">{{ item.qty }}</td>
-                <td class="right">{{ "{:,}".format(item.rate).replace(",", " ") }} $</td>
-                <td class="right">{{ "{:,}".format(item.amount).replace(",", " ") }} $</td>
+                <td class="right">{{ "{:,}".format(item_rate_with_profit).replace(",", " ") }} $</td>
+                <td class="right">{{ "{:,}".format(item_amount_with_profit).replace(",", " ") }} $</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -120,7 +131,7 @@
             <th>Бўлиб тўлаш шартномаси муддати</th>
         </tr>
         <tr>
-            <td class="right">{{ "{:,}".format(total_price).replace(",", " ") }} $</td>
+            <td class="right">{{ "{:,}".format(tan_narxi_with_profit).replace(",", " ") }} $</td>
             <td class="right">{{ "{:,}".format(monthly_payment).replace(",", " ") }} $</td>
             <td class="right">{{ "{:,}".format(initial_payment).replace(",", " ") }} $</td>
             <td class="right">{{ "{:,}".format(remaining_amount).replace(",", " ") }} $</td>
@@ -128,7 +139,7 @@
         </tr>
     </table>
 
-    <p>1.2. Шартноманинг умумий нархи: <strong>{{ "{:,}".format(total_price).replace(",", " ") }}</strong> $.</p>
+    <p>1.2. Шартноманинг умумий нархи: <strong>{{ "{:,}".format(tan_narxi_with_profit).replace(",", " ") }}</strong> $.</p>
     <p>1.3. Товарларга эгалик хуқуқи ушбу шартнома шартларига мувофиқ сотувчидан харидорга товар қиймати тўлиқ тўлангандан кейин ўтади.</p>
     <p>1.4. Харидор, товарни қабул қилган даврдан эътиборан товарни ёки унинг бирор бир қисмини бузилиши, ишдан чиқиш, йўқ қилиниши, ўғирланиши ва бошқа барча хавфларни ўз зиммасига олади. Юқоридаги хавф-хатарлардан бирининг пайдо бўлиши, харидорни ушбу шартнома шартларига мувофиқ товарларни тўлиқ нархини тўлаш мажбуриятидан озод қилмайди.</p>
     <p>1.5. Товарлар харидорга тўлиқ топширилган вақтдан бошлаб, унинг қиймати тўлиқ тўланишига қадар, сотилган товарлар харидорнинг қарзини тўлаш мажбуриятини бажаришини таъминлаш учун сотувчи томонидан гаровга олинган деб тан олинади.</p>
@@ -158,7 +169,7 @@
     <p>2.4.2. Даврий тўловларни тўлиқ ёки қисман тўлаш муддатидан олдин амалга ошириш.</p>
 
     <h2>3. Товарларнинг умумий қиймати ва ҳисоб-китоб қилиш тартиби</h2>
-    <p>3.1. Шартномага мувофиқ товарнинг умумий қиймати {{ "{:,}".format(total_price).replace(",", " ") }} $. Тўлов Ўзбекистон Республикаси миллий валютасида ҳисоб рақамига маблағ киритиш, онлайн автотўлов асосида, нақд ва пластик карта орқали амалга оширилади. Агарда пул маблағларини ҳисоб рақамга киритилса тўлов тафсилотларида шартноманинг рақами ва санаси, харидорнинг тўлиқ исмини кўрсатиш талаб қилинади.</p>
+    <p>3.1. Шартномага мувофиқ товарнинг умумий қиймати {{ "{:,}".format(tan_narxi_with_profit).replace(",", " ") }} $. Тўлов Ўзбекистон Республикаси миллий валютасида ҳисоб рақамига маблағ киритиш, онлайн автотўлов асосида, нақд ва пластик карта орқали амалга оширилади. Агарда пул маблағларини ҳисоб рақамга киритилса тўлов тафсилотларида шартноманинг рақами ва санаси, харидорнинг тўлиқ исмини кўрсатиш талаб қилинади.</p>
     <p>3.2. Товарлар учун тўловни «Харидор» бўлиб тўлайди.</p>
     <p>3.3. Товарларнинг қийматини тўлаш ҳар ойда, ойнинг охириги кунигача харидор томонидан иш ҳақи ёки бошқа даромадлари ҳисобидан амалга оширилади, ушбу шартноманинг 2 иловасида кўрсатилаган тўловлар жадвалига мувофиқ товарларни топширган кундан бошлаб 1 ой ичида тўлиқ қайтарилгунга қадар.</p>
     <p>3.4. Харидор шахсий маълумотларни қайта ишлашга, шунингдек қарздорлик ёки қарзни тўламаслик ҳолатида шахсий идентификацион рақамим бўйича топилган барча мавжуд ва янги очиладиган тўлов карталаридан (Uzcard/Humo ва Кобейдж карталари) қарз маблағларни ечиб олишга ўз розилигини беради, «Харидор» шартномани имзолаш орқали ушбу шартга ўзи тушунган ҳолда розилик беради.</p>
@@ -271,17 +282,19 @@
         </thead>
         <tbody>
             {% for item in items %}
+            {# Har bir item uchun foiz qo'shilgan narx #}
+            {% set item_rate_with_profit = item.rate + (item.rate * profit_percentage / 100) %}
             <tr>
                 <td class="center">{{ loop.index }}</td>
                 <td>{{ item.item_name }}</td>
                 <td class="center">дона</td>
                 <td class="center">{{ item.qty }}</td>
-                <td class="right">{{ "{:,}".format(item.rate).replace(",", " ") }}</td>
+                <td class="right">{{ "{:,}".format(item_rate_with_profit).replace(",", " ") }}</td>
                 <td class="right">0</td>
             </tr>
             {% endfor %}
             <tr>
-                <td colspan="6"><strong>Жами суммаси: {{ "{:,}".format(total_price).replace(",", " ") }} $</strong></td>
+                <td colspan="6"><strong>Жами суммаси: {{ "{:,}".format(tan_narxi_with_profit).replace(",", " ") }} $</strong></td>
             </tr>
             <tr>
                 <td colspan="3"><strong>СОТУВЧИ махсулот топширувчи</strong></td>
@@ -324,7 +337,7 @@
             {% endfor %}
             <tr>
                 <td colspan="2"><strong>Жами суммаси:</strong></td>
-                <td class="right"><strong>{{ "{:,}".format(total_price).replace(",", " ") }} $</strong></td>
+                <td class="right"><strong>{{ "{:,}".format(tan_narxi_with_profit).replace(",", " ") }} $</strong></td>
             </tr>
             <tr>
                 <td colspan="2">Сотувчи: МЧЖ"ТЕХNOBАRAKA" рахбари<br>Алимбоев Сардор Дилхуш угли<br><br>Имзо: _________________</td>
