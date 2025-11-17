@@ -61,6 +61,15 @@ frappe.ui.form.on("Installment Application", {
 		}
 
 		// ============================================
+		// YANGI: Shartnoma print button
+		// ============================================
+		if (frm.doc.name && !frm.is_new()) {
+			frm.add_custom_button(__('Shartnoma PDF'), function() {
+				print_shartnoma(frm);
+			}, __('Print'));
+		}
+
+		// ============================================
 		// YANGI: Create Payment Entry button
 		// ============================================
 		if (frm.doc.docstatus === 1) {
@@ -432,4 +441,27 @@ function view_filtered_payments(frm) {
 	frappe.set_route('List', 'Payment Entry', {
 		'custom_contract_reference': frm.doc.sales_order
 	});
+}
+
+// ============================================
+// YANGI FUNKSIYA: Shartnoma PDF ni ochish
+// ============================================
+function print_shartnoma(frm) {
+	if (!frm.doc.name) {
+		frappe.msgprint(__('Iltimos avval saqlang!'));
+		return;
+	}
+
+	// Shartnoma Installment print formatini ochish
+	const print_format = 'Shartnoma Installment';
+	const url = frappe.urllib.get_full_url(
+		`/api/method/frappe.utils.print_format.download_pdf?` +
+		`doctype=${encodeURIComponent(frm.doctype)}&` +
+		`name=${encodeURIComponent(frm.doc.name)}&` +
+		`format=${encodeURIComponent(print_format)}&` +
+		`no_letterhead=0`
+	);
+
+	// Yangi tabda ochish
+	window.open(url, '_blank');
 }
