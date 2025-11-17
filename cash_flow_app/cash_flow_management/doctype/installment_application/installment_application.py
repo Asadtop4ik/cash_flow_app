@@ -293,7 +293,7 @@ class InstallmentApplication(Document):
                 "target_exchange_rate": 1.0,
                 "reference_no": sales_order_name,
                 "reference_date": posting_date,  # ✅ Use same date
-                "custom_counterparty_category": "Klient",
+                "custom_counterparty_category": "Data",
                 "custom_contract_reference": sales_order_name,
                 "mode_of_payment": "Naqd",
                 "remarks": f"Boshlang'ich to'lov - Shartnoma {sales_order_name}\nInstallment Application: {self.name}"

@@ -70,8 +70,8 @@ def set_default_values(doc):
             frappe.logger().error(f"Error setting defaults: {str(e)}")
 
 def validate_contract_reference(doc):
-    """Validate contract reference for Klient category"""
-    if doc.custom_counterparty_category == "Klient":
+    """Validate contract reference for Data category"""
+    if doc.custom_counterparty_category == "Data":
         if not doc.custom_contract_reference:
             # Warning faqat, majburiy emas
             frappe.msgprint(
