@@ -58,40 +58,26 @@
     </style>
 </head>
 <body>
-    {% set customer_name = doc.customer_name or "" %}
+    {%- if doc -%}
     {% set customer_doc = frappe.get_doc("Customer", doc.customer) %}
-    {% set customer_address = customer_doc.custom_address or "" %}
+    {% set customer_name = doc.customer_name or "" %}
+    {% set customer_address = customer_doc.custom_residence_address or customer_doc.custom_address or "" %}
     {% set customer_passport = customer_doc.custom_passport_series or "" %}
     {% set customer_phone = customer_doc.custom_phone or customer_doc.mobile_no or "" %}
     {% set customer_pinfl = customer_doc.custom_pinfl or "" %}
-
-    {% set items = doc.items %}
-    {% set profit_percentage = doc.custom_finance_profit_percentage or 0 %}
-
-    {# Umumiy narx foiz bilan #}
-    {% set total_price = doc.custom_grand_total_with_interest or doc.total_amount %}
-    {% set monthly_payment = doc.monthly_payment %}
-    {% set initial_payment = doc.downpayment_amount or 0 %}
-
-    {# Qoldiq summa = (Tan narxi + Foiz) - Boshlang'ich to'lov #}
-    {% set tan_narxi = doc.total_amount %}
-    {% set tan_narxi_with_profit = tan_narxi + (tan_narxi * profit_percentage / 100) %}
-    {% set remaining_amount = tan_narxi_with_profit - initial_payment %}
-
-    {% set installment_months = doc.installment_months %}
-    {% set payment_schedule = doc.payment_schedule %}
-
     {% set date_full_uz = frappe.utils.formatdate(doc.transaction_date, "dd.MM.yyyy") %}
-
+    {% set total_qty = doc.items|sum(attribute='qty')|float %}
+    {%- if total_qty == 0 -%}{% set total_qty = 1.0 %}{%- endif -%}
+    
     <h2>Махсулот қийматини бўлиб тўлаш шарти билан тузилган<br>№ {{ doc.name }} сонли олди сотди<br>ШАРТНОМА</h2>
-
+    
     <p class="center">{{ date_full_uz }}</p>
-
+    
     <p>МЧЖ"ТЕХNOBАRAKA", бундан кейин "Сотувчи" деб номланадиган Устав асосида рахбари Алимбоев Сардор Дилхуш угли ишлайдиган бир томондан, ва фуқаро <strong>{{ customer_name }}</strong> манзили: <strong>{{ customer_address }}</strong> манзилида яшайдиган, ва да <strong>{{ customer_address }}</strong> лавозимида ишлайдиган, (паспорт серия <strong>{{ customer_passport }}</strong> {{ customer_address }} туман ИИБ томонидан берилган, берилган санаси {{ date_full_uz }}), бундан кейин "Харидор" деб номланадиган, биргаликда "Томонлар" деб, ушбу шартнома қуйидагилар бўйича тузилди:</p>
-
+    
     <h2>1. Шартнома мазмуни</h2>
     <p>1.1. Шартномага биноан «Сотувчи» жадвалда кўрсатилган махсулотларни (бундан кейин матнда "Товарлар" деб номланади) «Харидор» га махсулот қийматини бўлиб тўлаш шарти билан сотади.</p>
-
+    
     <!-- Jadval 1: Mahsulotlar -->
     <table>
         <thead>
@@ -105,22 +91,20 @@
             </tr>
         </thead>
         <tbody>
-            {% for item in items %}
-            {# Har bir item uchun foiz qo'shilgan narx #}
-            {% set item_rate_with_profit = item.rate + (item.rate * profit_percentage / 100) %}
-            {% set item_amount_with_profit = item.amount + (item.amount * profit_percentage / 100) %}
+            {% for item in doc.items %}
+            {% set item_price = (doc.custom_grand_total_with_interest / total_qty)|round(2) %}
             <tr>
                 <td class="center">{{ loop.index }}</td>
                 <td>{{ item.item_name }}</td>
                 <td class="center">дона</td>
                 <td class="center">{{ item.qty }}</td>
-                <td class="right">{{ "{:,}".format(item_rate_with_profit).replace(",", " ") }} $</td>
-                <td class="right">{{ "{:,}".format(item_amount_with_profit).replace(",", " ") }} $</td>
+                <td class="right">{{ "{:,}".format(item_price).replace(",", " ") }} $</td>
+                <td class="right">{{ "{:,}".format((item.qty * item_price)|round(2)).replace(",", " ") }} $</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-
+    
     <!-- Jadval 2: To'lov ma'lumotlari -->
     <table>
         <tr>
@@ -131,15 +115,15 @@
             <th>Бўлиб тўлаш шартномаси муддати</th>
         </tr>
         <tr>
-            <td class="right">{{ "{:,}".format(tan_narxi_with_profit).replace(",", " ") }} $</td>
-            <td class="right">{{ "{:,}".format(monthly_payment).replace(",", " ") }} $</td>
-            <td class="right">{{ "{:,}".format(initial_payment).replace(",", " ") }} $</td>
-            <td class="right">{{ "{:,}".format(remaining_amount).replace(",", " ") }} $</td>
-            <td class="center">{{ installment_months }} ой</td>
+            <td class="right">{{ "{:,}".format(doc.custom_grand_total_with_interest).replace(",", " ") }} $</td>
+            <td class="right">{{ "{:,}".format(doc.monthly_payment).replace(",", " ") }} $</td>
+            <td class="right">{{ "{:,}".format(doc.downpayment_amount).replace(",", " ") }} $</td>
+            <td class="right">{{ "{:,}".format(doc.finance_amount).replace(",", " ") }} $</td>
+            <td class="center">{{ doc.installment_months }} ой</td>
         </tr>
     </table>
-
-    <p>1.2. Шартноманинг умумий нархи: <strong>{{ "{:,}".format(tan_narxi_with_profit).replace(",", " ") }}</strong> $.</p>
+    
+    <p>1.2. Шартноманинг умумий нархи: <strong>{{ "{:,}".format(doc.custom_grand_total_with_interest).replace(",", " ") }}</strong> $.</p>
     <p>1.3. Товарларга эгалик хуқуқи ушбу шартнома шартларига мувофиқ сотувчидан харидорга товар қиймати тўлиқ тўлангандан кейин ўтади.</p>
     <p>1.4. Харидор, товарни қабул қилган даврдан эътиборан товарни ёки унинг бирор бир қисмини бузилиши, ишдан чиқиш, йўқ қилиниши, ўғирланиши ва бошқа барча хавфларни ўз зиммасига олади. Юқоридаги хавф-хатарлардан бирининг пайдо бўлиши, харидорни ушбу шартнома шартларига мувофиқ товарларни тўлиқ нархини тўлаш мажбуриятидан озод қилмайди.</p>
     <p>1.5. Товарлар харидорга тўлиқ топширилган вақтдан бошлаб, унинг қиймати тўлиқ тўланишига қадар, сотилган товарлар харидорнинг қарзини тўлаш мажбуриятини бажаришини таъминлаш учун сотувчи томонидан гаровга олинган деб тан олинади.</p>
@@ -169,7 +153,7 @@
     <p>2.4.2. Даврий тўловларни тўлиқ ёки қисман тўлаш муддатидан олдин амалга ошириш.</p>
 
     <h2>3. Товарларнинг умумий қиймати ва ҳисоб-китоб қилиш тартиби</h2>
-    <p>3.1. Шартномага мувофиқ товарнинг умумий қиймати {{ "{:,}".format(tan_narxi_with_profit).replace(",", " ") }} $. Тўлов Ўзбекистон Республикаси миллий валютасида ҳисоб рақамига маблағ киритиш, онлайн автотўлов асосида, нақд ва пластик карта орқали амалга оширилади. Агарда пул маблағларини ҳисоб рақамга киритилса тўлов тафсилотларида шартноманинг рақами ва санаси, харидорнинг тўлиқ исмини кўрсатиш талаб қилинади.</p>
+    <p>3.1. Шартномага мувофиқ товарнинг умумий қиймати {{ "{:,}".format(doc.custom_grand_total_with_interest).replace(",", " ") }} $. Тўлов Ўзбекистон Республикаси миллий валютасида ҳисоб рақамига маблағ киритиш, онлайн автотўлов асосида, нақд ва пластик карта орқали амалга оширилади. Агарда пул маблағларини ҳисоб рақамга киритилса тўлов тафсилотларида шартноманинг рақами ва санаси, харидорнинг тўлиқ исмини кўрсатиш талаб қилинади.</p>
     <p>3.2. Товарлар учун тўловни «Харидор» бўлиб тўлайди.</p>
     <p>3.3. Товарларнинг қийматини тўлаш ҳар ойда, ойнинг охириги кунигача харидор томонидан иш ҳақи ёки бошқа даромадлари ҳисобидан амалга оширилади, ушбу шартноманинг 2 иловасида кўрсатилаган тўловлар жадвалига мувофиқ товарларни топширган кундан бошлаб 1 ой ичида тўлиқ қайтарилгунга қадар.</p>
     <p>3.4. Харидор шахсий маълумотларни қайта ишлашга, шунингдек қарздорлик ёки қарзни тўламаслик ҳолатида шахсий идентификацион рақамим бўйича топилган барча мавжуд ва янги очиладиган тўлов карталаридан (Uzcard/Humo ва Кобейдж карталари) қарз маблағларни ечиб олишга ўз розилигини беради, «Харидор» шартномани имзолаш орқали ушбу шартга ўзи тушунган ҳолда розилик беради.</p>
@@ -211,8 +195,12 @@
 
     <h2>9. Томонларнинг манзиллари ва банк маълумотлари:</h2>
 
-    <!-- Jadval 3: Tomonlar ma'lumotlari -->
+    <!-- Jadval 4: Tomonlar ma'lumotlari -->
     <table>
+        <colgroup>
+            <col style="width: 50%;">
+            <col style="width: 50%;">
+        </colgroup>
         <tr>
             <th>СОТУВЧИ</th>
             <th>ХАРИДОР</th>
@@ -259,15 +247,15 @@
 
     <!-- ILOVA 1 -->
     <div style="page-break-before: always;"></div>
-
+    
     <p class="right">Товарлар қийматини бўлиб тўлаш шарти<br>билан тузилган № {{ doc.name }} сонли<br>{{ date_full_uz }} тузилган Шартномага № 1 илова</p>
-
+    
     <h2>Товарларни қабул қилиш ва топшириш тўғрисидаги<br>Далолатнома</h2>
-
+    
     <p class="center">{{ date_full_uz }}</p>
-
+    
     <p>Биз, имзо чекувчилар, ушбу далолатномани Сотувчи МЧЖ"ТЕХNOBАRAKA" масъул ходими Алимбоев Сардор Дилхуш угли ва харидор <strong>{{ customer_name }}</strong> билан юқорида кўрсатиб ўтилган шартномага мувофиқ сотиб олинган қуйидаги товарларни топшириш ва қабул қилганлиги тўғрисидаги Далолатнома:</p>
-
+    
     <!-- Jadval 4: Qabul qilish aktidagi mahsulotlar -->
     <table>
         <thead>
@@ -281,20 +269,19 @@
             </tr>
         </thead>
         <tbody>
-            {% for item in items %}
-            {# Har bir item uchun foiz qo'shilgan narx #}
-            {% set item_rate_with_profit = item.rate + (item.rate * profit_percentage / 100) %}
+            {% for item in doc.items %}
+            {% set item_price = (doc.custom_grand_total_with_interest / total_qty)|round(2) %}
             <tr>
                 <td class="center">{{ loop.index }}</td>
                 <td>{{ item.item_name }}</td>
                 <td class="center">дона</td>
                 <td class="center">{{ item.qty }}</td>
-                <td class="right">{{ "{:,}".format(item_rate_with_profit).replace(",", " ") }}</td>
+                <td class="right">{{ "{:,}".format(item_price).replace(",", " ") }}</td>
                 <td class="right">0</td>
             </tr>
             {% endfor %}
             <tr>
-                <td colspan="6"><strong>Жами суммаси: {{ "{:,}".format(tan_narxi_with_profit).replace(",", " ") }} $</strong></td>
+                <td colspan="6"><strong>Жами суммаси: {{ "{:,}".format(doc.custom_grand_total_with_interest).replace(",", " ") }} $</strong></td>
             </tr>
             <tr>
                 <td colspan="3"><strong>СОТУВЧИ махсулот топширувчи</strong></td>
@@ -313,11 +300,11 @@
 
     <!-- ILOVA 2 -->
     <div style="page-break-before: always;"></div>
-
+    
     <p class="right">Товарлар қийматини бўлиб тўлаш шарти<br>билан тузилган № {{ doc.name }} сонли<br>{{ date_full_uz }} тузилган Шартномага № 2 илова</p>
-
+    
     <h2>Қарздорликни бўлиб тўлаш<br>ЖАДВАЛИ</h2>
-
+    
     <!-- Jadval 5: To'lov jadvali -->
     <table>
         <thead>
@@ -328,7 +315,7 @@
             </tr>
         </thead>
         <tbody>
-            {% for payment in payment_schedule %}
+            {% for payment in doc.payment_schedule %}
             <tr>
                 <td class="center">{{ loop.index }}</td>
                 <td class="center">{{ frappe.utils.formatdate(payment.due_date, "dd.MM.yyyy") }}</td>
@@ -337,7 +324,7 @@
             {% endfor %}
             <tr>
                 <td colspan="2"><strong>Жами суммаси:</strong></td>
-                <td class="right"><strong>{{ "{:,}".format(tan_narxi_with_profit).replace(",", " ") }} $</strong></td>
+                <td class="right"><strong>{{ "{:,}".format(doc.custom_grand_total_with_interest).replace(",", " ") }} $</strong></td>
             </tr>
             <tr>
                 <td colspan="2">Сотувчи: МЧЖ"ТЕХNOBАRAKA" рахбари<br>Алимбоев Сардор Дилхуш угли<br><br>Имзо: _________________</td>
@@ -345,9 +332,13 @@
             </tr>
         </tbody>
     </table>
-
+    
     <!-- Oxirgi jadval: Tomonlar ma'lumotlari (2-marta) -->
     <table>
+        <colgroup>
+            <col style="width: 50%;">
+            <col style="width: 50%;">
+        </colgroup>
         <tr>
             <th>СОТУВЧИ</th>
             <th>ХАРИДОР</th>
@@ -389,6 +380,7 @@
             <td>Имзо: _________________</td>
         </tr>
     </table>
-
+    {%- endif -%}
+    
 </body>
 </html>
