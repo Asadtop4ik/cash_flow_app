@@ -1,11 +1,22 @@
-// Kontragent Report - JavaScript
+// Kontragent Report - Party Filter Controller
+// File: cash_flow_app/cash_flow_management/report/kontragent_report/kontragent_report.js
+
 frappe.query_reports["Kontragent Report"] = {
+    "onload": function(report) {
+        console.log('📊 Kontragent Report loaded');
+
+        // Party Type o'zgarganda Party filterini yangilash
+        report.page.add_inner_button(__('Refresh'), function() {
+            report.refresh();
+        });
+    },
+
     "filters": [
         {
             "fieldname": "from_date",
             "label": __("From Date"),
             "fieldtype": "Date",
-            "default": frappe.datetime.year_start(),
+            "default": frappe.datetime.add_months(frappe.datetime.get_today(), -1),
             "reqd": 1
         },
         {
@@ -19,29 +30,45 @@ frappe.query_reports["Kontragent Report"] = {
             "fieldname": "party_type",
             "label": __("Party Type"),
             "fieldtype": "Select",
-            "options": ["", "Customer", "Supplier"],
-            "default": ""
+            "options": "\nCustomer\nSupplier\nEmployee",
+            "default": "Customer",
+            "on_change": function(query_report) {
+                // Party Type o'zgarganda Party filterini tozalash va yangilash
+                let party_type = query_report.get_filter_value('party_type');
+                let party_filter = query_report.get_filter('party');
+
+                if (party_filter && party_type) {
+                    // Party filter options'ni yangilash
+                    party_filter.df.options = party_type;
+                    party_filter.refresh();
+
+                    // Party qiymatini tozalash
+                    query_report.set_filter_value('party', '');
+
+                    console.log(`✅ Party filter options yangilandi: ${party_type}`);
+                }
+            }
         },
         {
             "fieldname": "party",
             "label": __("Party"),
-            "fieldtype": "Dynamic Link",
-            "options": "party_type"
+            "fieldtype": "Link",
+            "options": "Customer",  // Default - Party Type bilan o'zgaradi
+            "get_query": function() {
+                let party_type = frappe.query_report.get_filter_value('party_type');
+
+                if (!party_type) {
+                    frappe.msgprint(__('Avval Party Type tanlang'));
+                    return { filters: { 'name': '' } };  // Bo'sh natija
+                }
+
+                // Party Type'ga mos filterlar
+                return {
+                    filters: {
+                        'disabled': 0
+                    }
+                };
+            }
         }
-    ],
-
-    "formatter": function(value, row, column, data, default_formatter) {
-        value = default_formatter(value, row, column, data);
-
-        // Agar party_type da "TOTAL" yoki party da "Jami" bo'lsa
-        if (data && (
-            (data.party_type && data.party_type.includes('TOTAL')) ||
-            (data.party && data.party === 'Jami')
-        )) {
-            // Butun qatorni bold qilish va background color
-            value = `<span style="font-weight: bold;">${value}</span>`;
-        }
-
-        return value;
-    }
+    ]
 };
