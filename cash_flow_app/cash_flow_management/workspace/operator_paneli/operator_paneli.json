@@ -1,7 +1,7 @@
 {
  "charts": [],
  "content": "[{\"id\":\"G4PKuV_6vA\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Operator Panel</b></span>\",\"col\":12}},{\"id\":\"RvvPWP-Gg-\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"ovpEJcsEFk\",\"type\":\"card\",\"data\":{\"card_name\":\"Ma'lumot Kiritish\",\"col\":4}}]",
- "creation": "2025-11-19 00:17:49.005971",
+ "creation": "2025-11-19 00:26:04.875698",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -160,7 +160,7 @@
    "type": "Link"
   }
  ],
- "modified": "2025-11-19 00:19:17.450603",
+ "modified": "2025-11-19 00:27:17.067531",
  "modified_by": "Administrator",
  "module": "Cash Flow Management",
  "name": "Operator Paneli",
