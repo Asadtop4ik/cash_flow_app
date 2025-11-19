@@ -122,11 +122,12 @@ def prepare_contract_data(so, customer, company, installment_app, use_sales_orde
     total_interest = grand_total_with_interest - total_amount
     
     for idx, item in enumerate(inst_app_doc.items, 1):
-        quantity = int(flt(item.get('qty', 1)))
+        quantity = flt(item.get('qty', 1))
         rate = flt(item.get('rate', 0))
         amount = flt(item.get('amount', 0))
         
         # Har bir item uchun foydani proporsional hisoblash
+        # Formula: item_interest = (item.amount / total_amount) × total_interest
         if total_amount > 0:
             item_interest = (amount / total_amount) * total_interest
             price_with_interest = rate + (item_interest / quantity)
@@ -139,15 +140,15 @@ def prepare_contract_data(so, customer, company, installment_app, use_sales_orde
             'idx': idx,
             'item_name': item.get('item_name', ''),
             'quantity': quantity,
-            'price': int(price_with_interest),
-            'total': int(total_with_interest)
+            'price': round(price_with_interest, 2),  # Aniq o'nlik raqam
+            'total': round(total_with_interest, 2)   # Aniq o'nlik raqam
         })
     
-    # Narxlar
-    total_price = int(flt(installment_app.get('custom_grand_total_with_interest', 0)))
-    monthly_payment = int(flt(installment_app.get('monthly_payment', 0)))
-    initial_payment = int(flt(installment_app.get('downpayment_amount', 0)))
-    remaining_amount = total_price - initial_payment
+    # Narxlar - aniq o'nlik raqamlar bilan
+    total_price = round(flt(installment_app.get('custom_grand_total_with_interest', 0)), 2)
+    monthly_payment = round(flt(installment_app.get('monthly_payment', 0)), 2)
+    initial_payment = round(flt(installment_app.get('downpayment_amount', 0)), 2)
+    remaining_amount = round(total_price - initial_payment, 2)
     
     # To'lov jadvali
     payment_schedule = []
@@ -162,7 +163,7 @@ def prepare_contract_data(so, customer, company, installment_app, use_sales_orde
         payment_schedule.append({
             'idx': idx,
             'date': frappe.utils.formatdate(item.due_date, "dd.MM.yyyy") if item.due_date else "",
-            'amount': int(flt(item.payment_amount))
+            'amount': round(flt(item.payment_amount), 2)
         })
     
     return {
