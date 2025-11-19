@@ -15,10 +15,6 @@ def execute(filters=None):
 
 	return columns, data, None, summary
 
-import frappe
-from frappe import _
-from frappe.utils import flt
-
 # ============================================================
 # ✅ COLUMNS
 # ============================================================
@@ -76,6 +72,14 @@ def get_columns():
 			"fieldtype": "Currency",
 			"options": "USD",
 			"width": 120
+		},
+		# ✅ YANGI USTUN - KASSA NOMI
+		{
+			"fieldname": "cash_account",
+			"label": _("Cash"),
+			"fieldtype": "Link",
+			"options": "Account",
+			"width": 150
 		}
 	]
 
@@ -86,7 +90,6 @@ def get_columns():
 def get_data(filters):
 	conditions = get_conditions(filters)
 
-	# ✅ cash_account parametrini qo'shish
 	cash_account = filters.get("cash_account")
 
 	query = f"""
@@ -117,7 +120,20 @@ def get_data(filters):
 				WHEN pe.payment_type = 'Receive' THEN pe.paid_amount
 				WHEN pe.payment_type = 'Internal Transfer' AND pe.paid_to = %(cash_account)s THEN pe.received_amount
 				ELSE 0
-			END AS credit
+			END AS credit,
+
+			-- ✅ YANGI FIELD - Qaysi kassaga kirim yoki qaysi kassadan chiqim
+			CASE
+				WHEN pe.payment_type = 'Receive' THEN pe.paid_to
+				WHEN pe.payment_type = 'Pay' THEN pe.paid_from
+				WHEN pe.payment_type = 'Internal Transfer' THEN
+					CASE
+						WHEN pe.paid_to = %(cash_account)s THEN pe.paid_to
+						WHEN pe.paid_from = %(cash_account)s THEN pe.paid_from
+						ELSE pe.paid_to
+					END
+				ELSE pe.paid_to
+			END AS cash_account
 
 		FROM `tabPayment Entry` pe
 		WHERE pe.docstatus = 1
@@ -125,7 +141,6 @@ def get_data(filters):
 		ORDER BY pe.posting_date, pe.creation
 	"""
 
-	# ✅ cash_account parametrini filters'ga qo'shish
 	query_filters = dict(filters)
 	if not query_filters.get('cash_account'):
 		query_filters['cash_account'] = ''
@@ -145,7 +160,6 @@ def get_conditions(filters):
 	if filters.get("to_date"):
 		conditions.append("pe.posting_date <= %(to_date)s")
 
-	# ✅ Yangi filter ( CASH REGISTER)
 	if filters.get("cash_account"):
 		conditions.append("(pe.paid_from = %(cash_account)s OR pe.paid_to = %(cash_account)s)")
 
@@ -158,7 +172,7 @@ def get_conditions(filters):
 	return " AND " + " AND ".join(conditions) if conditions else ""
 
 # ============================================================
-# ✅ SUMMARY (HECH NIMA O‘ZGARMAYDI)
+# ✅ SUMMARY (HECH NIMA O'ZGARMAYDI)
 # ============================================================
 
 def get_summary(data, filters=None):
