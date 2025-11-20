@@ -6,16 +6,20 @@ from frappe.model.document import Document
 from frappe.utils import flt, add_months, getdate
 from frappe import _
 from frappe.utils import nowdate, getdate
+
 class InstallmentApplication(Document):
     def validate(self):
         """Validate before save"""
+        # ✅ YANGI: Payment schedule majburiy
+        if not self.payment_schedule or len(self.payment_schedule) == 0:
+            frappe.throw(_('Iltimos, avval "Calculate Payment Schedule" tugmasini bosing!'))
+        
         self.calculate_totals()
         self.validate_payment_terms()
 
         # Clear cancelled Sales Order link for amended documents
         if self.sales_order:
             frappe.logger().info(f"Checking SO link: {self.sales_order}")
-            # Check if linked SO is cancelled using db query (faster and safer)
             so_status = frappe.db.get_value("Sales Order", self.sales_order, "docstatus")
             frappe.logger().info(f"SO Status: {so_status}")
 
@@ -36,11 +40,9 @@ class InstallmentApplication(Document):
         self.total_amount = total
 
         # Calculate finance amount (qolgan summa)
-        # Finance Amount = Total - Downpayment
         self.finance_amount = flt(self.total_amount) - flt(self.downpayment_amount)
 
         # Calculate interest based on user input
-        # Interest = (Monthly Payment × Months) - Finance Amount
         monthly_payment = flt(self.monthly_payment)
         months = flt(self.installment_months)
 
@@ -53,32 +55,27 @@ class InstallmentApplication(Document):
         grand_total = flt(self.downpayment_amount) + total_installments
         self.custom_grand_total_with_interest = grand_total
 
-        # Marja Foiz (%) = (Foyda / Oylik To'lovlar) × 100%
-        # Bu ko'rsatadi: oylik to'lovlarning qancha qismi foyda
+        # Marja Foiz (%)
         if total_installments > 0:
             profit_percentage = (total_interest / total_installments) * 100
-            self.custom_profit_percentage = round(profit_percentage, 2)  # 2 raqam verguldan keyin
+            self.custom_profit_percentage = round(profit_percentage, 2)
         else:
             self.custom_profit_percentage = 0
 
-        # Ustama Foiz (%) = (Foyda / Qolgan Summa) × 100%
-        # Bu ko'rsatadi: qolgan summadan qancha foiz foyda
+        # Ustama Foiz (%)
         if flt(self.finance_amount) > 0:
             finance_profit_percentage = (total_interest / flt(self.finance_amount)) * 100
-            self.custom_finance_profit_percentage = round(finance_profit_percentage, 2)  # 2 raqam verguldan keyin
+            self.custom_finance_profit_percentage = round(finance_profit_percentage, 2)
         else:
             self.custom_finance_profit_percentage = 0
 
-        # Debug log
         frappe.logger().info(f"Installment Calc: Total={self.total_amount}, Downpayment={self.downpayment_amount}, Finance={self.finance_amount}, Monthly={self.monthly_payment}, Interest={self.custom_total_interest}, Marja%={self.custom_profit_percentage}, Finance%={self.custom_finance_profit_percentage}")
 
     def validate_payment_terms(self):
         """Validate payment terms"""
-        # Boshlang'ich to'lov 0 yoki ijobiy bo'lishi mumkin (ixtiyoriy)
         if flt(self.downpayment_amount) < 0:
             frappe.throw(_("Boshlang'ich to'lov 0 dan kam bo'lishi mumkin emas"))
 
-        # Agar boshlang'ich to'lov kiritilgan bo'lsa, umumiy narxdan kam bo'lishi kerak
         if flt(self.downpayment_amount) > 0 and flt(self.downpayment_amount) >= flt(self.total_amount):
             frappe.throw(_("Boshlang'ich to'lov umumiy narxdan kam bo'lishi kerak"))
 
@@ -95,7 +92,6 @@ class InstallmentApplication(Document):
         """Create Sales Order after submission"""
         self.status = "Approved"
 
-        # If this is an amended document, cancel old Sales Order and create new one
         if self.amended_from:
             old_doc = frappe.get_doc("Installment Application", self.amended_from)
             if old_doc.sales_order:
@@ -104,15 +100,12 @@ class InstallmentApplication(Document):
                     old_so.cancel()
                     frappe.msgprint(_("Eski Sales Order {0} bekor qilindi").format(old_so.name), alert=True)
 
-            # Always create new SO for amended docs
             self.create_sales_order()
         elif not self.sales_order:
-            # For new docs, create SO if doesn't exist
             self.create_sales_order()
 
     def create_sales_order(self):
         """Create Sales Order with Payment Schedule"""
-                # Create Sales Order
         company = frappe.defaults.get_user_default("Company")
 
         so = frappe.get_doc({
@@ -123,14 +116,12 @@ class InstallmentApplication(Document):
             "delivery_date": add_months(self.transaction_date, self.installment_months),
             "company": company,
             "currency": "USD",
-            "conversion_rate": 1.0,  # USD to USD = 1
-            "plc_conversion_rate": 1.0,  # Price List Currency to USD = 1
+            "conversion_rate": 1.0,
+            "plc_conversion_rate": 1.0,
             "ignore_pricing_rule": 1,
             "items": []
         })
 
-        # Add items from Installment Application
-        # IMPORTANT: Add interest as a separate line item
         for item in self.items:
             so_item = {
                 "item_code": item.item_code,
@@ -140,18 +131,15 @@ class InstallmentApplication(Document):
                 "amount": item.amount,
                 "uom": item.get("uom") or "Nos",
                 "conversion_factor": 1.0,
-                "custom_imei": item.get("imei")  # Copy IMEI if exists
+                "custom_imei": item.get("imei")
             }
 
-            # Copy custom_notes if exists (for Sales Order)
             if item.get("custom_notes"):
                 so_item["description"] = item.get("custom_notes")
 
             so.append("items", so_item)
 
-        # Add interest as separate item if exists
         if flt(self.custom_total_interest) > 0:
-            # Check if "Interest Charge" item exists, if not create a generic description item
             so.append("items", {
                 "item_code": frappe.db.get_value("Item", {"item_name": "Interest Charge"}, "name") or self.items[0].item_code,
                 "item_name": "Foiz (Interest)",
@@ -163,16 +151,11 @@ class InstallmentApplication(Document):
                 "amount": flt(self.custom_total_interest)
             })
 
-        # Calculate totals first
         so.run_method("calculate_taxes_and_totals")
 
-        # Get start date - use custom_start_date if available, otherwise transaction_date
         start_date = getdate(self.get("custom_start_date") or self.transaction_date)
-
-        # Now Sales Order grand_total should match our custom_grand_total_with_interest
         so_grand_total = flt(so.grand_total)
 
-        # Add downpayment schedule only if downpayment > 0
         if flt(self.downpayment_amount) > 0:
             downpayment_portion = (flt(self.downpayment_amount) / so_grand_total) * 100
             so.append("payment_schedule", {
@@ -181,34 +164,27 @@ class InstallmentApplication(Document):
                 "payment_amount": flt(self.downpayment_amount)
             })
 
-        # Monthly payment schedules with custom payment day
         monthly_portion = (flt(self.monthly_payment) / so_grand_total) * 100
         payment_day = int(self.custom_monthly_payment_day) if self.custom_monthly_payment_day else getdate(start_date).day
 
-        # Get start date components
         start_date_obj = getdate(start_date)
         current_year = start_date_obj.year
         current_month = start_date_obj.month
 
         for i in range(1, int(self.installment_months) + 1):
-            # Calculate next month
             target_month = current_month + i
             target_year = current_year
 
-            # Handle year overflow
             while target_month > 12:
                 target_month -= 12
                 target_year += 1
 
-            # Create date with specific payment_day
             from datetime import date
             from calendar import monthrange
 
             try:
-                # Try to create date with payment_day
                 due_date = date(target_year, target_month, payment_day)
             except ValueError:
-                # If day doesn't exist in month (e.g., Feb 30), use last day
                 last_day = monthrange(target_year, target_month)[1]
                 due_date = date(target_year, target_month, last_day)
 
@@ -218,31 +194,23 @@ class InstallmentApplication(Document):
                 "payment_amount": flt(self.monthly_payment)
             })
 
-        # Store custom fields in Sales Order BEFORE calculate
         so.custom_contract_type = "Nasiya"
         so.custom_downpayment_amount = flt(self.downpayment_amount)
         so.custom_total_interest = flt(self.custom_total_interest)
         so.custom_grand_total_with_interest = flt(self.custom_grand_total_with_interest)
 
-        # Recalculate to ensure totals match
         so.run_method("calculate_taxes_and_totals")
 
-        # Save and submit Sales Order
         so.insert(ignore_permissions=True)
         so.submit()
 
-        # Update Installment Application
         self.db_set("sales_order", so.name)
         self.db_set("status", "Sales Order Created")
 
-        # Create Downpayment Payment Entry (Draft)
-        # ⚠️ IMPORTANT: Only create PE for NEW documents, not for AMENDED ones!
-        # Amended docs will be handled by on_submit_installment_application hook
         pe_name = None
         if flt(self.downpayment_amount) > 0 and not self.amended_from:
             pe_name = self.create_downpayment_payment_entry(so.name)
 
-        # Success message
         message = _("Sales Order {0} created successfully").format(
             f'<a href="/app/sales-order/{so.name}">{so.name}</a>'
         )
@@ -255,12 +223,8 @@ class InstallmentApplication(Document):
         frappe.msgprint(message)
 
     def create_downpayment_payment_entry(self, sales_order_name):
-        """
-        Create draft Payment Entry for downpayment
-        Operator will verify and submit manually
-        """
+        """Create draft Payment Entry for downpayment"""
         try:
-            # Get default cash account
             cash_settings = frappe.get_single("Cash Settings")
             default_cash_account = cash_settings.get("default_cash_account")
 
@@ -268,14 +232,9 @@ class InstallmentApplication(Document):
                 frappe.msgprint(_("⚠️ Cash Settings'da default_cash_account topilmadi!"), alert=True)
                 return None
 
-            # Get company
             company = frappe.defaults.get_user_default("Company")
-
-            # ✅ IMPORTANT: Use custom_start_date for posting_date (for historical entries)
-            # This allows entering old contracts with correct payment dates
             posting_date = getdate(self.get("custom_start_date") or self.transaction_date)
 
-            # Create Payment Entry
             pe = frappe.get_doc({
                 "doctype": "Payment Entry",
                 "naming_series": "CIN-.YYYY.-.#####",
@@ -283,7 +242,7 @@ class InstallmentApplication(Document):
                 "party_type": "Customer",
                 "party": self.customer,
                 "company": company,
-                "posting_date": posting_date,  # ✅ Use custom_start_date
+                "posting_date": posting_date,
                 "paid_amount": flt(self.downpayment_amount),
                 "received_amount": flt(self.downpayment_amount),
                 "paid_to": default_cash_account,
@@ -292,14 +251,13 @@ class InstallmentApplication(Document):
                 "source_exchange_rate": 1.0,
                 "target_exchange_rate": 1.0,
                 "reference_no": sales_order_name,
-                "reference_date": posting_date,  # ✅ Use same date
+                "reference_date": posting_date,
                 "custom_counterparty_category": "Data",
                 "custom_contract_reference": sales_order_name,
                 "mode_of_payment": "Naqd",
                 "remarks": f"Boshlang'ich to'lov - Shartnoma {sales_order_name}\nInstallment Application: {self.name}"
             })
 
-            # Add reference to Sales Order (IMPORTANT for linking!)
             pe.append("references", {
                 "reference_doctype": "Sales Order",
                 "reference_name": sales_order_name,
@@ -308,7 +266,6 @@ class InstallmentApplication(Document):
                 "allocated_amount": flt(self.downpayment_amount)
             })
 
-            # Insert as Draft (operator will submit)
             pe.insert(ignore_permissions=True)
 
             frappe.logger().info(f"Created downpayment PE {pe.name} for SO {sales_order_name}")
@@ -335,12 +292,10 @@ class InstallmentApplication(Document):
                 print(f"   📊 SO Status: {so.docstatus} ({['Draft', 'Submitted', 'Cancelled'][so.docstatus]})")
                 frappe.logger().info(f"SO {so.name} status: {so.docstatus}")
 
-                if so.docstatus == 1:  # Submitted
+                if so.docstatus == 1:
                     print(f"   ⚠️  Cancelling Sales Order...")
                     frappe.logger().info(f"Cancelling SO {so.name}")
 
-                    # Cancel SO - this will trigger on_cancel_sales_order hook
-                    # which will cancel all linked Payment Entries
                     so.cancel()
 
                     print(f"   ✅ Sales Order cancelled: {so.name}")
@@ -350,7 +305,7 @@ class InstallmentApplication(Document):
                         _("✅ Sales Order {0} va bog'langan to'lovlar bekor qilindi").format(so.name),
                         alert=True
                     )
-                elif so.docstatus == 2:  # Already cancelled
+                elif so.docstatus == 2:
                     print(f"   ℹ️  Sales Order already cancelled")
                     frappe.logger().info(f"SO {so.name} already cancelled")
                 else:
@@ -362,7 +317,6 @@ class InstallmentApplication(Document):
                 import traceback
                 traceback.print_exc()
 
-                # Don't throw - allow InstApp to be cancelled even if SO cancel fails
                 frappe.msgprint(
                     _("⚠️ Xatolik: Sales Order bekor qilinmadi. Qo'lda bekor qiling: {0}").format(self.sales_order),
                     alert=True,
@@ -375,40 +329,28 @@ class InstallmentApplication(Document):
         self.status = "Cancelled"
         print(f"   ✅ InstApp status updated to Cancelled")
 
-# installment_application.py - SODDA YECHIM
-# installment_application.py - SODDA YECHIM
-
-@frappe.whitelist()
-# installment_application.py - SODDA YECHIM
 
 @frappe.whitelist()
 def create_payment_entry_from_installment(source_name):
-	"""
-	Installment Application dan Payment Entry yaratish
-	Faqat ma'lumotlarni to'ldiradi, saqlamaydi
-	"""
-	# Sales Order ID olish
+	"""Installment Application dan Payment Entry yaratish"""
 	sales_order = frappe.db.get_value("Installment Application", source_name, "sales_order")
 
 	if not sales_order:
 		frappe.throw(_("Sales Order topilmadi!"))
 
-	# Installment Application ma'lumotlarini olish
 	source = frappe.get_doc("Installment Application", source_name)
 
-	# Payment Entry uchun ma'lumotlar
 	payment_data = {
 		"payment_type": "Receive",
 		"posting_date": nowdate(),
 		"mode_of_payment": "Naqd",
 		"party_type": "Customer",
-		"party": source.customer,  # Customer ID (link)
-		"party_name": source.customer_name,  # Customer nomi
+		"party": source.customer,
+		"party_name": source.customer_name,
 		"company": source.get("company") or frappe.defaults.get_user_default("Company"),
 		"remarks": f"Shartnoma: {source.name}\nSales Order: {sales_order}"
 	}
 
-	# Custom contract reference (agar field mavjud bo'lsa)
 	if frappe.db.exists("Custom Field",
 						{"dt": "Payment Entry", "fieldname": "custom_contract_reference"}):
 		payment_data["custom_contract_reference"] = sales_order
