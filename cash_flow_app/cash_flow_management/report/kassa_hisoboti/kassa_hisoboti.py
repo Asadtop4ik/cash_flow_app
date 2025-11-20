@@ -12,8 +12,8 @@ def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
 	summary = get_summary(data, filters)
-
-	return columns, data, None, summary
+	
+	return columns, data, None, None, summary
 
 # ============================================================
 # ✅ COLUMNS
@@ -73,7 +73,6 @@ def get_columns():
 			"options": "USD",
 			"width": 120
 		},
-		# ✅ YANGI USTUN - KASSA NOMI
 		{
 			"fieldname": "cash_account",
 			"label": _("Cash"),
@@ -89,7 +88,6 @@ def get_columns():
 
 def get_data(filters):
 	conditions = get_conditions(filters)
-
 	cash_account = filters.get("cash_account")
 
 	query = f"""
@@ -122,7 +120,6 @@ def get_data(filters):
 				ELSE 0
 			END AS credit,
 
-			-- ✅ YANGI FIELD - Qaysi kassaga kirim yoki qaysi kassadan chiqim
 			CASE
 				WHEN pe.payment_type = 'Receive' THEN pe.paid_to
 				WHEN pe.payment_type = 'Pay' THEN pe.paid_from
@@ -172,34 +169,46 @@ def get_conditions(filters):
 	return " AND " + " AND ".join(conditions) if conditions else ""
 
 # ============================================================
-# ✅ SUMMARY (HECH NIMA O'ZGARMAYDI)
+# ✅ SUMMARY
 # ============================================================
 
 def get_summary(data, filters=None):
-	if not data:
+	"""Summary boxes - Opening Balance, Total Kirim, Total Chiqim, Net Balance"""
+	
+	if not filters:
 		return []
 
-	total_credit = sum(flt(x.credit) for x in data)
-	total_debit = sum(flt(x.debit) for x in data)
-	net_balance = total_credit - total_debit
+	from_date = filters.get("from_date")
+	to_date = filters.get("to_date")
+	cash_account = filters.get("cash_account")
+
+	# ✅ 1. Opening Balance (from_date dan oldingi)
+	opening_balance = get_opening_balance(from_date, cash_account)
+
+	# ✅ 2. Total Kirim va Chiqim (hozirgi data dan)
+	total_kirim = sum(flt(x.get('credit', 0)) for x in data) if data else 0.0
+	total_chiqim = sum(flt(x.get('debit', 0)) for x in data) if data else 0.0
+
+	# ✅ 3. Net Balance (to_date gacha barcha)
+	net_balance = get_net_balance(to_date, cash_account)
 
 	summary = [
 		{
-			"value": 0,
+			"value": opening_balance,
 			"indicator": "Blue",
 			"label": _("Opening Balance"),
 			"datatype": "Currency",
 			"currency": "USD"
 		},
 		{
-			"value": total_credit,
+			"value": total_kirim,
 			"indicator": "Green",
 			"label": _("Total Kirim"),
 			"datatype": "Currency",
 			"currency": "USD"
 		},
 		{
-			"value": total_debit,
+			"value": total_chiqim,
 			"indicator": "Red",
 			"label": _("Total Chiqim"),
 			"datatype": "Currency",
@@ -215,3 +224,81 @@ def get_summary(data, filters=None):
 	]
 
 	return summary
+
+
+# ============================================================
+# ✅ OPENING BALANCE - from_date dan oldingi
+# ============================================================
+
+def get_opening_balance(from_date, cash_account=None):
+	"""from_date dan oldingi barcha kirim - chiqim"""
+	
+	if not from_date:
+		return 0.0
+	
+	conditions = ["pe.docstatus = 1"]
+	params = {"from_date": from_date}
+	
+	conditions.append("pe.posting_date < %(from_date)s")
+	
+	if cash_account:
+		conditions.append("(pe.paid_from = %(cash_account)s OR pe.paid_to = %(cash_account)s)")
+		params["cash_account"] = cash_account
+
+	where_clause = " AND ".join(conditions)
+
+	query = f"""
+		SELECT
+			COALESCE(SUM(CASE WHEN pe.payment_type = 'Receive' THEN pe.paid_amount ELSE 0 END), 0) as total_receive,
+			COALESCE(SUM(CASE WHEN pe.payment_type = 'Pay' THEN pe.paid_amount ELSE 0 END), 0) as total_pay
+		FROM `tabPayment Entry` pe
+		WHERE {where_clause}
+	"""
+
+	result = frappe.db.sql(query, params, as_dict=1)
+	
+	if result and result[0]:
+		total_receive = flt(result[0].get('total_receive', 0))
+		total_pay = flt(result[0].get('total_pay', 0))
+		return total_receive - total_pay
+	
+	return 0.0
+
+
+# ============================================================
+# ✅ NET BALANCE - to_date gacha barcha
+# ============================================================
+
+def get_net_balance(to_date, cash_account=None):
+	"""to_date gacha barcha kirim - chiqim"""
+	
+	if not to_date:
+		return 0.0
+	
+	conditions = ["pe.docstatus = 1"]
+	params = {"to_date": to_date}
+	
+	conditions.append("pe.posting_date <= %(to_date)s")
+	
+	if cash_account:
+		conditions.append("(pe.paid_from = %(cash_account)s OR pe.paid_to = %(cash_account)s)")
+		params["cash_account"] = cash_account
+
+	where_clause = " AND ".join(conditions)
+
+	query = f"""
+		SELECT
+			COALESCE(SUM(CASE WHEN pe.payment_type = 'Receive' THEN pe.paid_amount ELSE 0 END), 0) as total_receive,
+			COALESCE(SUM(CASE WHEN pe.payment_type = 'Pay' THEN pe.paid_amount ELSE 0 END), 0) as total_pay
+		FROM `tabPayment Entry` pe
+		WHERE {where_clause}
+	"""
+
+	result = frappe.db.sql(query, params, as_dict=1)
+	
+	if result and result[0]:
+		total_receive = flt(result[0].get('total_receive', 0))
+		total_pay = flt(result[0].get('total_pay', 0))
+		return total_receive - total_pay
+	
+	return 0.0

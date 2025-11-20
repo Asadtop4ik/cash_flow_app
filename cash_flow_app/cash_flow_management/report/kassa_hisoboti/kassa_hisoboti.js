@@ -78,5 +78,8 @@ frappe.query_reports["Kassa Hisoboti"] = {
        report.page.add_inner_button(__('Export to Excel'), function() {
           report.export_report('xlsx');
        });
+       
+       // ✅ Summary'ni majburan render qilish
+       report.page.set_secondary_action = function() {};
     }
 };
