@@ -693,7 +693,19 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
             }
 
         headers = list(report_data[0].keys())
-        rows = [[str(row.get(h, '')) for h in headers] for row in report_data]
+        
+        # Format numbers with comma decimal separator
+        def format_value(value):
+            """Format cell value - replace decimal point with comma"""
+            if value is None or value == '':
+                return ''
+            str_value = str(value)
+            # Replace decimal point with comma for numbers
+            if str_value.replace('.', '').replace('-', '').replace('+', '').isdigit():
+                str_value = str_value.replace('.', ',')
+            return str_value
+        
+        rows = [[format_value(row.get(h, '')) for h in headers] for row in report_data]
         sheet_data = [headers] + rows
 
         # Write to sheet
