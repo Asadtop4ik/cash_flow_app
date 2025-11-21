@@ -250,12 +250,22 @@ class GoogleSheetsExporter:
             frappe.throw(_(error_msg))
     
     def _format_cell_value(self, value):
-        """Format cell value for Google Sheets"""
+        """Format cell value for Google Sheets - replace decimal point with comma"""
         if value is None:
             return ''
         if isinstance(value, (dict, list)):
-            return json.dumps(value)
-        return str(value)
+            return json.dumps(value, ensure_ascii=False)
+        
+        # Convert to string
+        str_value = str(value)
+        
+        # Replace decimal point with comma for numbers
+        # Check if it's a number (contains only digits, dots, minus)
+        if str_value.replace('.', '').replace('-', '').replace('+', '').isdigit():
+            # It's a number, replace . with ,
+            str_value = str_value.replace('.', ',')
+        
+        return str_value
     
     def _write_to_google_sheets(self, data, spreadsheet_id=None, sheet_name='Sheet1'):
         """Write data to Google Sheets with formatting"""
