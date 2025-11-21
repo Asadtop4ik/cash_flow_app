@@ -13,7 +13,7 @@ class InstallmentApplication(Document):
         # ✅ YANGI: Payment schedule majburiy
         if not self.payment_schedule or len(self.payment_schedule) == 0:
             frappe.throw(_('Iltimos, avval "Calculate Payment Schedule" tugmasini bosing!'))
-        
+
         self.calculate_totals()
         self.validate_payment_terms()
 
@@ -79,7 +79,7 @@ class InstallmentApplication(Document):
         if flt(self.downpayment_amount) > 0 and flt(self.downpayment_amount) >= flt(self.total_amount):
             frappe.throw(_("Boshlang'ich to'lov umumiy narxdan kam bo'lishi kerak"))
 
-        if flt(self.installment_months) < 1:
+        if flt(self.installment_months) < 0:
             frappe.throw(_("Oylar soni kamida 1 bo'lishi kerak"))
 
         if flt(self.total_amount) <= 0:
