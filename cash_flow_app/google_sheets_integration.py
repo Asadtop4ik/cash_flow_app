@@ -255,9 +255,9 @@ class GoogleSheetsExporter:
             return ''
         if isinstance(value, (dict, list)):
             return json.dumps(value)
-        # Sonlarda nuqta o'rniga vergul ishlatish (2.5 -> 2,5)
-        if isinstance(value, float):
-            return str(value).replace('.', ',')
+        # Raqamlarni son sifatida qoldiramiz (Google Sheets hisob-kitob qila olishi uchun)
+        if isinstance(value, (int, float)):
+            return value
         return str(value)
     
     def _write_to_google_sheets(self, data, spreadsheet_id=None, sheet_name='Sheet1'):
@@ -530,11 +530,11 @@ def export_report_to_google_sheets(report_name, filters=None,
         fieldnames = [col.get('fieldname') for col in columns]
         
         def format_value(val):
-            """Sonlarda nuqta o'rniga vergul"""
+            """Raqamlarni son sifatida qoldiramiz"""
             if val is None:
                 return ''
-            if isinstance(val, float):
-                return str(val).replace('.', ',')
+            if isinstance(val, (int, float)):
+                return val
             return str(val)
 
         rows = []
@@ -696,11 +696,11 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
         headers = list(report_data[0].keys())
 
         def format_value(val):
-            """Sonlarda nuqta o'rniga vergul"""
+            """Raqamlarni son sifatida qoldiramiz"""
             if val is None:
                 return ''
-            if isinstance(val, float):
-                return str(val).replace('.', ',')
+            if isinstance(val, (int, float)):
+                return val
             return str(val)
 
         rows = [[format_value(row.get(h, '')) for h in headers] for row in report_data]
