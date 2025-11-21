@@ -58,12 +58,26 @@ def get_customer_by_passport(passport_series: str, telegram_chat_id: str = None)
 
     customer_id = customer.name
 
-    # Telegram ID ni bir marta saqlash
-    if telegram_chat_id and not customer.custom_telegram_id:
-        frappe.db.set_value(
-            "Customer", customer_id, "custom_telegram_id", str(telegram_chat_id)
-        )
-        frappe.db.commit()
+    # ✅ XAVFSIZLIK: Bir passport faqat bitta Telegram ID ga bog'lanadi
+    if telegram_chat_id:
+        existing_telegram_id = customer.custom_telegram_id
+
+        # Agar allaqachon bog'langan bo'lsa va boshqa Telegram ID bo'lsa - XATO
+        if existing_telegram_id and str(existing_telegram_id) != str(telegram_chat_id):
+            return {
+                "success": False,
+                "message": "Bu passport allaqachon boshqa Telegram accountga bog'langan",
+                "message_uz": f"❌ Xavfsizlik: Bu passport {passport_series} allaqachon boshqa accountga bog'langan.\n\n"
+                             f"Agar bu sizning passportingiz bo'lsa, administrator bilan bog'laning.",
+                "error_code": "PASSPORT_ALREADY_LINKED"
+            }
+
+        # Agar hali bog'lanmagan bo'lsa - bog'lash
+        if not existing_telegram_id:
+            frappe.db.set_value(
+                "Customer", customer_id, "custom_telegram_id", str(telegram_chat_id)
+            )
+            frappe.db.commit()
 
     return get_customer_by_id(customer_id, telegram_chat_id or customer.custom_telegram_id)
 
@@ -148,30 +162,49 @@ def get_customer_contracts_detailed(customer_id: str):
             for item in items:
                 products.setdefault(item.parent, []).append(item)
 
-        # To'lovlar tarixi
+        # To'lovlar tarixi (Payment Entry Reference orqali - to'g'ri usul)
         payments = {}
         pay_data = frappe.db.sql("""
-            SELECT custom_contract_reference, posting_date, paid_amount, mode_of_payment
-            FROM `tabPayment Entry`
-            WHERE custom_contract_reference IN %s AND docstatus = 1 AND payment_type = 'Receive'
-            ORDER BY posting_date DESC
+            SELECT
+                per.reference_name AS contract_id,
+                pe.posting_date,
+                per.allocated_amount AS paid_amount,
+                pe.mode_of_payment,
+                pe.name AS payment_id
+            FROM `tabPayment Entry` pe
+            INNER JOIN `tabPayment Entry Reference` per
+                ON per.parent = pe.name
+            WHERE per.reference_doctype = 'Sales Order'
+              AND per.reference_name IN %s
+              AND pe.docstatus = 1
+              AND pe.payment_type = 'Receive'
+            ORDER BY pe.posting_date DESC
         """, (so_ids,), as_dict=True)
 
         for p in pay_data:
-            contract = p.custom_contract_reference
+            contract = p.contract_id
             payments.setdefault(contract, []).append({
                 "date": formatdate(p.posting_date, "dd.MM.yyyy") if p.posting_date else "",
                 "amount": flt(p.paid_amount),
-                "method": p.mode_of_payment or "Naqd"
+                "method": p.mode_of_payment or "Naqd",
+                "payment_id": p.payment_id
             })
 
-        # Keyingi to'lov
+        # To'langan summa (Payment Entry dan hisoblash - eng ishonchli usul)
+        paid_amounts = {}
+        for contract_id in so_ids:
+            total_paid = sum(p["amount"] for p in payments.get(contract_id, []))
+            paid_amounts[contract_id] = total_paid
+
+        # Keyingi to'lov (downpayment ni o'tkazib yuborish)
         next_pay = {}
         next_data = frappe.db.sql("""
             SELECT parent, due_date, payment_amount, outstanding, idx,
                    DATEDIFF(due_date, CURDATE()) AS days_left
             FROM `tabPayment Schedule`
-            WHERE parent IN %s AND outstanding > 0
+            WHERE parent IN %s
+              AND outstanding > 0
+              AND idx > 1
             ORDER BY parent, due_date
         """, (so_ids,), as_dict=True)
 
@@ -206,13 +239,16 @@ def get_customer_contracts_detailed(customer_id: str):
                         "notes": item.notes or ""
                     })
 
+            # ✅ To'g'ri to'langan summa - Payment Entry dan
+            actual_paid = flt(paid_amounts.get(so.name, 0))
+
             contracts.append({
                 "contract_id": so.name,
                 "contract_date": formatdate(so.transaction_date, "dd.MM.yyyy"),
                 "total_amount": flt(so.total),
                 "downpayment": flt(so.downpayment),
-                "paid": flt(so.advance_paid),
-                "remaining": flt(so.total) - flt(so.advance_paid),
+                "paid": actual_paid,
+                "remaining": flt(so.total) - actual_paid,
                 "products": prods,
                 "payments_history": payments.get(so.name, []),
                 "next_payment": next_pay.get(so.name),
@@ -292,3 +328,125 @@ def get_payment_schedule(contract_id: str):
         })
 
     return {"success": True, "schedule": schedule}
+
+
+# ============================================================
+# 7. TO'LOVLAR TARIXI + MAHSULOTLAR (Telegram bot uchun)
+# ============================================================
+
+@frappe.whitelist(allow_guest=True)
+def get_payment_history_with_products(contract_id: str):
+    try:
+        # 1. Shartnoma asosiy ma'lumotlari
+        so = frappe.db.get_value(
+            "Sales Order",
+            contract_id,
+            [
+                "name",
+                "transaction_date",
+                "custom_grand_total_with_interest",
+                "docstatus"
+            ],
+            as_dict=True
+        )
+
+        if not so or so.docstatus != 1:
+            return {
+                "success": False,
+                "message": "Shartnoma topilmadi yoki bekor qilingan"
+            }
+
+        # 2. Mahsulotlar (Installment Application dan)
+        ia = frappe.db.get_value(
+            "Installment Application",
+            {"sales_order": contract_id},
+            [
+                "name",
+                "total_amount",
+                "custom_total_interest"
+            ],
+            as_dict=True
+        )
+
+        products = []
+        if ia:
+            items = frappe.db.sql("""
+                SELECT
+                    item_name,
+                    qty,
+                    amount AS base_amount,
+                    custom_imei AS imei,
+                    custom_notes AS notes
+                FROM `tabInstallment Application Item`
+                WHERE parent = %s
+            """, ia.name, as_dict=True)
+
+            base_total = flt(ia.total_amount or 0)
+            total_interest = flt(ia.custom_total_interest or 0)
+
+            for item in items:
+                # Har bir mahsulot uchun foizni hisoblash
+                ratio = flt(item.base_amount) / base_total if base_total else 0
+                interest_part = total_interest * ratio
+                final_price = (flt(item.base_amount) + interest_part) / flt(item.qty) if item.qty else 0
+
+                products.append({
+                    "name": item.item_name,
+                    "qty": flt(item.qty),
+                    "price": flt(final_price, 2),
+                    "total_price": flt(item.base_amount) + interest_part,
+                    "imei": item.imei or "",
+                    "notes": item.notes or ""
+                })
+
+        # 3. To'lovlar tarixi (Payment Entry Reference orqali)
+        payments_data = frappe.db.sql("""
+            SELECT
+                pe.name AS payment_id,
+                pe.posting_date,
+                per.allocated_amount AS paid_amount,
+                pe.mode_of_payment
+            FROM `tabPayment Entry` pe
+            INNER JOIN `tabPayment Entry Reference` per
+                ON per.parent = pe.name
+            WHERE per.reference_doctype = 'Sales Order'
+              AND per.reference_name = %s
+              AND pe.docstatus = 1
+              AND pe.payment_type = 'Receive'
+            ORDER BY pe.posting_date DESC
+        """, contract_id, as_dict=True)
+
+        payments = []
+        total_paid = 0
+        for p in payments_data:
+            payment_amount = flt(p.paid_amount)
+            total_paid += payment_amount
+            payments.append({
+                "date": formatdate(p.posting_date, "dd.MM.yyyy"),
+                "amount": payment_amount,
+                "method": p.mode_of_payment or "Naqd",
+                "payment_id": p.payment_id
+            })
+
+        # 4. Natija
+        return {
+            "success": True,
+            "contract": {
+                "contract_id": so.name,
+                "contract_date": formatdate(so.transaction_date, "dd.MM.yyyy"),
+                "total_amount": flt(so.custom_grand_total_with_interest),
+                "paid": total_paid,
+                "remaining": flt(so.custom_grand_total_with_interest) - total_paid
+            },
+            "products": products,
+            "payments": payments,
+            "total_paid": total_paid,
+            "total_payments": len(payments)
+        }
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Payment History Error")
+        return {
+            "success": False,
+            "message": "Server xatosi - to'lovlar tarixini yuklashda muammo"
+        }
