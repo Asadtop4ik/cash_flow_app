@@ -450,3 +450,510 @@ def get_payment_history_with_products(contract_id: str):
             "success": False,
             "message": "Server xatosi - to'lovlar tarixini yuklashda muammo"
         }
+
+
+# ============================================================
+# 8. ESLATMALAR (REMINDERS) - Telegram bot button uchun
+# ============================================================
+
+@frappe.whitelist(allow_guest=True)
+def get_reminders_by_telegram_id(telegram_id: str):
+    """
+    Telegram ID orqali customerning eslatmalarini olish.
+
+    Bu funksiya "Eslatmalar" button bosilganda ishga tushadi.
+    """
+    if not telegram_id:
+        return {
+            "success": False,
+            "message": "Telegram ID yo'q",
+            "error_code": "NO_TELEGRAM_ID"
+        }
+
+    try:
+        # 1. Telegram ID orqali customerni topish
+        customer = frappe.db.get_value(
+            "Customer",
+            {"custom_telegram_id": str(telegram_id)},
+            ["name", "customer_name"],
+            as_dict=True
+        )
+
+        if not customer:
+            return {
+                "success": False,
+                "message": "Bu Telegram hisobi ERPNext mijoziga bog'lanmagan",
+                "message_uz": "❌ Sizning Telegram hisobingiz ERPNext mijoziga bog'lanmagan.\n\nAvval /start bosib, passport raqamingizni kiriting.",
+                "error_code": "NOT_LINKED"
+            }
+
+        # 2. Eslatmalar - yaqin muddat to'lovlari (30 kun ichida)
+        reminders = frappe.db.sql("""
+            SELECT
+                ps.parent AS contract_id,
+                so.transaction_date,
+                ps.due_date,
+                ps.payment_amount,
+                ps.outstanding,
+                ps.idx,
+                DATEDIFF(ps.due_date, CURDATE()) AS days_left
+            FROM `tabPayment Schedule` ps
+            JOIN `tabSales Order` so ON so.name = ps.parent
+            WHERE so.customer = %s
+              AND so.docstatus = 1
+              AND ps.outstanding > 0
+              AND ps.idx > 1
+              AND ps.due_date BETWEEN CURDATE() - INTERVAL 1 DAY AND CURDATE() + INTERVAL 30 DAY
+            ORDER BY ps.due_date ASC
+        """, customer.name, as_dict=True)
+
+        result = []
+        for row in reminders:
+            days = int(row.days_left or 0)
+
+            # Status va prioritet aniqlash
+            if days < -1:
+                status = "critically_overdue"
+                status_uz = f"{abs(days)} kun kechikkan ⚠️"
+                priority = "critical"
+            elif days == -1:
+                status = "overdue"
+                status_uz = "1 kun kechikkan ⚠️"
+                priority = "high"
+            elif days == 0:
+                status = "today"
+                status_uz = "Bugun to'lash kerak! 🔴"
+                priority = "urgent"
+            elif days == 1:
+                status = "tomorrow"
+                status_uz = "Ertaga to'lash kerak 🟡"
+                priority = "high"
+            elif days <= 3:
+                status = "soon"
+                status_uz = f"{days} kun qoldi 🟢"
+                priority = "medium"
+            else:
+                status = "upcoming"
+                status_uz = f"{days} kun qoldi"
+                priority = "low"
+
+            result.append({
+                "contract_id": row.contract_id,
+                "contract_date": formatdate(row.transaction_date, "dd.MM.yyyy"),
+                "due_date": formatdate(row.due_date, "dd.MM.yyyy"),
+                "amount": flt(row.payment_amount),
+                "outstanding": flt(row.outstanding),
+                "days_left": days,
+                "status": status,
+                "status_uz": status_uz,
+                "priority": priority,
+                "payment_number": row.idx
+            })
+
+        return {
+            "success": True,
+            "customer_id": customer.name,
+            "customer_name": customer.customer_name,
+            "reminders": result,
+            "total_reminders": len(result),
+            "message": "Eslatmalar yuklandi"
+        }
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Reminders Error")
+        return {
+            "success": False,
+            "message": "Server xatosi - eslatmalarni yuklashda muammo"
+        }
+
+
+# ============================================================
+# 9. TOLOV TARIXI - Telegram ID orqali
+# ============================================================
+
+@frappe.whitelist(allow_guest=True)
+def get_payment_history_by_telegram_id(telegram_id: str):
+    """
+    Telegram ID orqali customerning barcha to'lovlar tarixini olish.
+
+    Bu funksiya "Tolov tarixi" button bosilganda ishga tushadi.
+    """
+    if not telegram_id:
+        return {
+            "success": False,
+            "message": "Telegram ID yo'q",
+            "error_code": "NO_TELEGRAM_ID"
+        }
+
+    try:
+        # 1. Telegram ID orqali customerni topish
+        customer = frappe.db.get_value(
+            "Customer",
+            {"custom_telegram_id": str(telegram_id)},
+            ["name", "customer_name"],
+            as_dict=True
+        )
+
+        if not customer:
+            return {
+                "success": False,
+                "message": "Bu Telegram hisobi ERPNext mijoziga bog'lanmagan",
+                "message_uz": "❌ Sizning Telegram hisobingiz ERPNext mijoziga bog'lanmagan.\n\nAvval /start bosib, passport raqamingizni kiriting.",
+                "error_code": "NOT_LINKED"
+            }
+
+        # 2. Barcha shartnomalarni olish
+        contracts = frappe.db.sql("""
+            SELECT name, transaction_date, custom_grand_total_with_interest
+            FROM `tabSales Order`
+            WHERE customer = %s AND docstatus = 1 AND status != 'Cancelled'
+            ORDER BY transaction_date DESC
+        """, customer.name, as_dict=True)
+
+        if not contracts:
+            return {
+                "success": True,
+                "customer_id": customer.name,
+                "customer_name": customer.customer_name,
+                "contracts": [],
+                "message": "Shartnomalar topilmadi"
+            }
+
+        so_ids = [c.name for c in contracts]
+
+        # 3. Barcha to'lovlarni olish
+        payments_data = frappe.db.sql("""
+            SELECT
+                per.reference_name AS contract_id,
+                pe.name AS payment_id,
+                pe.posting_date,
+                per.allocated_amount AS paid_amount,
+                pe.mode_of_payment,
+                pe.remarks
+            FROM `tabPayment Entry` pe
+            INNER JOIN `tabPayment Entry Reference` per
+                ON per.parent = pe.name
+            WHERE per.reference_doctype = 'Sales Order'
+              AND per.reference_name IN %s
+              AND pe.docstatus = 1
+              AND pe.payment_type = 'Receive'
+            ORDER BY pe.posting_date DESC
+        """, (so_ids,), as_dict=True)
+
+        # 4. Shartnomalar bo'yicha guruhlash
+        contracts_with_payments = []
+        for contract in contracts:
+            contract_payments = [
+                {
+                    "payment_id": p.payment_id,
+                    "date": formatdate(p.posting_date, "dd.MM.yyyy"),
+                    "amount": flt(p.paid_amount),
+                    "method": p.mode_of_payment or "Naqd",
+                    "remarks": p.remarks or ""
+                }
+                for p in payments_data if p.contract_id == contract.name
+            ]
+
+            total_paid = sum(p["amount"] for p in contract_payments)
+
+            contracts_with_payments.append({
+                "contract_id": contract.name,
+                "contract_date": formatdate(contract.transaction_date, "dd.MM.yyyy"),
+                "total_amount": flt(contract.custom_grand_total_with_interest),
+                "paid": total_paid,
+                "remaining": flt(contract.custom_grand_total_with_interest) - total_paid,
+                "payments": contract_payments,
+                "total_payments": len(contract_payments)
+            })
+
+        return {
+            "success": True,
+            "customer_id": customer.name,
+            "customer_name": customer.customer_name,
+            "contracts": contracts_with_payments,
+            "total_contracts": len(contracts_with_payments),
+            "message": "To'lovlar tarixi yuklandi"
+        }
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Payment History By Telegram ID Error")
+        return {
+            "success": False,
+            "message": "Server xatosi - to'lovlar tarixini yuklashda muammo"
+        }
+
+
+# ============================================================
+# 10. SHARTNOMALARIM - Telegram ID orqali
+# ============================================================
+
+@frappe.whitelist(allow_guest=True)
+def get_my_contracts_by_telegram_id(telegram_id: str):
+    """
+    Telegram ID orqali customerning barcha shartnomalarini olish.
+
+    Bu funksiya "Mening shartnomalarim" button bosilganda ishga tushadi.
+    """
+    if not telegram_id:
+        return {
+            "success": False,
+            "message": "Telegram ID yo'q",
+            "error_code": "NO_TELEGRAM_ID"
+        }
+
+    try:
+        # 1. Telegram ID orqali customerni topish
+        customer = frappe.db.get_value(
+            "Customer",
+            {"custom_telegram_id": str(telegram_id)},
+            ["name", "customer_name"],
+            as_dict=True
+        )
+
+        if not customer:
+            return {
+                "success": False,
+                "message": "Bu Telegram hisobi ERPNext mijoziga bog'lanmagan",
+                "message_uz": "❌ Sizning Telegram hisobingiz ERPNext mijoziga bog'lanmagan.\n\nAvval /start bosib, passport raqamingizni kiriting.",
+                "error_code": "NOT_LINKED"
+            }
+
+        # 2. get_customer_contracts_detailed funksiyasidan foydalanish
+        contracts_result = get_customer_contracts_detailed(customer.name)
+
+        if not contracts_result.get("success"):
+            return contracts_result
+
+        # 3. Natijaga customer ma'lumotlarini qo'shish
+        contracts_result["customer_id"] = customer.name
+        contracts_result["customer_name"] = customer.customer_name
+        contracts_result["total_contracts"] = len(contracts_result.get("contracts", []))
+
+        return contracts_result
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get My Contracts By Telegram ID Error")
+        return {
+            "success": False,
+            "message": "Server xatosi - shartnomalarni yuklashda muammo"
+        }
+
+
+# ============================================================
+# 11. AVTOMATIK ESLATMALAR (SCHEDULED NOTIFICATIONS)
+# ============================================================
+
+def send_payment_reminders():
+    """
+    Har kuni avtomatik ravishda eslatmalarni yuborish.
+
+    Bu funksiya scheduled job sifatida ishga tushadi (har kuni 09:00 da).
+
+    ESLATMA VAQTLARI:
+    - 3 kun oldin
+    - 1 kun oldin
+    - To'lov kuni
+    - 1 kun keyin (kechikkan)
+    """
+    try:
+        import requests
+        from frappe.utils import now_datetime
+
+        # Telegram bot API URL ni config dan olish
+        bot_token = frappe.db.get_single_value("Cash Flow Settings", "telegram_bot_token")
+
+        if not bot_token:
+            frappe.log_error("Telegram bot token topilmadi", "Payment Reminder Error")
+            return
+
+        # To'lov sanalari bo'yicha eslatmalar
+        reminder_configs = [
+            {"days": 3, "message_template": "⏰ Eslatma: {days} kun ichida to'lov muddati tugaydi!"},
+            {"days": 1, "message_template": "⚠️ Muhim: Ertaga to'lov muddati tugaydi!"},
+            {"days": 0, "message_template": "🔴 DIQQAT: Bugun to'lov muddati!"},
+            {"days": -1, "message_template": "❌ To'lov muddati o'tgan! Iltimos, tezda to'lang!"}
+        ]
+
+        for config in reminder_configs:
+            days = config["days"]
+            target_date = add_days(today(), days)
+
+            # Shu sanada to'lov qilishi kerak bo'lgan customerlar
+            payments = frappe.db.sql("""
+                SELECT
+                    ps.parent AS contract_id,
+                    ps.due_date,
+                    ps.payment_amount,
+                    ps.outstanding,
+                    ps.idx,
+                    so.customer,
+                    c.customer_name,
+                    c.custom_telegram_id
+                FROM `tabPayment Schedule` ps
+                JOIN `tabSales Order` so ON so.name = ps.parent
+                JOIN `tabCustomer` c ON c.name = so.customer
+                WHERE ps.due_date = %s
+                  AND ps.outstanding > 0
+                  AND ps.idx > 1
+                  AND so.docstatus = 1
+                  AND c.custom_telegram_id IS NOT NULL
+                  AND c.custom_telegram_id != ''
+                ORDER BY c.name
+            """, target_date, as_dict=True)
+
+            # Har bir customer uchun eslatma yuborish
+            for payment in payments:
+                telegram_id = payment.custom_telegram_id
+
+                if not telegram_id:
+                    continue
+
+                # Xabar tayyorlash
+                message = _format_reminder_message(payment, config["message_template"], days)
+
+                # Telegram bot API ga yuborish
+                try:
+                    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                    data = {
+                        "chat_id": telegram_id,
+                        "text": message,
+                        "parse_mode": "HTML"
+                    }
+
+                    response = requests.post(url, json=data, timeout=10)
+
+                    if response.status_code == 200:
+                        # Log qilish - muvaffaqiyatli yuborildi
+                        _log_notification(
+                            customer_id=payment.customer,
+                            telegram_id=telegram_id,
+                            contract_id=payment.contract_id,
+                            notification_type=f"reminder_day_{days}",
+                            status="sent",
+                            message=message
+                        )
+                    else:
+                        # Xato
+                        frappe.log_error(
+                            f"Telegram API xatosi: {response.text}",
+                            f"Reminder Send Failed - {payment.customer}"
+                        )
+
+                except Exception as send_error:
+                    frappe.log_error(
+                        frappe.get_traceback(),
+                        f"Reminder Send Error - {payment.customer}"
+                    )
+
+        frappe.db.commit()
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Send Payment Reminders Error")
+
+
+def _format_reminder_message(payment, template, days):
+    """Eslatma xabarini formatlash"""
+    abs_days = abs(days)
+
+    message = f"""
+<b>💳 TO'LOV ESLATMASI</b>
+
+{template.format(days=abs_days)}
+
+━━━━━━━━━━━━━━━━━━━━
+<b>📄 Shartnoma:</b> {payment.contract_id}
+<b>📅 To'lov sanasi:</b> {formatdate(payment.due_date, "dd.MM.yyyy")}
+<b>💰 To'lov summasi:</b> {frappe.utils.fmt_money(payment.payment_amount, currency="UZS")}
+<b>📊 Qoldiq:</b> {frappe.utils.fmt_money(payment.outstanding, currency="UZS")}
+<b>🔢 To'lov №:</b> {payment.idx - 1}
+━━━━━━━━━━━━━━━━━━━━
+
+Iltimos, to'lovni o'z vaqtida amalga oshiring!
+
+Savollar uchun: /help
+"""
+
+    return message.strip()
+
+
+def _log_notification(customer_id, telegram_id, contract_id, notification_type, status, message):
+    """Notification logini saqlash"""
+    try:
+        # Notification Log doctype yaratish kerak (agar bo'lmasa)
+        # Hozircha faqat frappe.log_error ga yozamiz
+        log_message = f"""
+Customer: {customer_id}
+Telegram ID: {telegram_id}
+Contract: {contract_id}
+Type: {notification_type}
+Status: {status}
+Message: {message}
+"""
+        frappe.log_error(log_message, "Notification Sent Log")
+
+    except Exception as e:
+        pass
+
+
+@frappe.whitelist(allow_guest=True)
+def get_customers_needing_reminders(days: int = 3):
+    """
+    Test uchun - qaysi customerlar eslatma olishi kerakligini ko'rish.
+
+    Bu funksiya manual test qilish uchun.
+    """
+    try:
+        target_date = add_days(today(), int(days))
+
+        customers = frappe.db.sql("""
+            SELECT
+                ps.parent AS contract_id,
+                ps.due_date,
+                ps.payment_amount,
+                ps.outstanding,
+                ps.idx,
+                so.customer,
+                c.customer_name,
+                c.custom_telegram_id,
+                c.custom_phone_1
+            FROM `tabPayment Schedule` ps
+            JOIN `tabSales Order` so ON so.name = ps.parent
+            JOIN `tabCustomer` c ON c.name = so.customer
+            WHERE ps.due_date = %s
+              AND ps.outstanding > 0
+              AND ps.idx > 1
+              AND so.docstatus = 1
+            ORDER BY c.name
+        """, target_date, as_dict=True)
+
+        result = []
+        for customer in customers:
+            result.append({
+                "customer_id": customer.customer,
+                "customer_name": customer.customer_name,
+                "telegram_id": customer.custom_telegram_id or "Bog'lanmagan",
+                "phone": customer.custom_phone_1 or "",
+                "contract_id": customer.contract_id,
+                "due_date": formatdate(customer.due_date, "dd.MM.yyyy"),
+                "amount": flt(customer.payment_amount),
+                "outstanding": flt(customer.outstanding),
+                "payment_number": customer.idx - 1,
+                "has_telegram": bool(customer.custom_telegram_id)
+            })
+
+        return {
+            "success": True,
+            "target_date": formatdate(target_date, "dd.MM.yyyy"),
+            "days": days,
+            "customers": result,
+            "total": len(result),
+            "with_telegram": sum(1 for c in result if c["has_telegram"]),
+            "without_telegram": sum(1 for c in result if not c["has_telegram"])
+        }
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Customers Needing Reminders Error")
+        return {
+            "success": False,
+            "message": "Server xatosi"
+        }

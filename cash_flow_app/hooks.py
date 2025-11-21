@@ -68,11 +68,12 @@ reports = {
     "Customer Payment Report": "cash_flow_app.cash_flow_management.report.customer_payment.all_customer_payment"
 }
 
-# Scheduled jobs (opsional - daily classification update)
+# Scheduled jobs
 scheduler_events = {
     "daily": [
         "cash_flow_app.cash_flow_management.api.payment_entry.update_all_customers_classification",
-        "cash_flow_app.scheduled_tasks.daily_export_to_google_sheets"  # Har kuni 00:00 da avtomatik export
+        "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_reminders",  # Telegram eslatmalar - har kuni 09:00
+        "cash_flow_app.scheduled_tasks.daily_export_to_google_sheets"  # Google Sheets export - har kuni 00:00
     ]
 }
 # Apps
