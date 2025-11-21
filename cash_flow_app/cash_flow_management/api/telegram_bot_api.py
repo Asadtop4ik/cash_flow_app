@@ -957,3 +957,5 @@ def get_customers_needing_reminders(days: int = 3):
             "success": False,
             "message": "Server xatosi"
         }
+
+
