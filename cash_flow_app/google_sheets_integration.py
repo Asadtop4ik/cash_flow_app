@@ -250,27 +250,14 @@ class GoogleSheetsExporter:
             frappe.throw(_(error_msg))
     
     def _format_cell_value(self, value):
-        """Format cell value for Google Sheets - keep numbers as numbers"""
+        """Format cell value for Google Sheets"""
         if value is None:
             return ''
         if isinstance(value, (dict, list)):
-            return json.dumps(value, ensure_ascii=False)
-        
-        # Return numbers as numbers (not strings) so Google Sheets can format them
-        if isinstance(value, (int, float)):
-            return value
-        
-        # Try to convert string numbers to actual numbers
-        if isinstance(value, str):
-            # Try float conversion
-            try:
-                # Remove spaces and check if it's a number
-                clean_value = value.strip()
-                if clean_value.replace('.', '').replace('-', '').replace('+', '').replace(',', '').isdigit():
-                    return float(clean_value.replace(',', '.'))
-            except (ValueError, AttributeError):
-                pass
-        
+            return json.dumps(value)
+        # Sonlarda nuqta o'rniga vergul ishlatish (2.5 -> 2,5)
+        if isinstance(value, float):
+            return str(value).replace('.', ',')
         return str(value)
     
     def _write_to_google_sheets(self, data, spreadsheet_id=None, sheet_name='Sheet1'):
@@ -280,8 +267,7 @@ class GoogleSheetsExporter:
             if not spreadsheet_id:
                 spreadsheet = self.service.spreadsheets().create(body={
                     'properties': {
-                        'title': f'ERPNext Export - {sheet_name}',
-                        'locale': 'uz_UZ',  # Uzbekistan locale for comma decimal separator
+                        'title': f'ERPNext Export - {sheet_name}'
                     },
                     'sheets': [{
                         'properties': {
@@ -293,25 +279,8 @@ class GoogleSheetsExporter:
                 spreadsheet_id = spreadsheet['spreadsheetId']
                 frappe.logger().info(f"Created spreadsheet: {spreadsheet_id}")
             else:
-                # Ensure sheet exists and set locale
+                # Ensure sheet exists
                 self._ensure_sheet_exists(spreadsheet_id, sheet_name)
-                # Update spreadsheet locale to use comma as decimal separator
-                try:
-                    self.service.spreadsheets().batchUpdate(
-                        spreadsheetId=spreadsheet_id,
-                        body={
-                            'requests': [{
-                                'updateSpreadsheetProperties': {
-                                    'properties': {
-                                        'locale': 'uz_UZ'
-                                    },
-                                    'fields': 'locale'
-                                }
-                            }]
-                        }
-                    ).execute()
-                except Exception as e:
-                    frappe.logger().warning(f"Could not set locale: {str(e)}")
             
             # Clear existing data
             try:
@@ -560,12 +529,20 @@ def export_report_to_google_sheets(report_name, filters=None,
         headers = [col.get('label') or col.get('fieldname') for col in columns]
         fieldnames = [col.get('fieldname') for col in columns]
         
+        def format_value(val):
+            """Sonlarda nuqta o'rniga vergul"""
+            if val is None:
+                return ''
+            if isinstance(val, float):
+                return str(val).replace('.', ',')
+            return str(val)
+
         rows = []
         for row in data:
             if isinstance(row, dict):
-                rows.append([str(row.get(f, '')) for f in fieldnames])
+                rows.append([format_value(row.get(f, '')) for f in fieldnames])
             elif isinstance(row, list):
-                rows.append([str(v) for v in row])
+                rows.append([format_value(v) for v in row])
         
         sheet_data = [headers] + rows
         
@@ -717,17 +694,15 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
             }
 
         headers = list(report_data[0].keys())
-        
-        # Format values - keep numbers as numbers for Google Sheets
-        def format_value(value):
-            """Format cell value - keep numbers as numbers"""
-            if value is None or value == '':
+
+        def format_value(val):
+            """Sonlarda nuqta o'rniga vergul"""
+            if val is None:
                 return ''
-            # Return numbers as-is so Google Sheets can format them
-            if isinstance(value, (int, float)):
-                return value
-            return str(value)
-        
+            if isinstance(val, float):
+                return str(val).replace('.', ',')
+            return str(val)
+
         rows = [[format_value(row.get(h, '')) for h in headers] for row in report_data]
         sheet_data = [headers] + rows
 
