@@ -632,11 +632,23 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
                 if item.get('custom_supplier'):
                     supplier_name = frappe.db.get_value('Supplier', item.get('custom_supplier'), 'supplier_name') or item.get('custom_supplier')
 
+                # Convert docstatus to readable status
+                docstatus = app.get('docstatus', 0)
+                if docstatus == 0:
+                    readable_status = 'Draft'
+                elif docstatus == 1:
+                    readable_status = 'Submitted'
+                elif docstatus == 2:
+                    readable_status = 'Cancelled'
+                else:
+                    readable_status = 'Unknown'
+
                 row = {
                     'shartnoma_raqami': app.get('name'),
                     'mijoz': app.get('customer_name') or app.get('customer'),
                     'sana': str(app.get('transaction_date') or ''),
-                    'status': app.get('status'),
+                    'status': readable_status,
+                    'custom_status': app.get('status') or '',  # Keep original status as separate column
 
                     # Item info
                     'mahsulot_kodi': item.get('item_code') or '',
