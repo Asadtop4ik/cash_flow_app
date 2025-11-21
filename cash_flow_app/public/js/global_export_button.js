@@ -1,6 +1,7 @@
 /**
  * OPERATOR PANEL GOOGLE SHEETS EXPORT BUTTON
  * Faqat Operator Panelda ko'rinadi
+ * Sheet tugmasini bosganingizda avtomatik export qilinadi
  */
 
 frappe.provide('frappe.ui.toolbar');
@@ -86,226 +87,93 @@ function add_export_to_navbar() {
     console.log('✅ Export button added to navbar');
 }
 
-// Global function for export dialog
+// Global function - Sheet tugmasini bosganda chaqiriladi
 window.show_global_export_dialog = function() {
-    console.log('📊 Opening export dialog...');
+    console.log('📊 Starting auto export...');
     
-    const d = new frappe.ui.Dialog({
-        title: __('Google Sheet'),
-        size: 'large',
-        fields: [
-            {
-                fieldtype: 'HTML',
-                options: `
-                    <div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                color: white; border-radius: 12px; margin-bottom: 20px; text-align: center;">
-                        <h2 style="margin: 0 0 10px 0;">🚀 Universal Export</h2>
-                        <p style="margin: 0; opacity: 0.95;">Export any DocType or Report instantly</p>
-                    </div>
-                `
-            },
-            {
-                fieldtype: 'Section Break',
-                label: __('Select Export Type')
-            },
-            {
-                fieldtype: 'Select',
-                fieldname: 'export_type',
-                label: __('Export Type'),
-                options: ['DocType', 'Report'],
-                default: 'DocType',
-                reqd: 1,
-                onchange: function() {
-                    const type = d.get_value('export_type');
-                    d.set_df_property('doctype_name', 'hidden', type !== 'DocType');
-                    d.set_df_property('report_name', 'hidden', type !== 'Report');
-                    d.refresh();
-                }
-            },
-            {
-                fieldtype: 'Column Break'
-            },
-            {
-                fieldtype: 'Link',
-                fieldname: 'doctype_name',
-                label: __('DocType'),
-                options: 'DocType',
-                description: __('Select DocType (e.g., Customer, Item)'),
-                onchange: function() {
-                    const doctype = d.get_value('doctype_name');
-                    if (doctype) {
-                        d.set_value('sheet_name', doctype.replace(/ /g, '_'));
-                    }
-                }
-            },
-            {
-                fieldtype: 'Data',
-                fieldname: 'report_name',
-                label: __('Report Name'),
-                hidden: 1,
-                description: __('Enter report name'),
-                onchange: function() {
-                    const report = d.get_value('report_name');
-                    if (report) {
-                        d.set_value('sheet_name', report.replace(/ /g, '_'));
-                    }
-                }
-            },
-            {
-                fieldtype: 'Section Break',
-                label: __('Google Sheets Settings')
-            },
-            {
-                fieldtype: 'Data',
-                fieldname: 'sheet_name',
-                label: __('Sheet Name'),
-                reqd: 1,
-                description: __('Name for the sheet tab')
-            },
-            {
-                fieldtype: 'Column Break'
-            },
-            {
-                fieldtype: 'Data',
-                fieldname: 'spreadsheet_id',
-                label: __('Spreadsheet ID (Optional)'),
-                description: __('Leave empty to create new spreadsheet')
-            },
-            {
-                fieldtype: 'Section Break'
-            },
-            {
-                fieldtype: 'HTML',
-                options: `
-                    <div class="alert alert-info">
-                        <strong>💡 Tip:</strong> Leave Spreadsheet ID empty to create a new Google Sheet. 
-                        Or paste an existing spreadsheet ID to add data to it.
-                    </div>
-                `
-            }
-        ],
-        primary_action_label: __('Export Now'),
-        primary_action: function(values) {
-            console.log('📤 Exporting with values:', values);
-            
-            if (values.export_type === 'DocType') {
-                if (!values.doctype_name) {
-                    frappe.msgprint(__('Please select a DocType'));
-                    return;
-                }
-                export_doctype_to_sheets(values);
-            } else {
-                if (!values.report_name) {
-                    frappe.msgprint(__('Please enter a Report name'));
-                    return;
-                }
-                export_report_to_sheets(values);
-            }
-            
-            d.hide();
-        }
-    });
+    // =====================================================
+    // BU YERGA O'ZINGIZNING GOOGLE SHEET ID NI QO'YING
+    // =====================================================
+    const SHEET_ID = '1-CMS3s4vb97OeA-ikFchAOG2up2tVfGgGEazsmQrIoA';
+    // Masalan: const SHEET_ID = '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms';
     
-    d.show();
-};
-
-function export_doctype_to_sheets(values) {
     frappe.show_alert({
-        message: __('⏳ Exporting {0} to Google Sheets...', [values.doctype_name]),
+        message: __('⏳ Exporting all data to Google Sheets...'),
         indicator: 'blue'
-    }, 3);
+    }, 5);
     
     frappe.call({
-        method: 'cash_flow_app.google_sheets_integration.export_to_google_sheets',
+        method: 'cash_flow_app.google_sheets_integration.export_all_doctypes_to_sheet',
         args: {
-            doctype: values.doctype_name,
-            filters: {},
-            spreadsheet_id: values.spreadsheet_id || null,
-            sheet_name: values.sheet_name
+            spreadsheet_id: SHEET_ID
         },
         freeze: true,
-        freeze_message: __('⏳ Exporting to Google Sheets...'),
+        freeze_message: __('⏳ Exporting: Mijozlar, Pastavshiklar, Shartnoma, Kassa, Mahsulotlar...'),
         callback: function(r) {
             console.log('✅ Export response:', r);
             
             if (r.message && r.message.success) {
                 frappe.show_alert({
-                    message: __('✅ Successfully exported to Google Sheets!'),
+                    message: __('✅ Export Muvaffaqiyatli!'),
                     indicator: 'green'
                 }, 5);
                 
-                // Open in new tab
-                if (r.message.url) {
-                    window.open(r.message.url, '_blank');
+                // Open Google Sheet in new tab
+                if (r.message.spreadsheet_url) {
+                    window.open(r.message.spreadsheet_url, '_blank');
                 }
                 
-                // Show success dialog with link
+                // Show simple success message
                 frappe.msgprint({
-                    title: __('Export Successful'),
+                    title: __('✅ Export Muvaffaqiyatli'),
                     indicator: 'green',
                     message: `
-                        <div style="text-align: center; padding: 20px;">
-                            <div style="font-size: 48px; margin-bottom: 15px;">✅</div>
-                            <h3 style="color: #2ecc71; margin-bottom: 15px;">Export Successful!</h3>
-                            <p><strong>${values.doctype_name}</strong> has been exported to Google Sheets</p>
-                            ${r.message.rows_exported ? `<p>Total rows: <strong>${r.message.rows_exported}</strong></p>` : ''}
-                            <a href="${r.message.url}" target="_blank" class="btn btn-primary btn-sm" 
-                               style="margin-top: 15px;">
-                                🔗 Open Google Sheet
+                        <div style="text-align: center; padding: 30px;">
+                            <div style="font-size: 60px; margin-bottom: 20px;">✅</div>
+                            <h3 style="color: #2ecc71; margin-bottom: 15px;">Export Muvaffaqiyatli!</h3>
+                            <p style="font-size: 16px; margin-bottom: 10px;">
+                                <strong>${r.message.successful_exports}</strong> ta doctype export bo'ldi
+                            </p>
+                            <p style="color: #6c757d;">
+                                Mijozlar, Pastavshiklar, Shartnoma, Kassa Kirim-chiqim, Mahsulotlar
+                            </p>
+                            <a href="${r.message.spreadsheet_url}" target="_blank" 
+                               class="btn btn-primary btn-lg" 
+                               style="margin-top: 20px; font-size: 16px; padding: 12px 30px;">
+                                🔗 Google Sheet ni ochish
                             </a>
                         </div>
                     `
                 });
             } else {
                 frappe.msgprint({
-                    title: __('Export Failed'),
+                    title: __('❌ Export Muvaffaqiyatsiz'),
                     indicator: 'red',
-                    message: __('Error: ') + (r.message?.message || r.exc || 'Unknown error')
+                    message: `
+                        <div style="text-align: center; padding: 30px;">
+                            <div style="font-size: 60px; margin-bottom: 20px;">❌</div>
+                            <h3 style="color: #e74c3c; margin-bottom: 15px;">Export Muvaffaqiyatsiz</h3>
+                            <p>${r.message?.message || 'Xatolik yuz berdi'}</p>
+                        </div>
+                    `
                 });
             }
         },
         error: function(err) {
             console.error('❌ Export error:', err);
             frappe.msgprint({
-                title: __('Export Failed'),
+                title: __('❌ Export Muvaffaqiyatsiz'),
                 indicator: 'red',
-                message: __('Failed to export. Check console for details.')
+                message: `
+                    <div style="text-align: center; padding: 30px;">
+                        <div style="font-size: 60px; margin-bottom: 20px;">❌</div>
+                        <h3 style="color: #e74c3c; margin-bottom: 15px;">Export Muvaffaqiyatsiz</h3>
+                        <p>Xatolik yuz berdi. Console ni tekshiring.</p>
+                    </div>
+                `
             });
         }
     });
-}
-
-function export_report_to_sheets(values) {
-    frappe.show_alert({
-        message: __('⏳ Exporting {0} report...', [values.report_name]),
-        indicator: 'blue'
-    }, 3);
-    
-    frappe.call({
-        method: 'cash_flow_app.google_sheets_integration.export_report_to_google_sheets',
-        args: {
-            report_name: values.report_name,
-            filters: {},
-            spreadsheet_id: values.spreadsheet_id || null,
-            sheet_name: values.sheet_name
-        },
-        freeze: true,
-        freeze_message: __('⏳ Exporting report...'),
-        callback: function(r) {
-            if (r.message && r.message.success) {
-                frappe.show_alert({
-                    message: __('✅ Report exported successfully!'),
-                    indicator: 'green'
-                }, 5);
-                
-                if (r.message.url) {
-                    window.open(r.message.url, '_blank');
-                }
-            } else {
-                frappe.msgprint(__('Export failed: ') + (r.message?.message || ''));
-            }
-        }
-    });
-}
+};
 
 console.log('✅ Global Export Button Script Loaded');
