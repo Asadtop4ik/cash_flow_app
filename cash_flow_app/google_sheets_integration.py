@@ -576,10 +576,14 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
         if isinstance(filters, str):
             filters = json.loads(filters) if filters else {}
 
-        # Get all Installment Applications
+        # Get all Installment Applications (including cancelled ones)
+        # By default frappe.get_all excludes cancelled documents (docstatus=2)
+        # We use or_filters to include all docstatus values
+        base_filters = filters or {}
+
         applications = frappe.get_all(
             'Installment Application',
-            filters=filters,
+            filters=base_filters,
             fields=[
                 'name', 'customer', 'customer_name', 'transaction_date',
                 'total_amount', 'downpayment_amount', 'finance_amount',
@@ -588,7 +592,14 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
                 'custom_finance_profit_percentage', 'custom_grand_total_with_interest',
                 'status', 'docstatus'
             ],
-            order_by='transaction_date desc'
+            order_by='transaction_date desc',
+            ignore_permissions=False,
+            # Include all documents regardless of docstatus (including cancelled)
+            or_filters=[
+                {'docstatus': 0},  # Draft
+                {'docstatus': 1},  # Submitted
+                {'docstatus': 2}   # Cancelled
+            ]
         )
 
         if not applications:
