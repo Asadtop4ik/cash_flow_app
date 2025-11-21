@@ -648,7 +648,6 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
                     'mijoz': app.get('customer_name') or app.get('customer'),
                     'sana': str(app.get('transaction_date') or ''),
                     'status': readable_status,
-                    'custom_status': app.get('status') or '',  # Keep original status as separate column
 
                     # Item info
                     'mahsulot_kodi': item.get('item_code') or '',
