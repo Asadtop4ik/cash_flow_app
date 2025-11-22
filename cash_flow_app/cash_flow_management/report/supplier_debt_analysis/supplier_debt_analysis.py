@@ -124,8 +124,7 @@ def get_data(filters):
 		ORDER BY ia.transaction_date, ia.creation
 	"""
 
-	# 2. Get Payment Entries (DEBIT - to'lov)
-	# paid_from yoki paid_to dan Cash account ni olish
+	# 2. Get Payment Entries - Pay (DEBIT - biz to'laymiz)
 	payment_conditions = []
 	if from_date:
 		payment_conditions.append("AND DATE(pe.posting_date) >= %(from_date)s")
@@ -134,7 +133,7 @@ def get_data(filters):
 
 	payment_where = " ".join(payment_conditions)
 
-	payments_query = f"""
+	payments_pay_query = f"""
 		SELECT
 			'Payment Entry' as document_type,
 			pe.name as document,
@@ -144,14 +143,7 @@ def get_data(filters):
 			0 as kredit,
 			pe.paid_amount as debit,
 			COALESCE(pe.remarks, '') as notes,
-			COALESCE(
-				CASE
-					WHEN pe.payment_type = 'Pay' THEN pe.paid_from
-					WHEN pe.payment_type = 'Receive' THEN pe.paid_to
-					ELSE NULL
-				END,
-				''
-			) as cash_account,
+			COALESCE(pe.paid_from, '') as cash_account,
 			pe.creation,
 			'USD' as currency
 		FROM `tabPayment Entry` pe
@@ -163,16 +155,36 @@ def get_data(filters):
 		ORDER BY pe.posting_date, pe.creation
 	"""
 
-	# 3. Execute queries
+	# 3. Get Payment Entries - Receive (KREDIT - supplier bizga to'laydi)
+	payments_receive_query = f"""
+		SELECT
+			'Payment Entry' as document_type,
+			pe.name as document,
+			DATE(pe.posting_date) as transaction_date,
+			NULL as item_code,
+			'Qaytarilgan pul' as item_name,
+			pe.paid_amount as kredit,
+			0 as debit,
+			COALESCE(pe.remarks, '') as notes,
+			COALESCE(pe.paid_to, '') as cash_account,
+			pe.creation,
+			'USD' as currency
+		FROM `tabPayment Entry` pe
+		WHERE pe.docstatus = 1
+			AND pe.party_type = 'Supplier'
+			AND pe.party = %(supplier)s
+			AND pe.payment_type = 'Receive'
+			{payment_where}
+		ORDER BY pe.posting_date, pe.creation
+	"""
+
+	# 4. Execute queries
 	installments = []
-	payments = []
+	payments_pay = []
+	payments_receive = []
 
 	try:
 		installments = frappe.db.sql(installments_query, filters, as_dict=1)
-		frappe.log_error(
-			f"Installments Query Success:\nSupplier: {supplier}\nFound: {len(installments)}",
-			"Supplier Debt Analysis - Installments"
-		)
 	except Exception as e:
 		error_msg = f"Installments Query Failed:\nError: {str(e)}"
 		frappe.log_error(error_msg, "Supplier Debt Analysis - ERROR")
@@ -180,18 +192,21 @@ def get_data(filters):
 						indicator='red')
 
 	try:
-		payments = frappe.db.sql(payments_query, filters, as_dict=1)
-		frappe.log_error(
-			f"Payments Query Success:\nSupplier: {supplier}\nFound: {len(payments)}",
-			"Supplier Debt Analysis - Payments"
-		)
+		payments_pay = frappe.db.sql(payments_pay_query, filters, as_dict=1)
 	except Exception as e:
-		error_msg = f"Payments Query Failed:\nError: {str(e)}"
+		error_msg = f"Payments Pay Query Failed:\nError: {str(e)}"
 		frappe.log_error(error_msg, "Supplier Debt Analysis - ERROR")
-		frappe.msgprint(_("Error loading payments. Check Error Log for details."), indicator='red')
+		frappe.msgprint(_("Error loading payments (Pay). Check Error Log for details."), indicator='red')
 
-	# 4. Combine and sort by date
-	all_transactions = installments + payments
+	try:
+		payments_receive = frappe.db.sql(payments_receive_query, filters, as_dict=1)
+	except Exception as e:
+		error_msg = f"Payments Receive Query Failed:\nError: {str(e)}"
+		frappe.log_error(error_msg, "Supplier Debt Analysis - ERROR")
+		frappe.msgprint(_("Error loading payments (Receive). Check Error Log for details."), indicator='red')
+
+	# 5. Combine and sort by date
+	all_transactions = installments + payments_pay + payments_receive
 	all_transactions.sort(key=lambda x: (x.transaction_date, x.creation))
 
 	if not all_transactions:
@@ -265,14 +280,14 @@ def get_data(filters):
 def get_nachalnaya_ostatok(supplier, from_date):
 	"""
 	from_date dan OLDIN qolgan qarzni hisoblash
-	Formula: Oldingi Kredit - Oldingi Debit = Qoldiq
+	Formula: (Oldingi Installment Kredit + Oldingi Receive Kredit) - Oldingi Pay Debit = Qoldiq
 	FAQAT docstatus = 1 (Submitted) hisoblanadi
 	"""
 	try:
 		from_date = getdate(from_date)
 
-		# Oldingi Kredit (from_date dan oldin qarzlar)
-		prev_kredit_query = """
+		# 1. Oldingi Installment Kredit (from_date dan oldin qarzlar)
+		prev_installment_kredit_query = """
 			SELECT COALESCE(SUM(item.qty * item.rate), 0) as total
 			FROM `tabInstallment Application` ia
 			INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
@@ -280,23 +295,38 @@ def get_nachalnaya_ostatok(supplier, from_date):
 				AND item.custom_supplier = %s
 				AND DATE(ia.transaction_date) < %s
 		"""
-		prev_kredit_result = frappe.db.sql(prev_kredit_query, (supplier, from_date), as_dict=1)
-		prev_kredit = flt(prev_kredit_result[0].total) if prev_kredit_result else 0
+		prev_installment_result = frappe.db.sql(prev_installment_kredit_query, (supplier, from_date), as_dict=1)
+		prev_installment_kredit = flt(prev_installment_result[0].total) if prev_installment_result else 0
 
-		# Oldingi Debit (from_date dan oldin to'lovlar)
-		prev_debit_query = """
+		# 2. Oldingi Pay Debit (from_date dan oldin biz to'lagan to'lovlar)
+		prev_pay_debit_query = """
 			SELECT COALESCE(SUM(paid_amount), 0) as total
 			FROM `tabPayment Entry`
 			WHERE docstatus = 1
 				AND party_type = 'Supplier'
 				AND party = %s
+				AND payment_type = 'Pay'
 				AND DATE(posting_date) < %s
 		"""
-		prev_debit_result = frappe.db.sql(prev_debit_query, (supplier, from_date), as_dict=1)
-		prev_debit = flt(prev_debit_result[0].total) if prev_debit_result else 0
+		prev_pay_result = frappe.db.sql(prev_pay_debit_query, (supplier, from_date), as_dict=1)
+		prev_pay_debit = flt(prev_pay_result[0].total) if prev_pay_result else 0
 
-		# Nachalnaya Ostatok = Kredit - Debit
-		return prev_kredit - prev_debit
+		# 3. Oldingi Receive Kredit (from_date dan oldin supplier qaytargan pullar)
+		prev_receive_kredit_query = """
+			SELECT COALESCE(SUM(paid_amount), 0) as total
+			FROM `tabPayment Entry`
+			WHERE docstatus = 1
+				AND party_type = 'Supplier'
+				AND party = %s
+				AND payment_type = 'Receive'
+				AND DATE(posting_date) < %s
+		"""
+		prev_receive_result = frappe.db.sql(prev_receive_kredit_query, (supplier, from_date), as_dict=1)
+		prev_receive_kredit = flt(prev_receive_result[0].total) if prev_receive_result else 0
+
+		# Nachalnaya Ostatok = (Installment Kredit + Receive Kredit) - Pay Debit
+		total_kredit = prev_installment_kredit + prev_receive_kredit
+		return total_kredit - prev_pay_debit
 
 	except Exception as e:
 		frappe.log_error(f"Error calculating Nachalnaya Ostatok: {str(e)}",
