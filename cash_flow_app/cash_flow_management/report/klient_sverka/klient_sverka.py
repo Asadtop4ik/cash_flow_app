@@ -157,13 +157,22 @@ def calculate_opening_balance(customer, from_date, contract_filter=None):
 		"""
 		payment_params.append(contract_filter)
 
-	total_payments = frappe.db.sql(f"""
-		SELECT COALESCE(SUM(pe.paid_amount), 0) as total
+	# Receive = Mijoz bizga to'ladi (kredit - ayiriladi)
+	# Pay = Biz mijozga qaytardik (debit - qo'shiladi)
+	payment_totals = frappe.db.sql(f"""
+		SELECT
+			COALESCE(SUM(CASE WHEN pe.payment_type = 'Receive' THEN pe.paid_amount ELSE 0 END), 0) as total_receive,
+			COALESCE(SUM(CASE WHEN pe.payment_type = 'Pay' THEN pe.paid_amount ELSE 0 END), 0) as total_pay
 		FROM `tabPayment Entry` pe
 		{payment_conditions}
-	""", tuple(payment_params))[0][0] or 0
+	""", tuple(payment_params))[0]
 
-	return flt(total_contracts) - flt(total_payments)
+	total_receive = flt(payment_totals[0])
+	total_pay = flt(payment_totals[1])
+
+	# Debit (qarz) = contracts + pay (qaytargan pullar)
+	# Credit (to'lov) = receive (olingan pullar)
+	return flt(total_contracts) + total_pay - total_receive
 
 
 def calculate_totals_for_range(customer, from_date, to_date, contract_filter=None):
@@ -183,7 +192,7 @@ def calculate_totals_for_range(customer, from_date, to_date, contract_filter=Non
 		contract_conditions += " AND name = %s"
 		contract_params.append(contract_filter)
 
-	total_debit = frappe.db.sql(f"""
+	total_contracts = frappe.db.sql(f"""
 		SELECT COALESCE(SUM(custom_grand_total_with_interest), 0) as total
 		FROM `tabInstallment Application`
 		{contract_conditions}
@@ -208,13 +217,25 @@ def calculate_totals_for_range(customer, from_date, to_date, contract_filter=Non
 		"""
 		payment_params.append(contract_filter)
 
-	total_credit = frappe.db.sql(f"""
-		SELECT COALESCE(SUM(pe.paid_amount), 0) as total
+	# Receive = Mijoz bizga to'ladi (kredit)
+	# Pay = Biz mijozga qaytardik (debit)
+	payment_totals = frappe.db.sql(f"""
+		SELECT
+			COALESCE(SUM(CASE WHEN pe.payment_type = 'Receive' THEN pe.paid_amount ELSE 0 END), 0) as total_receive,
+			COALESCE(SUM(CASE WHEN pe.payment_type = 'Pay' THEN pe.paid_amount ELSE 0 END), 0) as total_pay
 		FROM `tabPayment Entry` pe
 		{payment_conditions}
-	""", tuple(payment_params))[0][0] or 0
+	""", tuple(payment_params))[0]
 
-	return flt(total_debit), flt(total_credit)
+	total_receive = flt(payment_totals[0])
+	total_pay = flt(payment_totals[1])
+
+	# Total Debit = shartnomalar + biz qaytargan pullar (Pay)
+	# Total Credit = mijoz to'lagan pullar (Receive)
+	total_debit = flt(total_contracts) + total_pay
+	total_credit = total_receive
+
+	return total_debit, total_credit
 
 
 def calculate_final_balance(customer, to_date, contract_filter=None):
@@ -259,13 +280,21 @@ def calculate_final_balance(customer, to_date, contract_filter=None):
 		"""
 		payment_params.append(contract_filter)
 
-	total_payments = frappe.db.sql(f"""
-		SELECT COALESCE(SUM(pe.paid_amount), 0) as total
+	# Receive = Mijoz bizga to'ladi (kredit - ayiriladi)
+	# Pay = Biz mijozga qaytardik (debit - qo'shiladi)
+	payment_totals = frappe.db.sql(f"""
+		SELECT
+			COALESCE(SUM(CASE WHEN pe.payment_type = 'Receive' THEN pe.paid_amount ELSE 0 END), 0) as total_receive,
+			COALESCE(SUM(CASE WHEN pe.payment_type = 'Pay' THEN pe.paid_amount ELSE 0 END), 0) as total_pay
 		FROM `tabPayment Entry` pe
 		{payment_conditions}
-	""", tuple(payment_params))[0][0] or 0
+	""", tuple(payment_params))[0]
 
-	return flt(total_contracts) - flt(total_payments)
+	total_receive = flt(payment_totals[0])
+	total_pay = flt(payment_totals[1])
+
+	# Oxirgi qoldiq = shartnomalar + qaytarilgan pullar - to'langan pullar
+	return flt(total_contracts) + total_pay - total_receive
 
 
 def get_transactions(customer, from_date, to_date, contract_filter=None):
@@ -333,6 +362,8 @@ def get_transactions(customer, from_date, to_date, contract_filter=None):
 			DATE(pe.posting_date) as date,
 			pe.paid_amount,
 			pe.paid_to,
+			pe.paid_from,
+			pe.payment_type,
 			ia.name as contract_name
 		FROM `tabPayment Entry` pe
 		LEFT JOIN `tabInstallment Application` ia
@@ -342,13 +373,24 @@ def get_transactions(customer, from_date, to_date, contract_filter=None):
 	""", tuple(payment_params), as_dict=1)
 
 	for payment in payments:
+		# Receive = Mijoz bizga to'ladi -> Credit
+		# Pay = Biz mijozga qaytardik -> Debit
+		if payment.payment_type == "Pay":
+			debit_amount = flt(payment.paid_amount)
+			credit_amount = 0
+			cash_account = payment.paid_from
+		else:  # Receive
+			debit_amount = 0
+			credit_amount = flt(payment.paid_amount)
+			cash_account = payment.paid_to
+
 		transactions.append({
 			"date": payment.date,
 			"contract_link": payment.contract_name,
 			"payment_link": payment.name,
-			"debit": 0,
-			"credit": flt(payment.paid_amount),
-			"cash_account": payment.paid_to,
+			"debit": debit_amount,
+			"credit": credit_amount,
+			"cash_account": cash_account,
 			"sort_key": (payment.date, 1)  # 1 for payments (comes after contracts)
 		})
 
