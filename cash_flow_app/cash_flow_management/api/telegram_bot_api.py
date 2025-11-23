@@ -162,23 +162,20 @@ def get_customer_contracts_detailed(customer_id: str):
             for item in items:
                 products.setdefault(item.parent, []).append(item)
 
-        # To'lovlar tarixi (Payment Entry Reference orqali - to'g'ri usul)
+        # To'lovlar tarixi (custom_contract_reference orqali)
         payments = {}
         pay_data = frappe.db.sql("""
             SELECT
-                per.reference_name AS contract_id,
-                pe.posting_date,
-                per.allocated_amount AS paid_amount,
-                pe.mode_of_payment,
-                pe.name AS payment_id
-            FROM `tabPayment Entry` pe
-            INNER JOIN `tabPayment Entry Reference` per
-                ON per.parent = pe.name
-            WHERE per.reference_doctype = 'Sales Order'
-              AND per.reference_name IN %s
-              AND pe.docstatus = 1
-              AND pe.payment_type = 'Receive'
-            ORDER BY pe.posting_date DESC
+                custom_contract_reference AS contract_id,
+                posting_date,
+                paid_amount,
+                mode_of_payment,
+                name AS payment_id
+            FROM `tabPayment Entry`
+            WHERE custom_contract_reference IN %s
+              AND docstatus = 1
+              AND payment_type = 'Receive'
+            ORDER BY posting_date DESC
         """, (so_ids,), as_dict=True)
 
         for p in pay_data:
@@ -323,15 +320,13 @@ def get_upcoming_payments(customer_id: str):
             if not schedule_rows:
                 continue
 
-            # 2. Jami to'langan summani olish
+            # 2. Jami to'langan summani olish (custom_contract_reference orqali)
             total_paid_result = frappe.db.sql("""
-                SELECT COALESCE(SUM(per.allocated_amount), 0) as total_paid
-                FROM `tabPayment Entry` pe
-                INNER JOIN `tabPayment Entry Reference` per ON per.parent = pe.name
-                WHERE per.reference_doctype = 'Sales Order'
-                  AND per.reference_name = %s
-                  AND pe.docstatus = 1
-                  AND pe.payment_type = 'Receive'
+                SELECT COALESCE(SUM(paid_amount), 0) as total_paid
+                FROM `tabPayment Entry`
+                WHERE custom_contract_reference = %s
+                  AND docstatus = 1
+                  AND payment_type = 'Receive'
             """, contract_id)
 
             total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
@@ -399,15 +394,13 @@ def get_payment_schedule(contract_id: str):
     if not rows:
         return {"success": True, "schedule": []}
 
-    # 2. Payment Entry dan JAMI to'langan summani olish (eng ishonchli)
+    # 2. Payment Entry dan JAMI to'langan summani olish (custom_contract_reference orqali)
     total_paid_result = frappe.db.sql("""
-        SELECT COALESCE(SUM(per.allocated_amount), 0) as total_paid
-        FROM `tabPayment Entry` pe
-        INNER JOIN `tabPayment Entry Reference` per ON per.parent = pe.name
-        WHERE per.reference_doctype = 'Sales Order'
-          AND per.reference_name = %s
-          AND pe.docstatus = 1
-          AND pe.payment_type = 'Receive'
+        SELECT COALESCE(SUM(paid_amount), 0) as total_paid
+        FROM `tabPayment Entry`
+        WHERE custom_contract_reference = %s
+          AND docstatus = 1
+          AND payment_type = 'Receive'
     """, contract_id)
 
     total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
@@ -524,21 +517,18 @@ def get_payment_history_with_products(contract_id: str):
                     "notes": item.notes or ""
                 })
 
-        # 3. To'lovlar tarixi (Payment Entry Reference orqali)
+        # 3. To'lovlar tarixi (custom_contract_reference orqali)
         payments_data = frappe.db.sql("""
             SELECT
-                pe.name AS payment_id,
-                pe.posting_date,
-                per.allocated_amount AS paid_amount,
-                pe.mode_of_payment
-            FROM `tabPayment Entry` pe
-            INNER JOIN `tabPayment Entry Reference` per
-                ON per.parent = pe.name
-            WHERE per.reference_doctype = 'Sales Order'
-              AND per.reference_name = %s
-              AND pe.docstatus = 1
-              AND pe.payment_type = 'Receive'
-            ORDER BY pe.posting_date DESC
+                name AS payment_id,
+                posting_date,
+                paid_amount,
+                mode_of_payment
+            FROM `tabPayment Entry`
+            WHERE custom_contract_reference = %s
+              AND docstatus = 1
+              AND payment_type = 'Receive'
+            ORDER BY posting_date DESC
         """, contract_id, as_dict=True)
 
         payments = []
@@ -647,15 +637,13 @@ def get_reminders_by_telegram_id(telegram_id: str):
             if not schedule_rows:
                 continue
 
-            # 4. Jami to'langan summani olish
+            # 4. Jami to'langan summani olish (custom_contract_reference orqali)
             total_paid_result = frappe.db.sql("""
-                SELECT COALESCE(SUM(per.allocated_amount), 0) as total_paid
-                FROM `tabPayment Entry` pe
-                INNER JOIN `tabPayment Entry Reference` per ON per.parent = pe.name
-                WHERE per.reference_doctype = 'Sales Order'
-                  AND per.reference_name = %s
-                  AND pe.docstatus = 1
-                  AND pe.payment_type = 'Receive'
+                SELECT COALESCE(SUM(paid_amount), 0) as total_paid
+                FROM `tabPayment Entry`
+                WHERE custom_contract_reference = %s
+                  AND docstatus = 1
+                  AND payment_type = 'Receive'
             """, contract_id)
 
             total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
@@ -808,23 +796,20 @@ def get_payment_history_by_telegram_id(telegram_id: str):
 
         so_ids = [c.name for c in contracts]
 
-        # 3. Barcha to'lovlarni olish
+        # 3. Barcha to'lovlarni olish (custom_contract_reference orqali)
         payments_data = frappe.db.sql("""
             SELECT
-                per.reference_name AS contract_id,
-                pe.name AS payment_id,
-                pe.posting_date,
-                per.allocated_amount AS paid_amount,
-                pe.mode_of_payment,
-                pe.remarks
-            FROM `tabPayment Entry` pe
-            INNER JOIN `tabPayment Entry Reference` per
-                ON per.parent = pe.name
-            WHERE per.reference_doctype = 'Sales Order'
-              AND per.reference_name IN %s
-              AND pe.docstatus = 1
-              AND pe.payment_type = 'Receive'
-            ORDER BY pe.posting_date DESC
+                custom_contract_reference AS contract_id,
+                name AS payment_id,
+                posting_date,
+                paid_amount,
+                mode_of_payment,
+                remarks
+            FROM `tabPayment Entry`
+            WHERE custom_contract_reference IN %s
+              AND docstatus = 1
+              AND payment_type = 'Receive'
+            ORDER BY posting_date DESC
         """, (so_ids,), as_dict=True)
 
         # 4. Shartnomalar bo'yicha guruhlash
@@ -999,15 +984,13 @@ def send_payment_reminders():
                 if not telegram_id:
                     continue
 
-                # Jami to'langan summani olish
+                # Jami to'langan summani olish (custom_contract_reference orqali)
                 total_paid_result = frappe.db.sql("""
-                    SELECT COALESCE(SUM(per.allocated_amount), 0) as total_paid
-                    FROM `tabPayment Entry` pe
-                    INNER JOIN `tabPayment Entry Reference` per ON per.parent = pe.name
-                    WHERE per.reference_doctype = 'Sales Order'
-                      AND per.reference_name = %s
-                      AND pe.docstatus = 1
-                      AND pe.payment_type = 'Receive'
+                    SELECT COALESCE(SUM(paid_amount), 0) as total_paid
+                    FROM `tabPayment Entry`
+                    WHERE custom_contract_reference = %s
+                      AND docstatus = 1
+                      AND payment_type = 'Receive'
                 """, contract_id)
 
                 total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
@@ -1177,15 +1160,13 @@ def get_customers_needing_reminders(days: int = 3):
         for row in schedule_rows:
             contract_id = row.contract_id
 
-            # Jami to'langan summani olish
+            # Jami to'langan summani olish (custom_contract_reference orqali)
             total_paid_result = frappe.db.sql("""
-                SELECT COALESCE(SUM(per.allocated_amount), 0) as total_paid
-                FROM `tabPayment Entry` pe
-                INNER JOIN `tabPayment Entry Reference` per ON per.parent = pe.name
-                WHERE per.reference_doctype = 'Sales Order'
-                  AND per.reference_name = %s
-                  AND pe.docstatus = 1
-                  AND pe.payment_type = 'Receive'
+                SELECT COALESCE(SUM(paid_amount), 0) as total_paid
+                FROM `tabPayment Entry`
+                WHERE custom_contract_reference = %s
+                  AND docstatus = 1
+                  AND payment_type = 'Receive'
             """, contract_id)
 
             total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
