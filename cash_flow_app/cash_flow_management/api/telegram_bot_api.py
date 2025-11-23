@@ -163,6 +163,7 @@ def get_customer_contracts_detailed(customer_id: str):
                 products.setdefault(item.parent, []).append(item)
 
         # To'lovlar tarixi (custom_contract_reference orqali)
+        # ✅ Pay va Receive turlarini ajratib olish
         payments = {}
         pay_data = frappe.db.sql("""
             SELECT
@@ -170,24 +171,30 @@ def get_customer_contracts_detailed(customer_id: str):
                 posting_date,
                 paid_amount,
                 mode_of_payment,
-                name AS payment_id
+                name AS payment_id,
+                payment_type
             FROM `tabPayment Entry`
             WHERE custom_contract_reference IN %s
               AND docstatus = 1
-              AND payment_type = 'Receive'
+              AND payment_type IN ('Receive', 'Pay')
             ORDER BY posting_date DESC
         """, (so_ids,), as_dict=True)
 
         for p in pay_data:
             contract = p.contract_id
+            # ✅ Pay bo'lsa manfiy, Receive bo'lsa musbat
+            amount = flt(p.paid_amount) if p.payment_type == 'Receive' else -flt(p.paid_amount)
             payments.setdefault(contract, []).append({
                 "date": formatdate(p.posting_date, "dd.MM.yyyy") if p.posting_date else "",
-                "amount": flt(p.paid_amount),
+                "amount": amount,
+                "display_amount": flt(p.paid_amount),  # Ko'rsatish uchun original summa
                 "method": p.mode_of_payment or "Naqd",
-                "payment_id": p.payment_id
+                "payment_id": p.payment_id,
+                "payment_type": p.payment_type  # Receive yoki Pay
             })
 
         # To'langan summa (Payment Entry dan hisoblash - eng ishonchli usul)
+        # ✅ Receive qo'shiladi, Pay ayiriladi
         paid_amounts = {}
         for contract_id in so_ids:
             total_paid = sum(p["amount"] for p in payments.get(contract_id, []))
@@ -321,12 +328,16 @@ def get_upcoming_payments(customer_id: str):
                 continue
 
             # 2. Jami to'langan summani olish (custom_contract_reference orqali)
+            # ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
             total_paid_result = frappe.db.sql("""
-                SELECT COALESCE(SUM(paid_amount), 0) as total_paid
+                SELECT COALESCE(
+                    SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+                    0
+                ) as total_paid
                 FROM `tabPayment Entry`
                 WHERE custom_contract_reference = %s
                   AND docstatus = 1
-                  AND payment_type = 'Receive'
+                  AND payment_type IN ('Receive', 'Pay')
             """, contract_id)
 
             total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
@@ -395,12 +406,16 @@ def get_payment_schedule(contract_id: str):
         return {"success": True, "schedule": []}
 
     # 2. Payment Entry dan JAMI to'langan summani olish (custom_contract_reference orqali)
+    # ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
     total_paid_result = frappe.db.sql("""
-        SELECT COALESCE(SUM(paid_amount), 0) as total_paid
+        SELECT COALESCE(
+            SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+            0
+        ) as total_paid
         FROM `tabPayment Entry`
         WHERE custom_contract_reference = %s
           AND docstatus = 1
-          AND payment_type = 'Receive'
+          AND payment_type IN ('Receive', 'Pay')
     """, contract_id)
 
     total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
@@ -518,29 +533,37 @@ def get_payment_history_with_products(contract_id: str):
                 })
 
         # 3. To'lovlar tarixi (custom_contract_reference orqali)
+        # ✅ Pay va Receive turlarini hisobga olish
         payments_data = frappe.db.sql("""
             SELECT
                 name AS payment_id,
                 posting_date,
                 paid_amount,
-                mode_of_payment
+                mode_of_payment,
+                payment_type
             FROM `tabPayment Entry`
             WHERE custom_contract_reference = %s
               AND docstatus = 1
-              AND payment_type = 'Receive'
+              AND payment_type IN ('Receive', 'Pay')
             ORDER BY posting_date DESC
         """, contract_id, as_dict=True)
 
         payments = []
         total_paid = 0
         for p in payments_data:
+            # ✅ Pay bo'lsa ayiriladi, Receive bo'lsa qo'shiladi
             payment_amount = flt(p.paid_amount)
-            total_paid += payment_amount
+            if p.payment_type == 'Receive':
+                total_paid += payment_amount
+            else:
+                total_paid -= payment_amount  # Pay - customerga pul qaytarildi
             payments.append({
                 "date": formatdate(p.posting_date, "dd.MM.yyyy"),
-                "amount": payment_amount,
+                "amount": payment_amount if p.payment_type == 'Receive' else -payment_amount,
+                "display_amount": payment_amount,  # Ko'rsatish uchun original summa
                 "method": p.mode_of_payment or "Naqd",
-                "payment_id": p.payment_id
+                "payment_id": p.payment_id,
+                "payment_type": p.payment_type  # Receive yoki Pay
             })
 
         # 4. Natija
@@ -638,12 +661,16 @@ def get_reminders_by_telegram_id(telegram_id: str):
                 continue
 
             # 4. Jami to'langan summani olish (custom_contract_reference orqali)
+            # ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
             total_paid_result = frappe.db.sql("""
-                SELECT COALESCE(SUM(paid_amount), 0) as total_paid
+                SELECT COALESCE(
+                    SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+                    0
+                ) as total_paid
                 FROM `tabPayment Entry`
                 WHERE custom_contract_reference = %s
                   AND docstatus = 1
-                  AND payment_type = 'Receive'
+                  AND payment_type IN ('Receive', 'Pay')
             """, contract_id)
 
             total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
@@ -797,6 +824,7 @@ def get_payment_history_by_telegram_id(telegram_id: str):
         so_ids = [c.name for c in contracts]
 
         # 3. Barcha to'lovlarni olish (custom_contract_reference orqali)
+        # ✅ Pay va Receive turlarini hisobga olish
         payments_data = frappe.db.sql("""
             SELECT
                 custom_contract_reference AS contract_id,
@@ -804,11 +832,12 @@ def get_payment_history_by_telegram_id(telegram_id: str):
                 posting_date,
                 paid_amount,
                 mode_of_payment,
-                remarks
+                remarks,
+                payment_type
             FROM `tabPayment Entry`
             WHERE custom_contract_reference IN %s
               AND docstatus = 1
-              AND payment_type = 'Receive'
+              AND payment_type IN ('Receive', 'Pay')
             ORDER BY posting_date DESC
         """, (so_ids,), as_dict=True)
 
@@ -819,13 +848,16 @@ def get_payment_history_by_telegram_id(telegram_id: str):
                 {
                     "payment_id": p.payment_id,
                     "date": formatdate(p.posting_date, "dd.MM.yyyy"),
-                    "amount": flt(p.paid_amount),
+                    "amount": flt(p.paid_amount) if p.payment_type == 'Receive' else -flt(p.paid_amount),
+                    "display_amount": flt(p.paid_amount),  # Ko'rsatish uchun original summa
                     "method": p.mode_of_payment or "Naqd",
-                    "remarks": p.remarks or ""
+                    "remarks": p.remarks or "",
+                    "payment_type": p.payment_type  # Receive yoki Pay
                 }
                 for p in payments_data if p.contract_id == contract.name
             ]
 
+            # ✅ Pay ayiriladi, Receive qo'shiladi
             total_paid = sum(p["amount"] for p in contract_payments)
 
             contracts_with_payments.append({
@@ -985,12 +1017,16 @@ def send_payment_reminders():
                     continue
 
                 # Jami to'langan summani olish (custom_contract_reference orqali)
+                # ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
                 total_paid_result = frappe.db.sql("""
-                    SELECT COALESCE(SUM(paid_amount), 0) as total_paid
+                    SELECT COALESCE(
+                        SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+                        0
+                    ) as total_paid
                     FROM `tabPayment Entry`
                     WHERE custom_contract_reference = %s
                       AND docstatus = 1
-                      AND payment_type = 'Receive'
+                      AND payment_type IN ('Receive', 'Pay')
                 """, contract_id)
 
                 total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
@@ -1161,12 +1197,16 @@ def get_customers_needing_reminders(days: int = 3):
             contract_id = row.contract_id
 
             # Jami to'langan summani olish (custom_contract_reference orqali)
+            # ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
             total_paid_result = frappe.db.sql("""
-                SELECT COALESCE(SUM(paid_amount), 0) as total_paid
+                SELECT COALESCE(
+                    SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+                    0
+                ) as total_paid
                 FROM `tabPayment Entry`
                 WHERE custom_contract_reference = %s
                   AND docstatus = 1
-                  AND payment_type = 'Receive'
+                  AND payment_type IN ('Receive', 'Pay')
             """, contract_id)
 
             total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
