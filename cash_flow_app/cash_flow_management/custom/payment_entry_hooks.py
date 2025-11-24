@@ -70,8 +70,8 @@ def set_default_values(doc):
             frappe.logger().error(f"Error setting defaults: {str(e)}")
 
 def validate_contract_reference(doc):
-    """Validate contract reference for Data category"""
-    if doc.custom_counterparty_category == "Data":
+    """Validate contract reference for Bosh to'lov category"""
+    if doc.custom_counterparty_category == "Bosh to'lov":
         if not doc.custom_contract_reference:
             # Warning faqat, majburiy emas
             frappe.msgprint(
@@ -209,4 +209,5 @@ def on_cancel(doc, method=None):
                 title="Payment Schedule Reversal Failed",
                 message=f"Failed to reverse Payment Schedule {doc.custom_payment_schedule_row}: {str(e)}"
             )
+
 

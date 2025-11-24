@@ -3,6 +3,9 @@
 
 frappe.ui.form.on("Installment Application", {
 	setup(frm) {
+		// Flag: refresh/load paytida calculate_totals ni bloklash
+		frm._skip_calculate = false;
+
 		// Disable autocomplete for item_code in Items table
 		// BUT allow updated item to be selected after edit
 		frm.set_query('item_code', 'items', function() {
@@ -33,7 +36,21 @@ frappe.ui.form.on("Installment Application", {
 		}
 	},
 
+	before_load(frm) {
+		// Refresh boshlanishidan oldin flag qo'yish
+		frm._skip_calculate = true;
+	},
+
+	after_save(frm) {
+		// Save dan keyin refresh bo'lganda calculate_totals ishlamasin
+		frm._skip_calculate = true;
+	},
+
 	refresh(frm) {
+		// Refresh tugagandan keyin flag ni olib tashlash (kechikish bilan)
+		setTimeout(() => {
+			frm._skip_calculate = false;
+		}, 500);
 		// Hide timezone display (Asia/Samarkand text)
 		setTimeout(() => {
 			$('.frappe-control[data-fieldname="transaction_date"] .help-box').hide();
@@ -55,8 +72,9 @@ frappe.ui.form.on("Installment Application", {
 			});
 		}
 
-		// Auto-calculate on refresh if values exist
-		if (frm.doc.total_amount && frm.doc.downpayment_amount && frm.doc.monthly_payment) {
+		// Auto-calculate FAQAT yangi hujjat uchun (save muammosini oldini olish)
+		// Saqlangan hujjatlar uchun calculate_totals chaqirilmaydi
+		if (frm.is_new() && frm.doc.total_amount && frm.doc.monthly_payment) {
 			frm.trigger('calculate_totals');
 		}
 
@@ -210,21 +228,32 @@ frappe.ui.form.on("Installment Application", {
 		});
 	},
 
-	// Auto-calculate when fields change
+	// Auto-calculate when fields change (faqat user o'zgartirsa)
 	downpayment_amount(frm) {
-		frm.trigger('calculate_totals');
+		if (!frm._skip_calculate) {
+			frm.trigger('calculate_totals');
+		}
 	},
 
 	monthly_payment(frm) {
-		frm.trigger('calculate_totals');
+		if (!frm._skip_calculate) {
+			frm.trigger('calculate_totals');
+		}
 	},
 
 	installment_months(frm) {
-		frm.trigger('calculate_totals');
+		if (!frm._skip_calculate) {
+			frm.trigger('calculate_totals');
+		}
 	},
 
 	// Calculate totals
 	calculate_totals(frm) {
+		// Skip if in refresh/load phase
+		if (frm._skip_calculate) {
+			return;
+		}
+
 		if (!frm.doc.total_amount || frm.doc.total_amount <= 0) {
 			return;
 		}
@@ -232,7 +261,6 @@ frappe.ui.form.on("Installment Application", {
 		// Calculate finance amount (qolgan summa)
 		let downpayment = flt(frm.doc.downpayment_amount) || 0;
 		let finance_amount = flt(frm.doc.total_amount) - downpayment;
-		frm.set_value('finance_amount', finance_amount);
 
 		// Calculate interest
 		let monthly_payment = flt(frm.doc.monthly_payment) || 0;
@@ -243,37 +271,54 @@ frappe.ui.form.on("Installment Application", {
 
 		// Interest (Foyda) = (Monthly × Months) - Finance Amount
 		let total_interest = total_installments - finance_amount;
-		frm.set_value('custom_total_interest', total_interest);
 
 		// Grand total = Downpayment + Total Installments
 		let grand_total = downpayment + total_installments;
-		frm.set_value('custom_grand_total_with_interest', grand_total);
 
 		// Marja Foiz (%) = (Total Interest / Total Installments) × 100%
-		// Bu ko'rsatadi: oylik to'lovlarning qancha qismi foyda
 		let profit_percentage = 0;
 		if (total_installments > 0) {
 			profit_percentage = (total_interest / total_installments) * 100;
-			profit_percentage = parseFloat(profit_percentage.toFixed(2)); // 2 raqam verguldan keyin
+			profit_percentage = Math.round(profit_percentage * 100) / 100;
 		}
-		frm.set_value('custom_profit_percentage', profit_percentage);
 
 		// Ustama Foiz (%) = (Total Interest / Finance Amount) × 100%
-		// Bu ko'rsatadi: qolgan summadan qancha foiz foyda
 		let finance_profit_percentage = 0;
 		if (finance_amount > 0) {
 			finance_profit_percentage = (total_interest / finance_amount) * 100;
-			finance_profit_percentage = parseFloat(finance_profit_percentage.toFixed(2)); // 2 raqam verguldan keyin
+			finance_profit_percentage = Math.round(finance_profit_percentage * 100) / 100;
 		}
-		frm.set_value('custom_finance_profit_percentage', finance_profit_percentage);
+
+		// To'g'ridan-to'g'ri doc ga yozish (forma dirty bo'lmaydi)
+		// Read-only fieldlar uchun bu yetarli
+		frm.doc.finance_amount = finance_amount;
+		frm.doc.custom_total_interest = total_interest;
+		frm.doc.custom_grand_total_with_interest = grand_total;
+		frm.doc.custom_profit_percentage = profit_percentage;
+		frm.doc.custom_finance_profit_percentage = finance_profit_percentage;
+
+		// UI ni yangilash
+		frm.refresh_field('finance_amount');
+		frm.refresh_field('custom_total_interest');
+		frm.refresh_field('custom_grand_total_with_interest');
+		frm.refresh_field('custom_profit_percentage');
+		frm.refresh_field('custom_finance_profit_percentage');
 	},
 
 	calculate_item_totals(frm) {
+		// Skip if in refresh/load phase
+		if (frm._skip_calculate) {
+			return;
+		}
+
 		let total = 0;
 		(frm.doc.items || []).forEach(item => {
 			total += flt(item.amount);
 		});
-		frm.set_value('total_amount', total);
+
+		// To'g'ridan-to'g'ri yozish (dirty bo'lmaydi)
+		frm.doc.total_amount = total;
+		frm.refresh_field('total_amount');
 		frm.trigger('calculate_totals');
 	}
 });

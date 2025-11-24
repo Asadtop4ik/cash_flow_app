@@ -11,6 +11,17 @@ frappe.query_reports["Kontragent Report"] = {
         });
     },
 
+    "formatter": function(value, row, column, data, default_formatter) {
+        value = default_formatter(value, row, column, data);
+
+        // Jami qatorlarni bold qilish
+        if (data && (data.party_type === 'CUSTOMER TOTAL' || data.party_type === 'SUPPLIER TOTAL')) {
+            value = '<b>' + value + '</b>';
+        }
+
+        return value;
+    },
+
     "filters": [
         {
             "fieldname": "from_date",

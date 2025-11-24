@@ -55,17 +55,19 @@ class InstallmentApplication(Document):
         grand_total = flt(self.downpayment_amount) + total_installments
         self.custom_grand_total_with_interest = grand_total
 
-        # Marja Foiz (%)
+        # Marja Foiz (%) - JS bilan bir xil formula
         if total_installments > 0:
             profit_percentage = (total_interest / total_installments) * 100
-            self.custom_profit_percentage = round(profit_percentage, 2)
+            # JS bilan sinxron: Math.round(x * 100) / 100
+            self.custom_profit_percentage = round(profit_percentage * 100) / 100
         else:
             self.custom_profit_percentage = 0
 
-        # Ustama Foiz (%)
+        # Ustama Foiz (%) - JS bilan bir xil formula
         if flt(self.finance_amount) > 0:
             finance_profit_percentage = (total_interest / flt(self.finance_amount)) * 100
-            self.custom_finance_profit_percentage = round(finance_profit_percentage, 2)
+            # JS bilan sinxron: Math.round(x * 100) / 100
+            self.custom_finance_profit_percentage = round(finance_profit_percentage * 100) / 100
         else:
             self.custom_finance_profit_percentage = 0
 
@@ -252,7 +254,7 @@ class InstallmentApplication(Document):
                 "target_exchange_rate": 1.0,
                 "reference_no": sales_order_name,
                 "reference_date": posting_date,
-                "custom_counterparty_category": "Data",
+                "custom_counterparty_category": "Bosh to'lov",
                 "custom_contract_reference": sales_order_name,
                 "mode_of_payment": "Naqd",
                 "remarks": f"Boshlang'ich to'lov - Shartnoma {sales_order_name}\nInstallment Application: {self.name}"
