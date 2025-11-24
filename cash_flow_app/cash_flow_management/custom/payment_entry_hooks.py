@@ -210,3 +210,4 @@ def on_cancel(doc, method=None):
                 message=f"Failed to reverse Payment Schedule {doc.custom_payment_schedule_row}: {str(e)}"
             )
 
+
