@@ -14,7 +14,10 @@
   "default_income_account",
   "section_break_series",
   "cin_series",
-  "cout_series"
+  "cout_series",
+  "section_break_telegram",
+  "telegram_bot_token",
+  "telegram_bot_webhook_url"
  ],
  "fields": [
   {
@@ -75,6 +78,23 @@
    "fieldname": "cout_series",
    "fieldtype": "Data",
    "label": "Cash OUT Series"
+  },
+  {
+   "fieldname": "section_break_telegram",
+   "fieldtype": "Section Break",
+   "label": "Telegram Bot Settings"
+  },
+  {
+   "fieldname": "telegram_bot_token",
+   "fieldtype": "Password",
+   "label": "Telegram Bot Token",
+   "description": "Telegram bot token (@BotFather dan olinadi)"
+  },
+  {
+   "fieldname": "telegram_bot_webhook_url",
+   "fieldtype": "Data",
+   "label": "Telegram Bot Webhook URL",
+   "description": "Bot webhook URL (masalan: https://your-bot.com)"
   }
  ],
  "index_web_pages_for_search": 1,
