@@ -32,74 +32,79 @@ def get_columns():
 
 
 def get_data(filters):
-	"""Get kassa balance data from Payment Entry using paid_from and paid_to"""
+	"""Get kassa balance data - ALL Cash accounts from Account doctype"""
 
-	# Payment Type = 'Receive' bo'lsa paid_from dan pul kirib keladi (plus)
-	# Payment Type = 'Pay' bo'lsa paid_to ga pul chiqadi (minus)
+	# Barcha Cash type accountlarni olish va balansini hisoblash
 	query = """
-        SELECT
-            kassa_name,
-            SUM(amount) as qoldiq_summa
-        FROM (
-            -- Receive: paid_from dan pul kirib keladi
-            SELECT
-                pe.paid_from as kassa_name,
-                pe.paid_amount as amount
-            FROM
-                `tabPayment Entry` pe
-            WHERE
-                pe.docstatus = 1
-                AND pe.payment_type = 'Receive'
-                AND pe.paid_from IS NOT NULL
-                AND pe.paid_from != ''
+		SELECT
+			acc.name as kassa_name,
+			COALESCE(bal.qoldiq_summa, 0) as qoldiq_summa
+		FROM `tabAccount` acc
+		LEFT JOIN (
+			SELECT
+				kassa_name,
+				SUM(amount) as qoldiq_summa
+			FROM (
+				-- Receive: paid_to ga pul kirib keladi (kassaga kirim)
+				SELECT
+					pe.paid_to as kassa_name,
+					pe.received_amount as amount
+				FROM
+					`tabPayment Entry` pe
+				WHERE
+					pe.docstatus = 1
+					AND pe.payment_type = 'Receive'
+					AND pe.paid_to IS NOT NULL
+					AND pe.paid_to != ''
 
-            UNION ALL
+				UNION ALL
 
-            -- Pay: paid_to ga pul ketadi (minus)
-            SELECT
-                pe.paid_to as kassa_name,
-                -pe.paid_amount as amount
-            FROM
-                `tabPayment Entry` pe
-            WHERE
-                pe.docstatus = 1
-                AND pe.payment_type = 'Pay'
-                AND pe.paid_to IS NOT NULL
-                AND pe.paid_to != ''
+				-- Pay: paid_from dan pul ketadi (kassadan chiqim)
+				SELECT
+					pe.paid_from as kassa_name,
+					-pe.paid_amount as amount
+				FROM
+					`tabPayment Entry` pe
+				WHERE
+					pe.docstatus = 1
+					AND pe.payment_type = 'Pay'
+					AND pe.paid_from IS NOT NULL
+					AND pe.paid_from != ''
 
-            UNION ALL
+				UNION ALL
 
-            -- Internal Transfer: paid_from dan ayriladi
-            SELECT
-                pe.paid_from as kassa_name,
-                -pe.paid_amount as amount
-            FROM
-                `tabPayment Entry` pe
-            WHERE
-                pe.docstatus = 1
-                AND pe.payment_type = 'Internal Transfer'
-                AND pe.paid_from IS NOT NULL
-                AND pe.paid_from != ''
+				-- Internal Transfer: paid_from dan ayriladi
+				SELECT
+					pe.paid_from as kassa_name,
+					-pe.paid_amount as amount
+				FROM
+					`tabPayment Entry` pe
+				WHERE
+					pe.docstatus = 1
+					AND pe.payment_type = 'Internal Transfer'
+					AND pe.paid_from IS NOT NULL
+					AND pe.paid_from != ''
 
-            UNION ALL
+				UNION ALL
 
-            -- Internal Transfer: paid_to ga qo'shiladi
-            SELECT
-                pe.paid_to as kassa_name,
-                pe.received_amount as amount
-            FROM
-                `tabPayment Entry` pe
-            WHERE
-                pe.docstatus = 1
-                AND pe.payment_type = 'Internal Transfer'
-                AND pe.paid_to IS NOT NULL
-                AND pe.paid_to != ''
-        ) as combined
-        GROUP BY
-            kassa_name
-        ORDER BY
-            kassa_name
-    """
+				-- Internal Transfer: paid_to ga qo'shiladi
+				SELECT
+					pe.paid_to as kassa_name,
+					pe.received_amount as amount
+				FROM
+					`tabPayment Entry` pe
+				WHERE
+					pe.docstatus = 1
+					AND pe.payment_type = 'Internal Transfer'
+					AND pe.paid_to IS NOT NULL
+					AND pe.paid_to != ''
+			) as combined
+			GROUP BY kassa_name
+		) as bal ON bal.kassa_name = acc.name
+		WHERE acc.account_type = 'Cash'
+		AND acc.is_group = 0
+		ORDER BY acc.name
+	"""
 
 	data = frappe.db.sql(query, as_dict=1)
 	return data

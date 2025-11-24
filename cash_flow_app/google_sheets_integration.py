@@ -255,6 +255,9 @@ class GoogleSheetsExporter:
             return ''
         if isinstance(value, (dict, list)):
             return json.dumps(value)
+        # Raqamlarni son sifatida qoldiramiz (Google Sheets hisob-kitob qila olishi uchun)
+        if isinstance(value, (int, float)):
+            return value
         return str(value)
     
     def _write_to_google_sheets(self, data, spreadsheet_id=None, sheet_name='Sheet1'):
@@ -526,12 +529,20 @@ def export_report_to_google_sheets(report_name, filters=None,
         headers = [col.get('label') or col.get('fieldname') for col in columns]
         fieldnames = [col.get('fieldname') for col in columns]
         
+        def format_value(val):
+            """Raqamlarni son sifatida qoldiramiz"""
+            if val is None:
+                return ''
+            if isinstance(val, (int, float)):
+                return val
+            return str(val)
+
         rows = []
         for row in data:
             if isinstance(row, dict):
-                rows.append([str(row.get(f, '')) for f in fieldnames])
+                rows.append([format_value(row.get(f, '')) for f in fieldnames])
             elif isinstance(row, list):
-                rows.append([str(v) for v in row])
+                rows.append([format_value(v) for v in row])
         
         sheet_data = [headers] + rows
         
@@ -576,10 +587,14 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
         if isinstance(filters, str):
             filters = json.loads(filters) if filters else {}
 
-        # Get all Installment Applications
+        # Get all Installment Applications (including cancelled ones)
+        # By default frappe.get_all excludes cancelled documents (docstatus=2)
+        # We use or_filters to include all docstatus values
+        base_filters = filters or {}
+
         applications = frappe.get_all(
             'Installment Application',
-            filters=filters,
+            filters=base_filters,
             fields=[
                 'name', 'customer', 'customer_name', 'transaction_date',
                 'total_amount', 'downpayment_amount', 'finance_amount',
@@ -588,7 +603,14 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
                 'custom_finance_profit_percentage', 'custom_grand_total_with_interest',
                 'status', 'docstatus'
             ],
-            order_by='transaction_date desc'
+            order_by='transaction_date desc',
+            ignore_permissions=False,
+            # Include all documents regardless of docstatus (including cancelled)
+            or_filters=[
+                {'docstatus': 0},  # Draft
+                {'docstatus': 1},  # Submitted
+                {'docstatus': 2}   # Cancelled
+            ]
         )
 
         if not applications:
@@ -621,11 +643,22 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
                 if item.get('custom_supplier'):
                     supplier_name = frappe.db.get_value('Supplier', item.get('custom_supplier'), 'supplier_name') or item.get('custom_supplier')
 
+                # Convert docstatus to readable status
+                docstatus = app.get('docstatus', 0)
+                if docstatus == 0:
+                    readable_status = 'Draft'
+                elif docstatus == 1:
+                    readable_status = 'Submitted'
+                elif docstatus == 2:
+                    readable_status = 'Cancelled'
+                else:
+                    readable_status = 'Unknown'
+
                 row = {
                     'shartnoma_raqami': app.get('name'),
                     'mijoz': app.get('customer_name') or app.get('customer'),
                     'sana': str(app.get('transaction_date') or ''),
-                    'status': app.get('status'),
+                    'status': readable_status,
 
                     # Item info
                     'mahsulot_kodi': item.get('item_code') or '',
@@ -661,7 +694,16 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
             }
 
         headers = list(report_data[0].keys())
-        rows = [[str(row.get(h, '')) for h in headers] for row in report_data]
+
+        def format_value(val):
+            """Raqamlarni son sifatida qoldiramiz"""
+            if val is None:
+                return ''
+            if isinstance(val, (int, float)):
+                return val
+            return str(val)
+
+        rows = [[format_value(row.get(h, '')) for h in headers] for row in report_data]
         sheet_data = [headers] + rows
 
         # Write to sheet

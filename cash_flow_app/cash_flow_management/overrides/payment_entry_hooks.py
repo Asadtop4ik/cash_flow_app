@@ -30,7 +30,8 @@ def validate_payment_entry(doc, method=None):
     # if not doc.custom_counterparty_category:
     #     frappe.throw(_("Counterparty Category tanlanishi shart!"))
 
-    # IMPORTANT: For customer payments, contract reference is REQUIRED
+    # IMPORTANT: For customer RECEIVE payments, contract reference is REQUIRED
+    # Pay (qaytarish) uchun ixtiyoriy - lekin tanlansa hisob-kitobga kiritiladi
     if doc.payment_type == "Receive" and doc.party_type == "Customer":
         if not doc.custom_contract_reference:
             frappe.throw(

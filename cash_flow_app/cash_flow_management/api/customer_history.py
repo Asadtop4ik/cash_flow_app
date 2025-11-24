@@ -36,11 +36,15 @@ def get_customer_contracts(customer):
 
 	for contract in contracts:
 		# 🔹 Get ALL actual payments from Payment Entry
+		# ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
 		total_paid = frappe.db.sql("""
-            SELECT COALESCE(SUM(pe.paid_amount), 0)
+            SELECT COALESCE(
+                SUM(CASE WHEN pe.payment_type = 'Receive' THEN pe.paid_amount ELSE -pe.paid_amount END),
+                0
+            )
             FROM `tabPayment Entry` pe
             WHERE pe.docstatus = 1
-              AND pe.payment_type = 'Receive'
+              AND pe.payment_type IN ('Receive', 'Pay')
               AND pe.custom_contract_reference = %(sales_order)s
         """, {'sales_order': contract.name})[0][0]
 
@@ -113,16 +117,18 @@ def get_payment_schedule_with_history(customer):
         """, {'sales_order': sales_order}, as_dict=1)
 
         # ✅ GET PAYMENT ENTRIES FOR THIS CONTRACT (for payment_date display)
+        # ✅ Pay va Receive turlarini hisobga olish
         payments = frappe.db.sql("""
             SELECT
                 pe.name as payment_name,
                 pe.posting_date,
                 pe.paid_amount,
-                pe.custom_payment_schedule_row
+                pe.custom_payment_schedule_row,
+                pe.payment_type
             FROM `tabPayment Entry` pe
             WHERE pe.party = %(customer)s
                 AND pe.docstatus = 1
-                AND pe.payment_type = 'Receive'
+                AND pe.payment_type IN ('Receive', 'Pay')
                 AND pe.custom_contract_reference = %(sales_order)s
             ORDER BY pe.posting_date
         """, {'customer': customer, 'sales_order': sales_order}, as_dict=1)

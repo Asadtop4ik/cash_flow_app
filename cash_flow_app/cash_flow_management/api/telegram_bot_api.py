@@ -162,63 +162,87 @@ def get_customer_contracts_detailed(customer_id: str):
             for item in items:
                 products.setdefault(item.parent, []).append(item)
 
-        # To'lovlar tarixi (Payment Entry Reference orqali - to'g'ri usul)
+        # To'lovlar tarixi (custom_contract_reference orqali)
+        # ✅ Pay va Receive turlarini ajratib olish
         payments = {}
         pay_data = frappe.db.sql("""
             SELECT
-                per.reference_name AS contract_id,
-                pe.posting_date,
-                per.allocated_amount AS paid_amount,
-                pe.mode_of_payment,
-                pe.name AS payment_id
-            FROM `tabPayment Entry` pe
-            INNER JOIN `tabPayment Entry Reference` per
-                ON per.parent = pe.name
-            WHERE per.reference_doctype = 'Sales Order'
-              AND per.reference_name IN %s
-              AND pe.docstatus = 1
-              AND pe.payment_type = 'Receive'
-            ORDER BY pe.posting_date DESC
+                custom_contract_reference AS contract_id,
+                posting_date,
+                paid_amount,
+                mode_of_payment,
+                name AS payment_id,
+                payment_type
+            FROM `tabPayment Entry`
+            WHERE custom_contract_reference IN %s
+              AND docstatus = 1
+              AND payment_type IN ('Receive', 'Pay')
+            ORDER BY posting_date DESC
         """, (so_ids,), as_dict=True)
 
         for p in pay_data:
             contract = p.contract_id
+            # ✅ Pay bo'lsa manfiy, Receive bo'lsa musbat
+            amount = flt(p.paid_amount) if p.payment_type == 'Receive' else -flt(p.paid_amount)
             payments.setdefault(contract, []).append({
                 "date": formatdate(p.posting_date, "dd.MM.yyyy") if p.posting_date else "",
-                "amount": flt(p.paid_amount),
+                "amount": amount,
+                "display_amount": flt(p.paid_amount),  # Ko'rsatish uchun original summa
                 "method": p.mode_of_payment or "Naqd",
-                "payment_id": p.payment_id
+                "payment_id": p.payment_id,
+                "payment_type": p.payment_type  # Receive yoki Pay
             })
 
         # To'langan summa (Payment Entry dan hisoblash - eng ishonchli usul)
+        # ✅ Receive qo'shiladi, Pay ayiriladi
         paid_amounts = {}
         for contract_id in so_ids:
             total_paid = sum(p["amount"] for p in payments.get(contract_id, []))
             paid_amounts[contract_id] = total_paid
 
-        # Keyingi to'lov (downpayment ni o'tkazib yuborish)
+        # Keyingi to'lov - TO'G'RI HISOB-KITOB
         next_pay = {}
-        next_data = frappe.db.sql("""
-            SELECT parent, due_date, payment_amount, outstanding, idx,
+
+        # Har bir shartnoma uchun to'lov jadvalini olish
+        all_schedules = frappe.db.sql("""
+            SELECT parent, due_date, payment_amount, idx,
                    DATEDIFF(due_date, CURDATE()) AS days_left
             FROM `tabPayment Schedule`
             WHERE parent IN %s
-              AND outstanding > 0
-              AND idx > 1
-            ORDER BY parent, due_date
+            ORDER BY parent, idx
         """, (so_ids,), as_dict=True)
 
-        for row in next_data:
-            if row.parent not in next_pay:
-                days = int(row.days_left or 0)
-                status = "overdue" if days < 0 else ("today" if days == 0 else ("soon" if days <= 3 else "upcoming"))
-                next_pay[row.parent] = {
-                    "due_date": formatdate(row.due_date, "dd.MM.yyyy"),
-                    "amount": flt(row.payment_amount),
-                    "days_left": days,
-                    "status": status,
-                    "status_uz": "Kechikkan" if days < 0 else ("Bugun" if days == 0 else "Yaqinda")
-                }
+        # Shartnomalar bo'yicha guruhlash
+        schedule_by_contract = {}
+        for row in all_schedules:
+            schedule_by_contract.setdefault(row.parent, []).append(row)
+
+        # Har bir shartnoma uchun keyingi to'lanmagan oyni topish
+        for contract_id, schedule_rows in schedule_by_contract.items():
+            total_paid = paid_amounts.get(contract_id, 0)
+            remaining_payment = total_paid
+
+            for row in schedule_rows:
+                month_amount = flt(row.payment_amount)
+
+                if remaining_payment >= month_amount:
+                    # Bu oy to'liq to'langan
+                    remaining_payment -= month_amount
+                else:
+                    # Bu oy to'lanmagan yoki qisman to'langan
+                    outstanding = month_amount - remaining_payment
+                    days = int(row.days_left or 0)
+                    status = "overdue" if days < 0 else ("today" if days == 0 else ("soon" if days <= 3 else "upcoming"))
+
+                    next_pay[contract_id] = {
+                        "due_date": formatdate(row.due_date, "dd.MM.yyyy"),
+                        "amount": month_amount,
+                        "outstanding": outstanding,
+                        "days_left": days,
+                        "status": status,
+                        "status_uz": "Kechikkan" if days < 0 else ("Bugun" if days == 0 else "Yaqinda")
+                    }
+                    break
 
         # Yakuniy ro'yxat
         contracts = []
@@ -263,68 +287,177 @@ def get_customer_contracts_detailed(customer_id: str):
 
 
 # ============================================================
-# 5. KEYINGI TO'LOVLAR
+# 5. KEYINGI TO'LOVLAR - TO'G'RI HISOB-KITOB
 # ============================================================
 
 @frappe.whitelist(allow_guest=True)
 def get_upcoming_payments(customer_id: str):
+    """
+    Mijozning keyingi to'lovlarini TO'G'RI hisoblash.
+
+    Har bir shartnoma uchun:
+    1. Jami to'langan summani Payment Entry dan olish
+    2. Birinchi TO'LANMAGAN oyni topish
+    3. Qoldiq summani hisoblash
+    """
     try:
-        data = frappe.db.sql("""
-            SELECT ps.parent AS contract_id, so.transaction_date, ps.due_date, ps.payment_amount,
-                   ps.outstanding, ps.idx, DATEDIFF(ps.due_date, CURDATE()) AS days_left
-            FROM `tabPayment Schedule` ps
-            JOIN `tabSales Order` so ON so.name = ps.parent
-            WHERE so.customer = %s AND so.docstatus = 1 AND ps.outstanding > 0
-            ORDER BY ps.due_date
+        # Barcha shartnomalarni olish
+        contracts = frappe.db.sql("""
+            SELECT name, transaction_date
+            FROM `tabSales Order`
+            WHERE customer = %s AND docstatus = 1 AND status != 'Cancelled'
         """, customer_id, as_dict=True)
 
+        if not contracts:
+            return {"success": True, "payments": []}
+
         result = []
-        seen = set()
-        for row in data:
-            if row.contract_id in seen:
+
+        for contract in contracts:
+            contract_id = contract.name
+
+            # 1. To'lov jadvalini olish
+            schedule_rows = frappe.db.sql("""
+                SELECT idx, due_date, payment_amount,
+                       DATEDIFF(due_date, CURDATE()) AS days_left
+                FROM `tabPayment Schedule`
+                WHERE parent = %s ORDER BY idx
+            """, contract_id, as_dict=True)
+
+            if not schedule_rows:
                 continue
-            seen.add(row.contract_id)
-            days = int(row.days_left or 0)
-            result.append({
-                "contract_id": row.contract_id,
-                "contract_date": formatdate(row.transaction_date, "dd.MM.yyyy"),
-                "due_date": formatdate(row.due_date, "dd.MM.yyyy"),
-                "amount": flt(row.payment_amount),
-                "days_left": days,
-                "status": "overdue" if days < 0 else ("today" if days == 0 else "upcoming"),
-                "status_text": f"{abs(days)} kun kechikkan" if days < 0 else f"{days} kun qoldi"
-            })
+
+            # 2. Jami to'langan summani olish (custom_contract_reference orqali)
+            # ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
+            total_paid_result = frappe.db.sql("""
+                SELECT COALESCE(
+                    SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+                    0
+                ) as total_paid
+                FROM `tabPayment Entry`
+                WHERE custom_contract_reference = %s
+                  AND docstatus = 1
+                  AND payment_type IN ('Receive', 'Pay')
+            """, contract_id)
+
+            total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
+
+            # 3. Birinchi to'lanmagan oyni topish
+            remaining_payment = total_paid
+
+            for row in schedule_rows:
+                month_amount = flt(row.payment_amount)
+
+                if remaining_payment >= month_amount:
+                    # Bu oy to'liq to'langan - keyingisiga o'tish
+                    remaining_payment -= month_amount
+                else:
+                    # Bu oy to'lanmagan yoki qisman to'langan
+                    outstanding = month_amount - remaining_payment
+                    days = int(row.days_left or 0)
+
+                    result.append({
+                        "contract_id": contract_id,
+                        "contract_date": formatdate(contract.transaction_date, "dd.MM.yyyy"),
+                        "due_date": formatdate(row.due_date, "dd.MM.yyyy"),
+                        "amount": month_amount,
+                        "outstanding": outstanding,
+                        "days_left": days,
+                        "status": "overdue" if days < 0 else ("today" if days == 0 else "upcoming"),
+                        "status_text": f"{abs(days)} kun kechikkan" if days < 0 else f"{days} kun qoldi"
+                    })
+                    break  # Faqat birinchi to'lanmagan oyni olish
+
+        # Sanasi bo'yicha tartiblash
+        result.sort(key=lambda x: x.get("days_left", 0))
 
         return {"success": True, "payments": result}
     except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Upcoming Payments Error")
         return {"success": False, "message": "Xato"}
 
 
 # ============================================================
-# 6. TO'LOV JADVALI (bitta shartnoma)
+# 6. TO'LOV JADVALI (bitta shartnoma) - TO'G'RI HISOB-KITOB
 # ============================================================
 
 @frappe.whitelist(allow_guest=True)
 def get_payment_schedule(contract_id: str):
+    """
+    To'lov jadvalini TO'G'RI hisoblash.
+
+    MANTIQ:
+    1. Payment Entry dan jami to'langan summani olish
+    2. To'lovlarni oyma-oy taqsimlash:
+       - Agar to'lov >= oy summasi: oy "paid" (to'langan)
+       - Agar 0 < to'lov < oy summasi: oy "partial" (qisman)
+       - Agar to'lov = 0: oy "unpaid" (to'lanmagan)
+       - Ortiqcha summa keyingi oyga o'tkaziladi
+    """
+    # 1. Oylik to'lov jadvalini olish
     rows = frappe.db.sql("""
-        SELECT idx, due_date, payment_amount, paid_amount, outstanding,
+        SELECT idx, due_date, payment_amount,
                DATEDIFF(due_date, CURDATE()) AS days_left
         FROM `tabPayment Schedule`
         WHERE parent = %s ORDER BY idx
     """, contract_id, as_dict=True)
 
+    if not rows:
+        return {"success": True, "schedule": []}
+
+    # 2. Payment Entry dan JAMI to'langan summani olish (custom_contract_reference orqali)
+    # ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
+    total_paid_result = frappe.db.sql("""
+        SELECT COALESCE(
+            SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+            0
+        ) as total_paid
+        FROM `tabPayment Entry`
+        WHERE custom_contract_reference = %s
+          AND docstatus = 1
+          AND payment_type IN ('Receive', 'Pay')
+    """, contract_id)
+
+    total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
+
+    # 3. To'lovlarni OYMA-OY taqsimlash
+    remaining_payment = total_paid  # Taqsimlash uchun qolgan to'lov
     schedule = []
+
     for r in rows:
         days = int(r.days_left or 0)
-        status = "paid" if flt(r.outstanding) == 0 else ("partial" if flt(r.paid_amount) > 0 else "unpaid")
+        month_amount = flt(r.payment_amount)
+
+        # Bu oy uchun to'langan summa
+        if remaining_payment >= month_amount:
+            # To'liq to'langan
+            month_paid = month_amount
+            month_outstanding = 0
+            status = "paid"
+            remaining_payment -= month_amount
+        elif remaining_payment > 0:
+            # Qisman to'langan
+            month_paid = remaining_payment
+            month_outstanding = month_amount - remaining_payment
+            status = "partial"
+            remaining_payment = 0
+        else:
+            # To'lanmagan
+            month_paid = 0
+            month_outstanding = month_amount
+            status = "unpaid"
+
+        # Kechikkan bo'lsa
+        is_overdue = days < 0 and month_outstanding > 0
+
         schedule.append({
             "month": r.idx,
             "due_date": formatdate(r.due_date, "dd.MM.yyyy"),
-            "amount": flt(r.payment_amount),
-            "paid": flt(r.paid_amount),
-            "outstanding": flt(r.outstanding),
+            "amount": month_amount,
+            "paid": month_paid,
+            "outstanding": month_outstanding,
             "status": status,
-            "is_overdue": days < 0 and flt(r.outstanding) > 0
+            "is_overdue": is_overdue
         })
 
     return {"success": True, "schedule": schedule}
@@ -399,33 +532,38 @@ def get_payment_history_with_products(contract_id: str):
                     "notes": item.notes or ""
                 })
 
-        # 3. To'lovlar tarixi (Payment Entry Reference orqali)
+        # 3. To'lovlar tarixi (custom_contract_reference orqali)
+        # ✅ Pay va Receive turlarini hisobga olish
         payments_data = frappe.db.sql("""
             SELECT
-                pe.name AS payment_id,
-                pe.posting_date,
-                per.allocated_amount AS paid_amount,
-                pe.mode_of_payment
-            FROM `tabPayment Entry` pe
-            INNER JOIN `tabPayment Entry Reference` per
-                ON per.parent = pe.name
-            WHERE per.reference_doctype = 'Sales Order'
-              AND per.reference_name = %s
-              AND pe.docstatus = 1
-              AND pe.payment_type = 'Receive'
-            ORDER BY pe.posting_date DESC
+                name AS payment_id,
+                posting_date,
+                paid_amount,
+                mode_of_payment,
+                payment_type
+            FROM `tabPayment Entry`
+            WHERE custom_contract_reference = %s
+              AND docstatus = 1
+              AND payment_type IN ('Receive', 'Pay')
+            ORDER BY posting_date DESC
         """, contract_id, as_dict=True)
 
         payments = []
         total_paid = 0
         for p in payments_data:
+            # ✅ Pay bo'lsa ayiriladi, Receive bo'lsa qo'shiladi
             payment_amount = flt(p.paid_amount)
-            total_paid += payment_amount
+            if p.payment_type == 'Receive':
+                total_paid += payment_amount
+            else:
+                total_paid -= payment_amount  # Pay - customerga pul qaytarildi
             payments.append({
                 "date": formatdate(p.posting_date, "dd.MM.yyyy"),
-                "amount": payment_amount,
+                "amount": payment_amount if p.payment_type == 'Receive' else -payment_amount,
+                "display_amount": payment_amount,  # Ko'rsatish uchun original summa
                 "method": p.mode_of_payment or "Naqd",
-                "payment_id": p.payment_id
+                "payment_id": p.payment_id,
+                "payment_type": p.payment_type  # Receive yoki Pay
             })
 
         # 4. Natija
@@ -453,15 +591,14 @@ def get_payment_history_with_products(contract_id: str):
 
 
 # ============================================================
-# 8. ESLATMALAR (REMINDERS) - Telegram bot button uchun
+# 8. ESLATMALAR (REMINDERS) - TO'G'RI HISOB-KITOB
 # ============================================================
 
 @frappe.whitelist(allow_guest=True)
 def get_reminders_by_telegram_id(telegram_id: str):
     """
     Telegram ID orqali customerning eslatmalarini olish.
-
-    Bu funksiya "Eslatmalar" button bosilganda ishga tushadi.
+    TO'G'RI HISOB-KITOB bilan.
     """
     if not telegram_id:
         return {
@@ -487,68 +624,133 @@ def get_reminders_by_telegram_id(telegram_id: str):
                 "error_code": "NOT_LINKED"
             }
 
-        # 2. Eslatmalar - yaqin muddat to'lovlari (30 kun ichida)
-        reminders = frappe.db.sql("""
-            SELECT
-                ps.parent AS contract_id,
-                so.transaction_date,
-                ps.due_date,
-                ps.payment_amount,
-                ps.outstanding,
-                ps.idx,
-                DATEDIFF(ps.due_date, CURDATE()) AS days_left
-            FROM `tabPayment Schedule` ps
-            JOIN `tabSales Order` so ON so.name = ps.parent
-            WHERE so.customer = %s
-              AND so.docstatus = 1
-              AND ps.outstanding > 0
-              AND ps.idx > 1
-              AND ps.due_date BETWEEN CURDATE() - INTERVAL 1 DAY AND CURDATE() + INTERVAL 30 DAY
-            ORDER BY ps.due_date ASC
+        # 2. Barcha shartnomalarni olish
+        contracts = frappe.db.sql("""
+            SELECT name, transaction_date
+            FROM `tabSales Order`
+            WHERE customer = %s AND docstatus = 1 AND status != 'Cancelled'
         """, customer.name, as_dict=True)
 
+        if not contracts:
+            return {
+                "success": True,
+                "customer_id": customer.name,
+                "customer_name": customer.customer_name,
+                "reminders": [],
+                "total_reminders": 0,
+                "message": "Eslatmalar yuklandi"
+            }
+
         result = []
-        for row in reminders:
-            days = int(row.days_left or 0)
 
-            # Status va prioritet aniqlash
-            if days < -1:
-                status = "critically_overdue"
-                status_uz = f"{abs(days)} kun kechikkan ⚠️"
-                priority = "critical"
-            elif days == -1:
-                status = "overdue"
-                status_uz = "1 kun kechikkan ⚠️"
-                priority = "high"
-            elif days == 0:
-                status = "today"
-                status_uz = "Bugun to'lash kerak! 🔴"
-                priority = "urgent"
-            elif days == 1:
-                status = "tomorrow"
-                status_uz = "Ertaga to'lash kerak 🟡"
-                priority = "high"
-            elif days <= 3:
-                status = "soon"
-                status_uz = f"{days} kun qoldi 🟢"
-                priority = "medium"
-            else:
-                status = "upcoming"
-                status_uz = f"{days} kun qoldi"
-                priority = "low"
+        for contract in contracts:
+            contract_id = contract.name
 
-            result.append({
-                "contract_id": row.contract_id,
-                "contract_date": formatdate(row.transaction_date, "dd.MM.yyyy"),
-                "due_date": formatdate(row.due_date, "dd.MM.yyyy"),
-                "amount": flt(row.payment_amount),
-                "outstanding": flt(row.outstanding),
-                "days_left": days,
-                "status": status,
-                "status_uz": status_uz,
-                "priority": priority,
-                "payment_number": row.idx
-            })
+            # 3. To'lov jadvalini olish (30 kun oralig'i)
+            schedule_rows = frappe.db.sql("""
+                SELECT idx, due_date, payment_amount,
+                       DATEDIFF(due_date, CURDATE()) AS days_left
+                FROM `tabPayment Schedule`
+                WHERE parent = %s
+                  AND idx > 1
+                  AND due_date BETWEEN CURDATE() - INTERVAL 1 DAY AND CURDATE() + INTERVAL 30 DAY
+                ORDER BY idx
+            """, contract_id, as_dict=True)
+
+            if not schedule_rows:
+                continue
+
+            # 4. Jami to'langan summani olish (custom_contract_reference orqali)
+            # ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
+            total_paid_result = frappe.db.sql("""
+                SELECT COALESCE(
+                    SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+                    0
+                ) as total_paid
+                FROM `tabPayment Entry`
+                WHERE custom_contract_reference = %s
+                  AND docstatus = 1
+                  AND payment_type IN ('Receive', 'Pay')
+            """, contract_id)
+
+            total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
+
+            # 5. Oldingi oylarni hisobga olish uchun barcha jadvaldan olish
+            all_schedule = frappe.db.sql("""
+                SELECT idx, payment_amount
+                FROM `tabPayment Schedule`
+                WHERE parent = %s ORDER BY idx
+            """, contract_id, as_dict=True)
+
+            # 6. Har bir oy uchun to'lovni taqsimlash
+            remaining_payment = total_paid
+            month_status = {}  # idx -> (paid, outstanding, status)
+
+            for row in all_schedule:
+                month_amount = flt(row.payment_amount)
+                idx = row.idx
+
+                if remaining_payment >= month_amount:
+                    month_status[idx] = (month_amount, 0, "paid")
+                    remaining_payment -= month_amount
+                elif remaining_payment > 0:
+                    month_status[idx] = (remaining_payment, month_amount - remaining_payment, "partial")
+                    remaining_payment = 0
+                else:
+                    month_status[idx] = (0, month_amount, "unpaid")
+
+            # 7. 30 kun oralig'idagi to'lanmagan oylarni eslatmaga qo'shish
+            for row in schedule_rows:
+                idx = row.idx
+                paid, outstanding, status = month_status.get(idx, (0, flt(row.payment_amount), "unpaid"))
+
+                # Faqat to'lanmagan yoki qisman to'langan oylarni ko'rsatish
+                if outstanding <= 0:
+                    continue
+
+                days = int(row.days_left or 0)
+
+                # Status va prioritet aniqlash
+                if days < -1:
+                    reminder_status = "critically_overdue"
+                    status_uz = f"{abs(days)} kun kechikkan ⚠️"
+                    priority = "critical"
+                elif days == -1:
+                    reminder_status = "overdue"
+                    status_uz = "1 kun kechikkan ⚠️"
+                    priority = "high"
+                elif days == 0:
+                    reminder_status = "today"
+                    status_uz = "Bugun to'lash kerak! 🔴"
+                    priority = "urgent"
+                elif days == 1:
+                    reminder_status = "tomorrow"
+                    status_uz = "Ertaga to'lash kerak 🟡"
+                    priority = "high"
+                elif days <= 3:
+                    reminder_status = "soon"
+                    status_uz = f"{days} kun qoldi 🟢"
+                    priority = "medium"
+                else:
+                    reminder_status = "upcoming"
+                    status_uz = f"{days} kun qoldi"
+                    priority = "low"
+
+                result.append({
+                    "contract_id": contract_id,
+                    "contract_date": formatdate(contract.transaction_date, "dd.MM.yyyy"),
+                    "due_date": formatdate(row.due_date, "dd.MM.yyyy"),
+                    "amount": flt(row.payment_amount),
+                    "outstanding": outstanding,
+                    "days_left": days,
+                    "status": reminder_status,
+                    "status_uz": status_uz,
+                    "priority": priority,
+                    "payment_number": idx
+                })
+
+        # Sanasi bo'yicha tartiblash
+        result.sort(key=lambda x: x.get("days_left", 0))
 
         return {
             "success": True,
@@ -621,23 +823,22 @@ def get_payment_history_by_telegram_id(telegram_id: str):
 
         so_ids = [c.name for c in contracts]
 
-        # 3. Barcha to'lovlarni olish
+        # 3. Barcha to'lovlarni olish (custom_contract_reference orqali)
+        # ✅ Pay va Receive turlarini hisobga olish
         payments_data = frappe.db.sql("""
             SELECT
-                per.reference_name AS contract_id,
-                pe.name AS payment_id,
-                pe.posting_date,
-                per.allocated_amount AS paid_amount,
-                pe.mode_of_payment,
-                pe.remarks
-            FROM `tabPayment Entry` pe
-            INNER JOIN `tabPayment Entry Reference` per
-                ON per.parent = pe.name
-            WHERE per.reference_doctype = 'Sales Order'
-              AND per.reference_name IN %s
-              AND pe.docstatus = 1
-              AND pe.payment_type = 'Receive'
-            ORDER BY pe.posting_date DESC
+                custom_contract_reference AS contract_id,
+                name AS payment_id,
+                posting_date,
+                paid_amount,
+                mode_of_payment,
+                remarks,
+                payment_type
+            FROM `tabPayment Entry`
+            WHERE custom_contract_reference IN %s
+              AND docstatus = 1
+              AND payment_type IN ('Receive', 'Pay')
+            ORDER BY posting_date DESC
         """, (so_ids,), as_dict=True)
 
         # 4. Shartnomalar bo'yicha guruhlash
@@ -647,13 +848,16 @@ def get_payment_history_by_telegram_id(telegram_id: str):
                 {
                     "payment_id": p.payment_id,
                     "date": formatdate(p.posting_date, "dd.MM.yyyy"),
-                    "amount": flt(p.paid_amount),
+                    "amount": flt(p.paid_amount) if p.payment_type == 'Receive' else -flt(p.paid_amount),
+                    "display_amount": flt(p.paid_amount),  # Ko'rsatish uchun original summa
                     "method": p.mode_of_payment or "Naqd",
-                    "remarks": p.remarks or ""
+                    "remarks": p.remarks or "",
+                    "payment_type": p.payment_type  # Receive yoki Pay
                 }
                 for p in payments_data if p.contract_id == contract.name
             ]
 
+            # ✅ Pay ayiriladi, Receive qo'shiladi
             total_paid = sum(p["amount"] for p in contract_payments)
 
             contracts_with_payments.append({
@@ -740,7 +944,7 @@ def get_my_contracts_by_telegram_id(telegram_id: str):
 
 
 # ============================================================
-# 11. AVTOMATIK ESLATMALAR (SCHEDULED NOTIFICATIONS)
+# 11. AVTOMATIK ESLATMALAR (SCHEDULED NOTIFICATIONS) - TO'G'RI HISOB-KITOB
 # ============================================================
 
 def send_payment_reminders():
@@ -754,6 +958,11 @@ def send_payment_reminders():
     - 1 kun oldin
     - To'lov kuni
     - 1 kun keyin (kechikkan)
+
+    TO'G'RI HISOB-KITOB:
+    - Jami to'langan summani Payment Entry dan oladi
+    - To'lovlarni oyma-oy taqsimlaydi
+    - Faqat haqiqiy qoldiq bo'lgan oylar uchun eslatma yuboradi
     """
     try:
         import requests
@@ -778,13 +987,12 @@ def send_payment_reminders():
             days = config["days"]
             target_date = add_days(today(), days)
 
-            # Shu sanada to'lov qilishi kerak bo'lgan customerlar
-            payments = frappe.db.sql("""
+            # Shu sanada to'lov qilishi kerak bo'lgan shartnomalarni olish
+            schedule_rows = frappe.db.sql("""
                 SELECT
                     ps.parent AS contract_id,
                     ps.due_date,
                     ps.payment_amount,
-                    ps.outstanding,
                     ps.idx,
                     so.customer,
                     c.customer_name,
@@ -793,7 +1001,6 @@ def send_payment_reminders():
                 JOIN `tabSales Order` so ON so.name = ps.parent
                 JOIN `tabCustomer` c ON c.name = so.customer
                 WHERE ps.due_date = %s
-                  AND ps.outstanding > 0
                   AND ps.idx > 1
                   AND so.docstatus = 1
                   AND c.custom_telegram_id IS NOT NULL
@@ -801,15 +1008,73 @@ def send_payment_reminders():
                 ORDER BY c.name
             """, target_date, as_dict=True)
 
-            # Har bir customer uchun eslatma yuborish
-            for payment in payments:
-                telegram_id = payment.custom_telegram_id
+            # Har bir shartnoma uchun to'g'ri qoldiqni hisoblash
+            for row in schedule_rows:
+                contract_id = row.contract_id
+                telegram_id = row.custom_telegram_id
 
                 if not telegram_id:
                     continue
 
+                # Jami to'langan summani olish (custom_contract_reference orqali)
+                # ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
+                total_paid_result = frappe.db.sql("""
+                    SELECT COALESCE(
+                        SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+                        0
+                    ) as total_paid
+                    FROM `tabPayment Entry`
+                    WHERE custom_contract_reference = %s
+                      AND docstatus = 1
+                      AND payment_type IN ('Receive', 'Pay')
+                """, contract_id)
+
+                total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
+
+                # Barcha jadvaldan oldingi oylarni olish
+                all_schedule = frappe.db.sql("""
+                    SELECT idx, payment_amount
+                    FROM `tabPayment Schedule`
+                    WHERE parent = %s ORDER BY idx
+                """, contract_id, as_dict=True)
+
+                # To'lovlarni oyma-oy taqsimlash va bu oy uchun qoldiqni aniqlash
+                remaining_payment = total_paid
+                outstanding_for_this_month = 0
+
+                for sched_row in all_schedule:
+                    month_amount = flt(sched_row.payment_amount)
+
+                    if sched_row.idx == row.idx:
+                        # Bu oy - qoldiqni hisoblash
+                        if remaining_payment >= month_amount:
+                            outstanding_for_this_month = 0
+                        else:
+                            outstanding_for_this_month = month_amount - remaining_payment
+                        break
+                    else:
+                        # Oldingi oylar
+                        if remaining_payment >= month_amount:
+                            remaining_payment -= month_amount
+                        else:
+                            remaining_payment = 0
+
+                # Agar bu oy uchun qoldiq bo'lsa, eslatma yuborish
+                if outstanding_for_this_month <= 0:
+                    continue  # Bu oy to'liq to'langan, eslatma kerak emas
+
                 # Xabar tayyorlash
-                message = _format_reminder_message(payment, config["message_template"], days)
+                payment_data = {
+                    "contract_id": contract_id,
+                    "due_date": row.due_date,
+                    "payment_amount": row.payment_amount,
+                    "outstanding": outstanding_for_this_month,
+                    "idx": row.idx,
+                    "customer": row.customer,
+                    "customer_name": row.customer_name
+                }
+
+                message = _format_reminder_message(payment_data, config["message_template"], days)
 
                 # Telegram bot API ga yuborish
                 try:
@@ -825,9 +1090,9 @@ def send_payment_reminders():
                     if response.status_code == 200:
                         # Log qilish - muvaffaqiyatli yuborildi
                         _log_notification(
-                            customer_id=payment.customer,
+                            customer_id=row.customer,
                             telegram_id=telegram_id,
-                            contract_id=payment.contract_id,
+                            contract_id=contract_id,
                             notification_type=f"reminder_day_{days}",
                             status="sent",
                             message=message
@@ -836,13 +1101,13 @@ def send_payment_reminders():
                         # Xato
                         frappe.log_error(
                             f"Telegram API xatosi: {response.text}",
-                            f"Reminder Send Failed - {payment.customer}"
+                            f"Reminder Send Failed - {row.customer}"
                         )
 
                 except Exception as send_error:
                     frappe.log_error(
                         frappe.get_traceback(),
-                        f"Reminder Send Error - {payment.customer}"
+                        f"Reminder Send Error - {row.customer}"
                     )
 
         frappe.db.commit()
@@ -901,16 +1166,17 @@ def get_customers_needing_reminders(days: int = 3):
     Test uchun - qaysi customerlar eslatma olishi kerakligini ko'rish.
 
     Bu funksiya manual test qilish uchun.
+    TO'G'RI HISOB-KITOB bilan.
     """
     try:
         target_date = add_days(today(), int(days))
 
-        customers = frappe.db.sql("""
+        # Shu sanada to'lov qilishi kerak bo'lgan shartnomalarni olish
+        schedule_rows = frappe.db.sql("""
             SELECT
                 ps.parent AS contract_id,
                 ps.due_date,
                 ps.payment_amount,
-                ps.outstanding,
                 ps.idx,
                 so.customer,
                 c.customer_name,
@@ -920,25 +1186,74 @@ def get_customers_needing_reminders(days: int = 3):
             JOIN `tabSales Order` so ON so.name = ps.parent
             JOIN `tabCustomer` c ON c.name = so.customer
             WHERE ps.due_date = %s
-              AND ps.outstanding > 0
               AND ps.idx > 1
               AND so.docstatus = 1
             ORDER BY c.name
         """, target_date, as_dict=True)
 
         result = []
-        for customer in customers:
+
+        for row in schedule_rows:
+            contract_id = row.contract_id
+
+            # Jami to'langan summani olish (custom_contract_reference orqali)
+            # ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
+            total_paid_result = frappe.db.sql("""
+                SELECT COALESCE(
+                    SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+                    0
+                ) as total_paid
+                FROM `tabPayment Entry`
+                WHERE custom_contract_reference = %s
+                  AND docstatus = 1
+                  AND payment_type IN ('Receive', 'Pay')
+            """, contract_id)
+
+            total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
+
+            # Barcha jadvaldan oldingi oylarni olish
+            all_schedule = frappe.db.sql("""
+                SELECT idx, payment_amount
+                FROM `tabPayment Schedule`
+                WHERE parent = %s ORDER BY idx
+            """, contract_id, as_dict=True)
+
+            # To'lovlarni oyma-oy taqsimlash va bu oy uchun qoldiqni aniqlash
+            remaining_payment = total_paid
+            outstanding_for_this_month = 0
+
+            for sched_row in all_schedule:
+                month_amount = flt(sched_row.payment_amount)
+
+                if sched_row.idx == row.idx:
+                    # Bu oy - qoldiqni hisoblash
+                    if remaining_payment >= month_amount:
+                        outstanding_for_this_month = 0
+                    else:
+                        outstanding_for_this_month = month_amount - remaining_payment
+                    break
+                else:
+                    # Oldingi oylar
+                    if remaining_payment >= month_amount:
+                        remaining_payment -= month_amount
+                    else:
+                        remaining_payment = 0
+
+            # Faqat qoldiq bo'lgan oylarni ko'rsatish
+            if outstanding_for_this_month <= 0:
+                continue
+
             result.append({
-                "customer_id": customer.customer,
-                "customer_name": customer.customer_name,
-                "telegram_id": customer.custom_telegram_id or "Bog'lanmagan",
-                "phone": customer.custom_phone_1 or "",
-                "contract_id": customer.contract_id,
-                "due_date": formatdate(customer.due_date, "dd.MM.yyyy"),
-                "amount": flt(customer.payment_amount),
-                "outstanding": flt(customer.outstanding),
-                "payment_number": customer.idx - 1,
-                "has_telegram": bool(customer.custom_telegram_id)
+                "customer_id": row.customer,
+                "customer_name": row.customer_name,
+                "telegram_id": row.custom_telegram_id or "Bog'lanmagan",
+                "phone": row.custom_phone_1 or "",
+                "contract_id": contract_id,
+                "due_date": formatdate(row.due_date, "dd.MM.yyyy"),
+                "amount": flt(row.payment_amount),
+                "outstanding": outstanding_for_this_month,
+                "payment_number": row.idx - 1,
+                "has_telegram": bool(row.custom_telegram_id)
             })
 
         return {
@@ -957,3 +1272,5 @@ def get_customers_needing_reminders(days: int = 3):
             "success": False,
             "message": "Server xatosi"
         }
+
+

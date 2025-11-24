@@ -96,16 +96,21 @@ def on_submit(doc, method=None):
             print(f"\n🔵 UPDATING Payment Schedule: {doc.custom_payment_schedule_row}")
             print(f"   Payment Entry: {doc.name}")
             print(f"   Amount: {doc.paid_amount}")
-            
+            print(f"   Payment Type: {doc.payment_type}")
+
             # Calculate TOTAL paid amount for this schedule row from ALL Payment Entries
+            # ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
             total_paid = frappe.db.sql("""
-                SELECT COALESCE(SUM(paid_amount), 0) as total
+                SELECT COALESCE(
+                    SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+                    0
+                ) as total
                 FROM `tabPayment Entry`
                 WHERE custom_payment_schedule_row = %(schedule_row)s
                     AND docstatus = 1
-                    AND payment_type = 'Receive'
+                    AND payment_type IN ('Receive', 'Pay')
             """, {'schedule_row': doc.custom_payment_schedule_row}, as_dict=1)[0].total
-            
+
             print(f"   Total Paid (all payments): {total_paid}")
             
             # Update Payment Schedule with calculated total
@@ -162,20 +167,25 @@ def on_cancel(doc, method=None):
             print(f"\n🔴 REVERSING Payment Schedule: {doc.custom_payment_schedule_row}")
             print(f"   Cancelled Payment: {doc.name}")
             print(f"   Amount: {doc.paid_amount}")
-            
+            print(f"   Payment Type: {doc.payment_type}")
+
             # Calculate TOTAL paid amount EXCLUDING this cancelled payment
+            # ✅ Receive qo'shiladi, Pay ayiriladi (customerga pul qaytarilsa)
             total_paid = frappe.db.sql("""
-                SELECT COALESCE(SUM(paid_amount), 0) as total
+                SELECT COALESCE(
+                    SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+                    0
+                ) as total
                 FROM `tabPayment Entry`
                 WHERE custom_payment_schedule_row = %(schedule_row)s
                     AND docstatus = 1
-                    AND payment_type = 'Receive'
+                    AND payment_type IN ('Receive', 'Pay')
                     AND name != %(payment_entry)s
             """, {
                 'schedule_row': doc.custom_payment_schedule_row,
                 'payment_entry': doc.name
             }, as_dict=1)[0].total
-            
+
             print(f"   New Total Paid: {total_paid}")
             
             # Update Payment Schedule

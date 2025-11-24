@@ -13,7 +13,7 @@ class InstallmentApplication(Document):
         # ✅ YANGI: Payment schedule majburiy
         if not self.payment_schedule or len(self.payment_schedule) == 0:
             frappe.throw(_('Iltimos, avval "Calculate Payment Schedule" tugmasini bosing!'))
-        
+
         self.calculate_totals()
         self.validate_payment_terms()
 
@@ -55,17 +55,19 @@ class InstallmentApplication(Document):
         grand_total = flt(self.downpayment_amount) + total_installments
         self.custom_grand_total_with_interest = grand_total
 
-        # Marja Foiz (%)
+        # Marja Foiz (%) - JS bilan bir xil formula
         if total_installments > 0:
             profit_percentage = (total_interest / total_installments) * 100
-            self.custom_profit_percentage = round(profit_percentage, 2)
+            # JS bilan sinxron: Math.round(x * 100) / 100
+            self.custom_profit_percentage = round(profit_percentage * 100) / 100
         else:
             self.custom_profit_percentage = 0
 
-        # Ustama Foiz (%)
+        # Ustama Foiz (%) - JS bilan bir xil formula
         if flt(self.finance_amount) > 0:
             finance_profit_percentage = (total_interest / flt(self.finance_amount)) * 100
-            self.custom_finance_profit_percentage = round(finance_profit_percentage, 2)
+            # JS bilan sinxron: Math.round(x * 100) / 100
+            self.custom_finance_profit_percentage = round(finance_profit_percentage * 100) / 100
         else:
             self.custom_finance_profit_percentage = 0
 
@@ -79,7 +81,7 @@ class InstallmentApplication(Document):
         if flt(self.downpayment_amount) > 0 and flt(self.downpayment_amount) >= flt(self.total_amount):
             frappe.throw(_("Boshlang'ich to'lov umumiy narxdan kam bo'lishi kerak"))
 
-        if flt(self.installment_months) < 1:
+        if flt(self.installment_months) < 0:
             frappe.throw(_("Oylar soni kamida 1 bo'lishi kerak"))
 
         if flt(self.total_amount) <= 0:

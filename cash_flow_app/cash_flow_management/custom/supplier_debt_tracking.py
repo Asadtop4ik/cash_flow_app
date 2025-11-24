@@ -107,17 +107,45 @@ def update_supplier_debt_on_cancel_installment(doc, method=None):
         supplier.save(ignore_permissions=True)
 
 def update_supplier_debt_on_payment(doc, method=None):
-    if doc.payment_type != "Pay" or doc.party_type != "Supplier":
+    """
+    Payment Entry submit bo'lganda supplier qarzini yangilash
+    Pay: Biz to'laymiz -> custom_paid_amount ortadi, qarz kamayadi
+    Receive: Supplier bizga to'laydi -> custom_total_debt ortadi (kredit), qarz ortadi
+    """
+    if doc.party_type != "Supplier":
         return
+
     supplier = frappe.get_doc("Supplier", doc.party)
-    supplier.custom_paid_amount = flt(supplier.get("custom_paid_amount", 0)) + flt(doc.paid_amount)
-    supplier.custom_remaining_debt = flt(supplier.get("custom_total_debt", 0)) - supplier.custom_paid_amount
+
+    if doc.payment_type == "Pay":
+        # Biz supplier'ga to'ladik - paid_amount ortadi
+        supplier.custom_paid_amount = flt(supplier.get("custom_paid_amount", 0)) + flt(doc.paid_amount)
+    elif doc.payment_type == "Receive":
+        # Supplier bizga to'ladi - bu kredit (qarz ortadi)
+        supplier.custom_total_debt = flt(supplier.get("custom_total_debt", 0)) + flt(doc.paid_amount)
+
+    # Qoldiq qarzni hisoblash
+    supplier.custom_remaining_debt = flt(supplier.get("custom_total_debt", 0)) - flt(supplier.get("custom_paid_amount", 0))
     supplier.save(ignore_permissions=True)
 
 def update_supplier_debt_on_cancel_payment(doc, method=None):
-    if doc.payment_type != "Pay" or doc.party_type != "Supplier":
+    """
+    Payment Entry cancel bo'lganda supplier qarzini qaytarish
+    Pay cancel: custom_paid_amount kamayadi
+    Receive cancel: custom_total_debt kamayadi
+    """
+    if doc.party_type != "Supplier":
         return
+
     supplier = frappe.get_doc("Supplier", doc.party)
-    supplier.custom_paid_amount = max(0, flt(supplier.get("custom_paid_amount", 0)) - flt(doc.paid_amount))
-    supplier.custom_remaining_debt = flt(supplier.get("custom_total_debt", 0)) - supplier.custom_paid_amount
+
+    if doc.payment_type == "Pay":
+        # Pay cancel - paid_amount kamayadi
+        supplier.custom_paid_amount = max(0, flt(supplier.get("custom_paid_amount", 0)) - flt(doc.paid_amount))
+    elif doc.payment_type == "Receive":
+        # Receive cancel - total_debt kamayadi
+        supplier.custom_total_debt = max(0, flt(supplier.get("custom_total_debt", 0)) - flt(doc.paid_amount))
+
+    # Qoldiq qarzni hisoblash
+    supplier.custom_remaining_debt = flt(supplier.get("custom_total_debt", 0)) - flt(supplier.get("custom_paid_amount", 0))
     supplier.save(ignore_permissions=True)

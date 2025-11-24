@@ -98,7 +98,7 @@ def get_data(filters):
 		}
 
 		for c in customers:
-			# Sales Order summalarini olish
+			# Sales Order summalarini olish (DEBIT - klient bizdan qarz)
 			sales_data = frappe.db.sql("""
 				SELECT
 					SUM(CASE WHEN transaction_date < %s THEN rounded_total ELSE 0 END) as opening_sales,
@@ -109,12 +109,12 @@ def get_data(filters):
 				AND docstatus = 1
 			""", (from_date, from_date, to_date, to_date, c['customer']), as_dict=True)[0]
 
-			# To'lovlarni olish (Payment Entry dan)
-			payment_data = frappe.db.sql("""
+			# Klient to'lovlari - Receive (CREDIT - klient bizga to'ladi)
+			receive_data = frappe.db.sql("""
 				SELECT
-					SUM(CASE WHEN posting_date < %s THEN paid_amount ELSE 0 END) as opening_payments,
-					SUM(CASE WHEN posting_date >= %s AND posting_date <= %s THEN paid_amount ELSE 0 END) as period_payments,
-					SUM(CASE WHEN posting_date <= %s THEN paid_amount ELSE 0 END) as total_payments
+					SUM(CASE WHEN posting_date < %s THEN paid_amount ELSE 0 END) as opening_receive,
+					SUM(CASE WHEN posting_date >= %s AND posting_date <= %s THEN paid_amount ELSE 0 END) as period_receive,
+					SUM(CASE WHEN posting_date <= %s THEN paid_amount ELSE 0 END) as total_receive
 				FROM `tabPayment Entry`
 				WHERE party = %s
 				AND party_type = 'Customer'
@@ -122,27 +122,50 @@ def get_data(filters):
 				AND docstatus = 1
 			""", (from_date, from_date, to_date, to_date, c['customer']), as_dict=True)[0]
 
-			# Opening balance: Sales - Payments (Debit - Credit mantiq)
+			# Biz klientga qaytargan pul - Pay (DEBIT - bizdan chiqdi)
+			pay_data = frappe.db.sql("""
+				SELECT
+					SUM(CASE WHEN posting_date < %s THEN paid_amount ELSE 0 END) as opening_pay,
+					SUM(CASE WHEN posting_date >= %s AND posting_date <= %s THEN paid_amount ELSE 0 END) as period_pay,
+					SUM(CASE WHEN posting_date <= %s THEN paid_amount ELSE 0 END) as total_pay
+				FROM `tabPayment Entry`
+				WHERE party = %s
+				AND party_type = 'Customer'
+				AND payment_type = 'Pay'
+				AND docstatus = 1
+			""", (from_date, from_date, to_date, to_date, c['customer']), as_dict=True)[0]
+
+			# DEBIT = Sales Order + Pay (biz qaytargan pul)
+			# CREDIT = Receive (klient to'lagan)
 			opening_sales = flt(sales_data.get('opening_sales'))
-			opening_payments = flt(payment_data.get('opening_payments'))
-			opening_balance = opening_sales - opening_payments
+			opening_receive = flt(receive_data.get('opening_receive'))
+			opening_pay = flt(pay_data.get('opening_pay'))
+			opening_debit_total = opening_sales + opening_pay
+			opening_credit_total = opening_receive
+			opening_balance = opening_debit_total - opening_credit_total
 
 			# Transaction: faqat davr ichidagi
 			period_sales = flt(sales_data.get('period_sales'))
-			period_payments = flt(payment_data.get('period_payments'))
+			period_receive = flt(receive_data.get('period_receive'))
+			period_pay = flt(pay_data.get('period_pay'))
+			period_debit = period_sales + period_pay
+			period_credit = period_receive
 
-			# Closing balance: Total Sales - Total Payments
+			# Closing balance
 			total_sales = flt(sales_data.get('total_sales'))
-			total_payments = flt(payment_data.get('total_payments'))
-			closing_balance = total_sales - total_payments
+			total_receive = flt(receive_data.get('total_receive'))
+			total_pay = flt(pay_data.get('total_pay'))
+			closing_debit_total = total_sales + total_pay
+			closing_credit_total = total_receive
+			closing_balance = closing_debit_total - closing_credit_total
 
 			row = {
 				'party': c['customer'],
 				'party_type': 'Customer',
 				'opening_debit': opening_balance if opening_balance > 0 else 0,
 				'opening_credit': abs(opening_balance) if opening_balance < 0 else 0,
-				'transaction_debit': period_sales,
-				'transaction_credit': period_payments,
+				'transaction_debit': period_debit,
+				'transaction_credit': period_credit,
 				'closing_debit': closing_balance if closing_balance > 0 else 0,
 				'closing_credit': abs(closing_balance) if closing_balance < 0 else 0
 			}
@@ -161,18 +184,30 @@ def get_data(filters):
 				'closing_debit': 0, 'closing_credit': 0
 			})
 
-	# SUPPLIERS - GL Entry asosida (eskicha)
+	# SUPPLIERS - Installment Application + Payment Entry asosida
 	if not party_type_filter or party_type_filter == 'Supplier':
+		# Barcha supplier'larni Installment Application va Payment Entry dan olish
 		suppliers = frappe.db.sql("""
-			SELECT DISTINCT party FROM `tabGL Entry`
-			WHERE party_type = 'Supplier'
-			AND party IS NOT NULL
-			AND party != ''
-			AND is_cancelled = 0
+			SELECT DISTINCT supplier FROM (
+				SELECT DISTINCT item.custom_supplier as supplier
+				FROM `tabInstallment Application` ia
+				INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
+				WHERE ia.docstatus = 1
+				AND item.custom_supplier IS NOT NULL
+				AND item.custom_supplier != ''
+				UNION
+				SELECT DISTINCT party as supplier
+				FROM `tabPayment Entry`
+				WHERE party_type = 'Supplier'
+				AND docstatus = 1
+				AND party IS NOT NULL
+				AND party != ''
+			) as suppliers
+			WHERE 1=1
 			{party_condition}
-			ORDER BY party
+			ORDER BY supplier
 		""".format(
-			party_condition=f"AND party = '{party_filter}'" if party_filter else ""
+			party_condition=f"AND supplier = '{party_filter}'" if party_filter else ""
 		), as_dict=True)
 
 		supp_total = {
@@ -187,40 +222,77 @@ def get_data(filters):
 		}
 
 		for s in suppliers:
-			gl = frappe.db.sql("""
+			supplier_name = s['supplier']
+
+			# 1. Installment Application - CREDIT (biz supplier'dan qarz oldik)
+			installment_data = frappe.db.sql("""
 				SELECT
-					SUM(CASE WHEN posting_date < %s THEN debit ELSE 0 END) as od,
-					SUM(CASE WHEN posting_date < %s THEN credit ELSE 0 END) as oc,
-					SUM(CASE WHEN posting_date >= %s AND posting_date <= %s THEN debit ELSE 0 END) as td,
-					SUM(CASE WHEN posting_date >= %s AND posting_date <= %s THEN credit ELSE 0 END) as tc,
-					SUM(CASE WHEN posting_date <= %s THEN debit ELSE 0 END) as cd,
-					SUM(CASE WHEN posting_date <= %s THEN credit ELSE 0 END) as cc
-				FROM `tabGL Entry`
+					SUM(CASE WHEN DATE(ia.transaction_date) < %s THEN (item.qty * item.rate) ELSE 0 END) as opening_installment,
+					SUM(CASE WHEN DATE(ia.transaction_date) >= %s AND DATE(ia.transaction_date) <= %s THEN (item.qty * item.rate) ELSE 0 END) as period_installment,
+					SUM(CASE WHEN DATE(ia.transaction_date) <= %s THEN (item.qty * item.rate) ELSE 0 END) as total_installment
+				FROM `tabInstallment Application` ia
+				INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
+				WHERE ia.docstatus = 1
+				AND item.custom_supplier = %s
+			""", (from_date, from_date, to_date, to_date, supplier_name), as_dict=True)[0]
+
+			# 2. Payment Entry Pay - DEBIT (biz supplier'ga to'ladik)
+			pay_data = frappe.db.sql("""
+				SELECT
+					SUM(CASE WHEN posting_date < %s THEN paid_amount ELSE 0 END) as opening_pay,
+					SUM(CASE WHEN posting_date >= %s AND posting_date <= %s THEN paid_amount ELSE 0 END) as period_pay,
+					SUM(CASE WHEN posting_date <= %s THEN paid_amount ELSE 0 END) as total_pay
+				FROM `tabPayment Entry`
 				WHERE party = %s
 				AND party_type = 'Supplier'
-				AND is_cancelled = 0
-			""", (
-				from_date, from_date, from_date, to_date,
-				from_date, to_date, to_date, to_date, s['party']
-			), as_dict=True)[0]
+				AND payment_type = 'Pay'
+				AND docstatus = 1
+			""", (from_date, from_date, to_date, to_date, supplier_name), as_dict=True)[0]
 
-			# Opening balance hisobi: Supplier uchun Credit - Debit
-			opening_debit_total = flt(gl['od'])
-			opening_credit_total = flt(gl['oc'])
+			# 3. Payment Entry Receive - CREDIT (supplier bizga pul qaytardi)
+			receive_data = frappe.db.sql("""
+				SELECT
+					SUM(CASE WHEN posting_date < %s THEN paid_amount ELSE 0 END) as opening_receive,
+					SUM(CASE WHEN posting_date >= %s AND posting_date <= %s THEN paid_amount ELSE 0 END) as period_receive,
+					SUM(CASE WHEN posting_date <= %s THEN paid_amount ELSE 0 END) as total_receive
+				FROM `tabPayment Entry`
+				WHERE party = %s
+				AND party_type = 'Supplier'
+				AND payment_type = 'Receive'
+				AND docstatus = 1
+			""", (from_date, from_date, to_date, to_date, supplier_name), as_dict=True)[0]
+
+			# CREDIT = Installment + Receive (biz qarz oldik + supplier qaytardi)
+			# DEBIT = Pay (biz to'ladik)
+			opening_installment = flt(installment_data.get('opening_installment'))
+			opening_receive = flt(receive_data.get('opening_receive'))
+			opening_pay = flt(pay_data.get('opening_pay'))
+			opening_credit_total = opening_installment + opening_receive
+			opening_debit_total = opening_pay
 			opening_balance = opening_credit_total - opening_debit_total
 
-			# Closing balance hisobi: Supplier uchun Credit - Debit
-			closing_debit_total = flt(gl['cd'])
-			closing_credit_total = flt(gl['cc'])
+			# Transaction: faqat davr ichidagi
+			period_installment = flt(installment_data.get('period_installment'))
+			period_receive = flt(receive_data.get('period_receive'))
+			period_pay = flt(pay_data.get('period_pay'))
+			period_credit = period_installment + period_receive
+			period_debit = period_pay
+
+			# Closing balance
+			total_installment = flt(installment_data.get('total_installment'))
+			total_receive = flt(receive_data.get('total_receive'))
+			total_pay = flt(pay_data.get('total_pay'))
+			closing_credit_total = total_installment + total_receive
+			closing_debit_total = total_pay
 			closing_balance = closing_credit_total - closing_debit_total
 
 			row = {
-				'party': s['party'],
+				'party': supplier_name,
 				'party_type': 'Supplier',
 				'opening_debit': abs(opening_balance) if opening_balance < 0 else 0,
 				'opening_credit': opening_balance if opening_balance > 0 else 0,
-				'transaction_debit': flt(gl['td']),
-				'transaction_credit': flt(gl['tc']),
+				'transaction_debit': period_debit,
+				'transaction_credit': period_credit,
 				'closing_debit': abs(closing_balance) if closing_balance < 0 else 0,
 				'closing_credit': closing_balance if closing_balance > 0 else 0
 			}
