@@ -282,11 +282,27 @@ class GoogleSheetsExporter:
                 # Ensure sheet exists
                 self._ensure_sheet_exists(spreadsheet_id, sheet_name)
             
-            # Clear existing data
+            # Get number of columns in data to clear only data range, not the whole sheet
+            num_cols = len(data[0]) if data else 26
+            num_rows = len(data) if data else 1000
+            
+            # Calculate column letter for the last data column
+            def num_to_col_letter(n):
+                """Convert column number to letter (1->A, 27->AA)"""
+                result = ""
+                while n > 0:
+                    n -= 1
+                    result = chr(n % 26 + ord('A')) + result
+                    n //= 26
+                return result
+            
+            last_col = num_to_col_letter(num_cols)
+            
+            # Clear only the data range (not the whole sheet)
             try:
                 self.service.spreadsheets().values().clear(
                     spreadsheetId=spreadsheet_id,
-                    range=f"'{sheet_name}'!A:ZZ"
+                    range=f"'{sheet_name}'!A1:{last_col}{num_rows}"
                 ).execute()
             except HttpError:
                 pass  # Sheet might not exist yet
