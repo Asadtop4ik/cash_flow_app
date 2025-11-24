@@ -944,7 +944,153 @@ def get_my_contracts_by_telegram_id(telegram_id: str):
 
 
 # ============================================================
-# 11. AVTOMATIK ESLATMALAR (SCHEDULED NOTIFICATIONS) - TO'G'RI HISOB-KITOB
+# 11. TO'LOV QABUL QILINGANDA NOTIFICATION YUBORISH
+# ============================================================
+
+def send_payment_notification(doc, method):
+    """
+    Payment Entry submit bo'lganda Telegram ga xabar yuborish.
+
+    Bu funksiya hooks.py da doc_events orqali chaqiriladi:
+
+    doc_events = {
+        "Payment Entry": {
+            "on_submit": "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification"
+        }
+    }
+
+    Args:
+        doc: Payment Entry document
+        method: Hook method nomi ("on_submit")
+    """
+    try:
+        import requests
+
+        # 1. Asosiy ma'lumotlarni olish
+        payment_id = doc.name
+        customer_id = doc.party
+        amount = flt(doc.paid_amount)
+        payment_date = formatdate(doc.posting_date, "dd.MM.yyyy")
+        payment_method = doc.mode_of_payment or "Naqd"
+        contract_id = doc.get("custom_contract_reference") or "—"
+        payment_type = doc.payment_type  # Receive yoki Pay
+
+        # 2. Customer dan Telegram ID olish
+        telegram_id = frappe.db.get_value("Customer", customer_id, "custom_telegram_id")
+
+        if not telegram_id:
+            # Telegram ID yo'q - log qilish va chiqish
+            frappe.log_error(
+                f"Payment {payment_id}: Customer {customer_id} has no telegram_id",
+                "Payment Notification Skipped"
+            )
+            return
+
+        # 3. Bot token olish (Cash Settings dan)
+        bot_webhook_url = frappe.db.get_single_value("Cash Settings", "telegram_bot_webhook_url")
+
+        if not bot_webhook_url:
+            # Webhook URL yo'q - to'g'ridan-to'g'ri Telegram API ga yuborish
+            bot_token = frappe.db.get_single_value("Cash Settings", "telegram_bot_token")
+
+            if not bot_token:
+                frappe.log_error("Telegram bot token yoki webhook URL topilmadi", "Payment Notification Error")
+                return
+
+            # To'g'ridan-to'g'ri Telegram API ga yuborish
+            _send_via_telegram_api(bot_token, telegram_id, doc, payment_type)
+        else:
+            # Bot webhook ga yuborish
+            _send_via_bot_webhook(bot_webhook_url, telegram_id, doc, payment_type)
+
+        frappe.log_error(
+            f"Payment notification sent: {payment_id} -> {telegram_id}",
+            "Payment Notification Success"
+        )
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), f"Payment Notification Error - {doc.name}")
+
+
+def _send_via_telegram_api(bot_token, telegram_id, doc, payment_type):
+    """To'g'ridan-to'g'ri Telegram API ga xabar yuborish"""
+    import requests
+
+    # Xabar matnini tayyorlash
+    if payment_type == "Pay":
+        # Pul qaytarildi
+        message = f"""
+🔄 <b>Pul qaytarildi</b>
+
+📄 Shartnoma: <code>{doc.get("custom_contract_reference") or "—"}</code>
+💵 Summa: <b>{frappe.utils.fmt_money(doc.paid_amount, currency="UZS")}</b>
+🏦 Usul: {doc.mode_of_payment or "Naqd"}
+🧾 ID: <code>{doc.name}</code>
+📅 Sana: {formatdate(doc.posting_date, "dd.MM.yyyy")}
+
+ℹ️ Savollar bo'lsa, murojaat qiling.
+"""
+    else:
+        # To'lov qabul qilindi
+        message = f"""
+💰 <b>To'lov qabul qilindi!</b>
+
+📄 Shartnoma: <code>{doc.get("custom_contract_reference") or "—"}</code>
+💵 Summa: <b>{frappe.utils.fmt_money(doc.paid_amount, currency="UZS")}</b>
+🏦 Usul: {doc.mode_of_payment or "Naqd"}
+🧾 ID: <code>{doc.name}</code>
+📅 Sana: {formatdate(doc.posting_date, "dd.MM.yyyy")}
+
+✅ Rahmat! Keyingi to'lovlar uchun /start bosing.
+"""
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    data = {
+        "chat_id": telegram_id,
+        "text": message.strip(),
+        "parse_mode": "HTML"
+    }
+
+    response = requests.post(url, json=data, timeout=10)
+
+    if response.status_code != 200:
+        frappe.log_error(
+            f"Telegram API error: {response.text}",
+            f"Payment Notification Failed - {doc.name}"
+        )
+
+
+def _send_via_bot_webhook(webhook_url, telegram_id, doc, payment_type):
+    """Bot webhook endpoint ga yuborish"""
+    import requests
+
+    # Bot kutadigan formatda ma'lumot yuborish
+    data = {
+        "name": doc.name,
+        "party": doc.party,
+        "custom_contract_reference": doc.get("custom_contract_reference") or "",
+        "paid_amount": flt(doc.paid_amount),
+        "posting_date": str(doc.posting_date),
+        "mode_of_payment": doc.mode_of_payment or "Naqd",
+        "custom_telegram_id": telegram_id,
+        "payment_type": payment_type
+    }
+
+    # Webhook URL ga POST yuborish
+    if not webhook_url.endswith("/webhook/payment-entry"):
+        webhook_url = webhook_url.rstrip("/") + "/webhook/payment-entry"
+
+    response = requests.post(webhook_url, json=data, timeout=10)
+
+    if response.status_code != 200:
+        frappe.log_error(
+            f"Bot webhook error: {response.text}",
+            f"Payment Notification Failed - {doc.name}"
+        )
+
+
+# ============================================================
+# 12. AVTOMATIK ESLATMALAR (SCHEDULED NOTIFICATIONS) - TO'G'RI HISOB-KITOB
 # ============================================================
 
 def send_payment_reminders():
@@ -968,8 +1114,8 @@ def send_payment_reminders():
         import requests
         from frappe.utils import now_datetime
 
-        # Telegram bot API URL ni config dan olish
-        bot_token = frappe.db.get_single_value("Cash Flow Settings", "telegram_bot_token")
+        # Telegram bot API URL ni config dan olish (Cash Settings dan)
+        bot_token = frappe.db.get_single_value("Cash Settings", "telegram_bot_token")
 
         if not bot_token:
             frappe.log_error("Telegram bot token topilmadi", "Payment Reminder Error")
