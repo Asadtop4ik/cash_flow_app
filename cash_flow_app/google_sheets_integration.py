@@ -750,6 +750,8 @@ def export_all_doctypes_to_sheet(spreadsheet_id=None):
             {'doctype': 'Supplier', 'sheet_name': 'Pastavshiklar'},
             {'doctype': 'Payment Entry', 'sheet_name': 'Kassa Kirim-chiqim'},
             {'doctype': 'Item', 'sheet_name': 'Mahsulotlar'},
+            {'doctype': 'Shareholder', 'sheet_name': 'Shareholder'},
+            {'doctype': 'Employee', 'sheet_name': 'Employee'},
         ]
 
         results = []
