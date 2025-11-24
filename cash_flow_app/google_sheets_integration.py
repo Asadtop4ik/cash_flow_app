@@ -291,11 +291,11 @@ class GoogleSheetsExporter:
             except HttpError:
                 pass  # Sheet might not exist yet
             
-            # Write data
+            # Write data with USER_ENTERED to preserve formulas
             self.service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
                 range=f"'{sheet_name}'!A1",
-                valueInputOption='RAW',
+                valueInputOption='USER_ENTERED',  # Changed from RAW to preserve formulas
                 body={'values': data}
             ).execute()
             
