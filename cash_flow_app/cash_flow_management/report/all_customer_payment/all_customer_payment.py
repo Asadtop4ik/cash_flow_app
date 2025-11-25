@@ -423,31 +423,24 @@ def get_monthly_payment_status(schedule, payments, from_date, to_date):
 	if not sorted_schedule:
 		return data
 
-	# Get date range from schedule
+	# Determine full schedule range
 	all_due_dates = [getdate(s["due_date"]) for s in sorted_schedule]
 	min_due_date = min(all_due_dates)
 	max_due_date = max(all_due_dates)
 
-	# Adjust to filter dates
-	start_date = max(min_due_date, getdate(from_date))
-	end_date = min(max_due_date, getdate(to_date))
-
-	# Sort payments by date
+	# Sort payments by date and compute total paid
 	sorted_payments = sorted(payments, key=lambda x: getdate(x["posting_date"]))
-
-	# Calculate total paid amount
 	total_paid = sum(flt(p["paid_amount"]) for p in sorted_payments)
 
-	# Build list of all months with expected amounts
-	months_list = []
-	current_date = start_date.replace(day=1)
+	# Build full list of months from first scheduled month to last scheduled month
+	months_full = []
+	current_date = min_due_date.replace(day=1)
+	end_full = max_due_date.replace(day=1)
 
-	while current_date <= end_date:
+	while current_date <= end_full:
 		month_start = current_date.replace(day=1)
-		if current_date.month == 12:
-			month_end = current_date.replace(year=current_date.year + 1, month=1, day=1) - timedelta(days=1)
-		else:
-			month_end = current_date.replace(month=current_date.month + 1, day=1) - timedelta(days=1)
+		# month_end: last day of this month
+		month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
 		# Expected amount for this month
 		expected = sum(
@@ -456,34 +449,41 @@ def get_monthly_payment_status(schedule, payments, from_date, to_date):
 			if month_start <= getdate(s["due_date"]) <= month_end
 		)
 
-		if expected > 0:
-			months_list.append({
-				"date": current_date,
-				"month_key": f"month_{current_date.strftime('%Y_%m')}",
-				"expected": expected
-			})
+		months_full.append({
+			"date": month_start,
+			"month_key": f"month_{current_date.strftime('%Y_%m')}",
+			"expected": expected
+		})
 
 		current_date += relativedelta(months=1)
 
-	# Allocate payments sequentially through months
+	# Allocate payments sequentially from the earliest scheduled month
 	remaining_payment = total_paid
-
-	for month_data in months_list:
+	allocation = {}
+	for month_data in months_full:
 		month_key = month_data["month_key"]
 		expected = month_data["expected"]
 
-		if remaining_payment >= expected:
-			# Fully paid
-			data[month_key] = "To'landi"
+		if remaining_payment >= expected and expected > 0:
+			allocation[month_key] = "To'landi"
 			remaining_payment -= expected
-		elif remaining_payment > 0:
+		elif remaining_payment > 0 and expected > 0:
 			# Partially paid - show remaining amount
 			remaining_amount = expected - remaining_payment
-			data[month_key] = f"{remaining_amount:.0f}"
+			allocation[month_key] = f"{remaining_amount:.0f}"
 			remaining_payment = 0
 		else:
-			# Not paid - show full expected amount
-			data[month_key] = f"{expected:.0f}"
+			# Not paid or no expected amount
+			allocation[month_key] = f"{expected:.0f}" if expected > 0 else ""
+
+	# Filter allocation to requested from_date/to_date window
+	start_filter = getdate(from_date).replace(day=1)
+	end_filter = getdate(to_date).replace(day=1)
+
+	for month_data in months_full:
+		if month_data["date"] >= start_filter and month_data["date"] <= end_filter:
+			key = month_data["month_key"]
+			data[key] = allocation.get(key, "")
 
 	return data
 
@@ -498,17 +498,21 @@ def get_daily_payment_status(schedule, payments, from_date, to_date):
 	# Sort schedule by due date
 	sorted_schedule = sorted(schedule, key=lambda x: getdate(x["due_date"]))
 
-	# Sort payments by date
+	# Sort payments by date and calculate total paid
 	sorted_payments = sorted(payments, key=lambda x: getdate(x["posting_date"]))
-
-	# Calculate total paid amount
 	total_paid = sum(flt(p["paid_amount"]) for p in sorted_payments)
 
-	# Build list of all days with expected amounts in date range
-	days_list = []
-	current_date = getdate(from_date)
+	# Determine full schedule date range
+	all_due_dates = [getdate(s["due_date"]) for s in sorted_schedule]
+	min_due_date = min(all_due_dates)
+	max_due_date = max(all_due_dates)
 
-	while current_date <= getdate(to_date):
+	# Build full list of days from min_due_date to max_due_date
+	days_full = []
+	current_date = getdate(min_due_date)
+	end_full = getdate(max_due_date)
+
+	while current_date <= end_full:
 		# Expected amount for this day
 		expected = sum(
 			flt(s["payment_amount"])
@@ -516,32 +520,36 @@ def get_daily_payment_status(schedule, payments, from_date, to_date):
 			if getdate(s["due_date"]) == current_date
 		)
 
-		if expected > 0:
-			days_list.append({
-				"date": current_date,
-				"day_key": f"day_{current_date.strftime('%Y_%m_%d')}",
-				"expected": expected
-			})
+		days_full.append({
+			"date": current_date,
+			"day_key": f"day_{current_date.strftime('%Y_%m_%d')}",
+			"expected": expected
+		})
 
 		current_date += timedelta(days=1)
 
-	# Allocate payments sequentially through days
+	# Allocate payments sequentially from earliest scheduled day
 	remaining_payment = total_paid
-
-	for day_data in days_list:
-		day_key = day_data["day_key"]
+	allocation = {}
+	for day_data in days_full:
+		key = day_data["day_key"]
 		expected = day_data["expected"]
 
-		if remaining_payment >= expected:
-			# Fully paid
-			data[day_key] = "To'landi"
+		if remaining_payment >= expected and expected > 0:
+			allocation[key] = "To'landi"
 			remaining_payment -= expected
-		elif remaining_payment > 0:
-			# Partially paid - show paid/expected format
-			data[day_key] = f"{remaining_payment:.0f}/{expected:.0f}"
+		elif remaining_payment > 0 and expected > 0:
+			allocation[key] = f"{remaining_payment:.0f}/{expected:.0f}"
 			remaining_payment = 0
 		else:
-			# Not paid - show full expected amount
-			data[day_key] = f"{expected:.0f}"
+			allocation[key] = f"{expected:.0f}" if expected > 0 else ""
+
+	# Filter allocation to requested from_date/to_date window
+	start_filter = getdate(from_date)
+	end_filter = getdate(to_date)
+
+	for day_data in days_full:
+		if day_data["date"] >= start_filter and day_data["date"] <= end_filter:
+			data[day_data["day_key"]] = allocation.get(day_data["day_key"], "")
 
 	return data

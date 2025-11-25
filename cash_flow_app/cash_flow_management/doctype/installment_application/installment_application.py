@@ -10,9 +10,13 @@ from frappe.utils import nowdate, getdate
 class InstallmentApplication(Document):
     def validate(self):
         """Validate before save"""
-        # ✅ YANGI: Payment schedule majburiy
+        # ✅ YANGI: Payment schedule majburiy - if missing, try to auto-build
         if not self.payment_schedule or len(self.payment_schedule) == 0:
-            frappe.throw(_('Iltimos, avval "Calculate Payment Schedule" tugmasini bosing!'))
+            # Try to build payment schedule server-side to avoid blocking save
+            try:
+                self.build_payment_schedule()
+            except Exception:
+                frappe.throw(_('Iltimos, avval "Calculate Payment Schedule" tugmasini bosing!'))
 
         self.calculate_totals()
         self.validate_payment_terms()
@@ -330,6 +334,66 @@ class InstallmentApplication(Document):
 
         self.status = "Cancelled"
         print(f"   ✅ InstApp status updated to Cancelled")
+
+    def build_payment_schedule(self):
+        """Build payment_schedule from current fields (server-side fallback)
+
+        This mirrors the client-side `calculate_schedule_button` and
+        `create_sales_order` schedule generation so that saving doesn't
+        fail when the UI schedule wasn't created for some reason.
+        """
+        # Clear existing schedule
+        self.set('payment_schedule', [])
+
+        # Basic validations
+        if not self.custom_start_date and not self.transaction_date:
+            # nothing to build
+            return
+
+        from_date = getdate(self.get('custom_start_date') or self.transaction_date)
+
+        # Downpayment row
+        if flt(self.downpayment_amount) > 0:
+            self.append('payment_schedule', {
+                'due_date': from_date,
+                'payment_amount': flt(self.downpayment_amount),
+                'invoice_portion': (flt(self.downpayment_amount) / flt(self.total_amount)) * 100 if flt(self.total_amount) else 0,
+                'description': "Boshlang'ich to'lov"
+            })
+
+        months = int(flt(self.installment_months) or 0)
+        monthly_payment = flt(self.monthly_payment)
+        payment_day = int(self.custom_monthly_payment_day) if self.custom_monthly_payment_day else getdate(from_date).day
+
+        # Start loop similar to create_sales_order: payments start from next month
+        start_date_obj = getdate(from_date)
+        current_year = start_date_obj.year
+        current_month = start_date_obj.month
+
+        for i in range(1, months + 1):
+            target_month = current_month + i
+            target_year = current_year
+
+            while target_month > 12:
+                target_month -= 12
+                target_year += 1
+
+            from datetime import date
+            from calendar import monthrange
+
+            try:
+                due_date = date(target_year, target_month, payment_day)
+            except ValueError:
+                last_day = monthrange(target_year, target_month)[1]
+                due_date = date(target_year, target_month, last_day)
+
+            self.append('payment_schedule', {
+                'due_date': due_date,
+                'payment_amount': monthly_payment,
+                'invoice_portion': (monthly_payment / flt(self.total_amount)) * 100 if flt(self.total_amount) else 0,
+                'description': f"{i}-oy to'lovi"
+            })
+
 
 
 @frappe.whitelist()
