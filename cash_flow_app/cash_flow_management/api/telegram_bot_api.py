@@ -986,27 +986,16 @@ def send_payment_notification(doc, method):
             )
             return
 
-        # 3. Bot token olish (Cash Settings dan)
-        bot_webhook_url = frappe.db.get_single_value("Cash Settings", "telegram_bot_webhook_url")
+        # 3. Bot token va webhook - HARDCODED (migrate qilmasdan ishlashi uchun)
+        # TODO: Keyinchalik Cash Settings dan olish kerak
+        BOT_TOKEN = "8448405800:AAHmMWsabLpPz3IUl9zRrM3EBGM51MPWixg"
+        WEBHOOK_URL = "https://hypophosphorous-unpetulantly-kaila.ngrok-free.dev"
 
-        if not bot_webhook_url:
-            # Webhook URL yo'q - to'g'ridan-to'g'ri Telegram API ga yuborish
-            bot_token = frappe.db.get_single_value("Cash Settings", "telegram_bot_token")
+        # To'g'ridan-to'g'ri Telegram API ga yuborish
+        success = _send_via_telegram_api(BOT_TOKEN, telegram_id, doc, payment_type)
 
-            if not bot_token:
-                frappe.log_error("Telegram bot token yoki webhook URL topilmadi", "Payment Notification Error")
-                return
-
-            # To'g'ridan-to'g'ri Telegram API ga yuborish
-            _send_via_telegram_api(bot_token, telegram_id, doc, payment_type)
-        else:
-            # Bot webhook ga yuborish
-            _send_via_bot_webhook(bot_webhook_url, telegram_id, doc, payment_type)
-
-        frappe.log_error(
-            f"Payment notification sent: {payment_id} -> {telegram_id}",
-            "Payment Notification Success"
-        )
+        if success:
+            frappe.logger().info(f"✅ Payment notification sent: {payment_id} -> {telegram_id}")
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), f"Payment Notification Error - {doc.name}")
@@ -1023,8 +1012,7 @@ def _send_via_telegram_api(bot_token, telegram_id, doc, payment_type):
 🔄 <b>Pul qaytarildi</b>
 
 📄 Shartnoma: <code>{doc.get("custom_contract_reference") or "—"}</code>
-💵 Summa: <b>{frappe.utils.fmt_money(doc.paid_amount, currency="UZS")}</b>
-🏦 Usul: {doc.mode_of_payment or "Naqd"}
+💵 Summa: <b>${frappe.utils.fmt_money(doc.paid_amount, currency="USD")}</b>
 🧾 ID: <code>{doc.name}</code>
 📅 Sana: {formatdate(doc.posting_date, "dd.MM.yyyy")}
 
@@ -1036,8 +1024,7 @@ def _send_via_telegram_api(bot_token, telegram_id, doc, payment_type):
 💰 <b>To'lov qabul qilindi!</b>
 
 📄 Shartnoma: <code>{doc.get("custom_contract_reference") or "—"}</code>
-💵 Summa: <b>{frappe.utils.fmt_money(doc.paid_amount, currency="UZS")}</b>
-🏦 Usul: {doc.mode_of_payment or "Naqd"}
+💵 Summa: <b>${frappe.utils.fmt_money(doc.paid_amount, currency="USD")}</b>
 🧾 ID: <code>{doc.name}</code>
 📅 Sana: {formatdate(doc.posting_date, "dd.MM.yyyy")}
 
@@ -1054,10 +1041,11 @@ def _send_via_telegram_api(bot_token, telegram_id, doc, payment_type):
     response = requests.post(url, json=data, timeout=10)
 
     if response.status_code != 200:
-        frappe.log_error(
-            f"Telegram API error: {response.text}",
-            f"Payment Notification Failed - {doc.name}"
-        )
+        error_msg = f"Telegram API error: {response.text}"
+        frappe.log_error(error_msg, f"Payment Notification Failed - {doc.name}")
+        raise Exception(error_msg)
+
+    return True
 
 
 def _send_via_bot_webhook(webhook_url, telegram_id, doc, payment_type):
@@ -1274,8 +1262,8 @@ def _format_reminder_message(payment, template, days):
 ━━━━━━━━━━━━━━━━━━━━
 <b>📄 Shartnoma:</b> {payment.contract_id}
 <b>📅 To'lov sanasi:</b> {formatdate(payment.due_date, "dd.MM.yyyy")}
-<b>💰 To'lov summasi:</b> {frappe.utils.fmt_money(payment.payment_amount, currency="UZS")}
-<b>📊 Qoldiq:</b> {frappe.utils.fmt_money(payment.outstanding, currency="UZS")}
+<b>💰 To'lov summasi:</b> ${frappe.utils.fmt_money(payment.payment_amount, currency="USD")}
+<b>📊 Qoldiq:</b> ${frappe.utils.fmt_money(payment.outstanding, currency="USD")}
 <b>🔢 To'lov №:</b> {payment.idx - 1}
 ━━━━━━━━━━━━━━━━━━━━
 
