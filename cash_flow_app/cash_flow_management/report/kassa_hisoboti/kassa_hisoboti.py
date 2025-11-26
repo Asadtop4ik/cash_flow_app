@@ -133,7 +133,12 @@ def get_data(filters):
 						ELSE pe.paid_to
 					END
 				ELSE pe.paid_to
-			END AS cash_account
+			END AS cash_account,
+
+			pe.paid_from,
+			pe.paid_to,
+			pe.paid_amount,
+			pe.received_amount
 
 		FROM `tabPayment Entry` pe
 		WHERE pe.docstatus = 1
@@ -145,7 +150,35 @@ def get_data(filters):
 	if not query_filters.get('cash_account'):
 		query_filters['cash_account'] = ''
 
-	return frappe.db.sql(query, query_filters, as_dict=1)
+	data = frappe.db.sql(query, query_filters, as_dict=1)
+
+	# Agar cash_account filtri bo'sh bo'lsa, Internal Transfer lar uchun
+	# ikkita alohida qator yaratish kerak
+	if not cash_account:
+		expanded_data = []
+		for row in data:
+			if row.get('payment_type') == 'Internal Transfer':
+				# 1. Paid From uchun qator (chiqim)
+				from_row = row.copy()
+				from_row['party'] = f"To: {row.get('paid_to')}"
+				from_row['debit'] = row.get('paid_amount', 0)
+				from_row['credit'] = 0
+				from_row['cash_account'] = row.get('paid_from')
+				expanded_data.append(from_row)
+
+				# 2. Paid To uchun qator (kirim)
+				to_row = row.copy()
+				to_row['party'] = f"From: {row.get('paid_from')}"
+				to_row['debit'] = 0
+				to_row['credit'] = row.get('received_amount', 0)
+				to_row['cash_account'] = row.get('paid_to')
+				expanded_data.append(to_row)
+			else:
+				expanded_data.append(row)
+
+		return expanded_data
+
+	return data
 
 
 # ============================================================
@@ -242,20 +275,39 @@ def get_opening_balance(from_date, cash_account=None):
 		return 0.0
 
 	conditions = ["pe.docstatus = 1"]
-	params = {"from_date": from_date}
+	params = {"from_date": from_date, "cash_account": cash_account}
 
 	conditions.append("pe.posting_date < %(from_date)s")
 
 	if cash_account:
 		conditions.append("(pe.paid_from = %(cash_account)s OR pe.paid_to = %(cash_account)s)")
-		params["cash_account"] = cash_account
 
 	where_clause = " AND ".join(conditions)
 
+	# Internal Transfer logic faqat cash_account berilgan bo'lsa ishlaydi
+	if cash_account:
+		internal_transfer_receive = "WHEN pe.payment_type = 'Internal Transfer' AND pe.paid_to = %(cash_account)s THEN pe.received_amount"
+		internal_transfer_pay = "WHEN pe.payment_type = 'Internal Transfer' AND pe.paid_from = %(cash_account)s THEN pe.paid_amount"
+	else:
+		internal_transfer_receive = ""
+		internal_transfer_pay = ""
+
 	query = f"""
 		SELECT
-			COALESCE(SUM(CASE WHEN pe.payment_type = 'Receive' THEN pe.paid_amount ELSE 0 END), 0) as total_receive,
-			COALESCE(SUM(CASE WHEN pe.payment_type = 'Pay' THEN pe.paid_amount ELSE 0 END), 0) as total_pay
+			COALESCE(SUM(
+				CASE
+					WHEN pe.payment_type = 'Receive' THEN pe.paid_amount
+					{internal_transfer_receive}
+					ELSE 0
+				END
+			), 0) as total_receive,
+			COALESCE(SUM(
+				CASE
+					WHEN pe.payment_type = 'Pay' THEN pe.paid_amount
+					{internal_transfer_pay}
+					ELSE 0
+				END
+			), 0) as total_pay
 		FROM `tabPayment Entry` pe
 		WHERE {where_clause}
 	"""
@@ -281,20 +333,39 @@ def get_net_balance(to_date, cash_account=None):
 		return 0.0
 
 	conditions = ["pe.docstatus = 1"]
-	params = {"to_date": to_date}
+	params = {"to_date": to_date, "cash_account": cash_account}
 
 	conditions.append("pe.posting_date <= %(to_date)s")
 
 	if cash_account:
 		conditions.append("(pe.paid_from = %(cash_account)s OR pe.paid_to = %(cash_account)s)")
-		params["cash_account"] = cash_account
 
 	where_clause = " AND ".join(conditions)
 
+	# Internal Transfer logic faqat cash_account berilgan bo'lsa ishlaydi
+	if cash_account:
+		internal_transfer_receive = "WHEN pe.payment_type = 'Internal Transfer' AND pe.paid_to = %(cash_account)s THEN pe.received_amount"
+		internal_transfer_pay = "WHEN pe.payment_type = 'Internal Transfer' AND pe.paid_from = %(cash_account)s THEN pe.paid_amount"
+	else:
+		internal_transfer_receive = ""
+		internal_transfer_pay = ""
+
 	query = f"""
 		SELECT
-			COALESCE(SUM(CASE WHEN pe.payment_type = 'Receive' THEN pe.paid_amount ELSE 0 END), 0) as total_receive,
-			COALESCE(SUM(CASE WHEN pe.payment_type = 'Pay' THEN pe.paid_amount ELSE 0 END), 0) as total_pay
+			COALESCE(SUM(
+				CASE
+					WHEN pe.payment_type = 'Receive' THEN pe.paid_amount
+					{internal_transfer_receive}
+					ELSE 0
+				END
+			), 0) as total_receive,
+			COALESCE(SUM(
+				CASE
+					WHEN pe.payment_type = 'Pay' THEN pe.paid_amount
+					{internal_transfer_pay}
+					ELSE 0
+				END
+			), 0) as total_pay
 		FROM `tabPayment Entry` pe
 		WHERE {where_clause}
 	"""
