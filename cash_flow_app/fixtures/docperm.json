@@ -182,7 +182,7 @@
   "role": "Operator",
   "select": 1,
   "share": 1,
-  "submit": 1,
+  "submit": 0,
   "write": 1
  },
  {
