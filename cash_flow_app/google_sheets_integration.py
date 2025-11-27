@@ -670,6 +670,20 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
                 else:
                     readable_status = 'Unknown'
 
+                # Calculate item's proportional interest
+                item_amount = item.get('amount') or 0
+                total_amount = app.get('total_amount') or 0
+                total_interest = app.get('custom_total_interest') or 0
+
+                # Proporsional foiz: (item_amount / total_amount) × total_interest
+                if total_amount > 0:
+                    item_interest = (item_amount / total_amount) * total_interest
+                else:
+                    item_interest = 0
+
+                # Item foiz bilan: item_amount + item_interest
+                item_with_interest = item_amount + item_interest
+
                 row = {
                     'shartnoma_raqami': app.get('name'),
                     'mijoz': app.get('customer_name') or app.get('customer'),
@@ -682,11 +696,13 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
                     'imei': item.get('imei') or '',
                     'soni': item.get('qty') or 0,
                     'tan_narxi_usd': item.get('rate') or 0,
-                    'item_jami_usd': item.get('amount') or 0,
+                    'item_jami_usd': item_amount,
+                    'item_foizi_usd': item_interest,
+                    'item_foiz_bilan_usd': item_with_interest,
                     'pastavshik': supplier_name,
 
                     # Payment info
-                    'jami_summa_usd': app.get('total_amount') or 0,
+                    'jami_summa_usd': total_amount,
                     'boshlangich_tolov_usd': app.get('downpayment_amount') or 0,
                     'qolgan_summa_usd': app.get('finance_amount') or 0,
                     'oylik_tolov_usd': app.get('monthly_payment') or 0,
@@ -694,7 +710,7 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
                     'birinchi_tolov_sanasi': str(app.get('custom_start_date') or ''),
 
                     # Profit info
-                    'foyda_summasi_usd': app.get('custom_total_interest') or 0,
+                    'foyda_summasi_usd': total_interest,
                     'marja_foiz': app.get('custom_profit_percentage') or 0,
                     'ustama_foiz': app.get('custom_finance_profit_percentage') or 0,
                     'jami_tolov_usd': app.get('custom_grand_total_with_interest') or 0,
