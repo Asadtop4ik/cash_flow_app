@@ -951,6 +951,11 @@ def send_payment_notification(doc, method):
     """
     Payment Entry submit bo'lganda Telegram ga xabar yuborish.
 
+    ✅ PRODUCTION VERSION:
+    - Dynamic bot token (Cash Settings dan)
+    - Proper error handling
+    - Detailed logging (server log uchun)
+
     Bu funksiya hooks.py da doc_events orqali chaqiriladi:
 
     doc_events = {
@@ -966,86 +971,177 @@ def send_payment_notification(doc, method):
     try:
         import requests
 
-        # 1. Asosiy ma'lumotlarni olish
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # 1. ASOSIY MA'LUMOTLARNI OLISH
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         payment_id = doc.name
         customer_id = doc.party
-        amount = flt(doc.paid_amount)
-        payment_date = formatdate(doc.posting_date, "dd.MM.yyyy")
-        payment_method = doc.mode_of_payment or "Naqd"
-        contract_id = doc.get("custom_contract_reference") or "—"
-        payment_type = doc.payment_type  # Receive yoki Pay
+        payment_type = doc.payment_type
 
-        # 2. Customer dan Telegram ID olish
+        frappe.logger().info(
+            f"🔵 [PAYMENT-NOTIF] Starting: {payment_id} | "
+            f"Customer: {customer_id} | Type: {payment_type}"
+        )
+
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # 2. CUSTOMER DAN TELEGRAM ID OLISH
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         telegram_id = frappe.db.get_value("Customer", customer_id, "custom_telegram_id")
 
         if not telegram_id:
-            # Telegram ID yo'q - log qilish va chiqish
+            frappe.logger().warning(
+                f"⚠️ [PAYMENT-NOTIF] Skipped: {payment_id} | "
+                f"Customer {customer_id} has no telegram_id"
+            )
             frappe.log_error(
                 f"Payment {payment_id}: Customer {customer_id} has no telegram_id",
                 "Payment Notification Skipped"
             )
             return
 
-        # 3. Bot token va webhook - HARDCODED (migrate qilmasdan ishlashi uchun)
-        # TODO: Keyinchalik Cash Settings dan olish kerak
-        BOT_TOKEN = "8448405800:AAHmMWsabLpPz3IUl9zRrM3EBGM51MPWixg"
-        WEBHOOK_URL = "https://hypophosphorous-unpetulantly-kaila.ngrok-free.dev"
+        frappe.logger().info(f"   [PAYMENT-NOTIF] Telegram ID found: {telegram_id}")
 
-        # To'g'ridan-to'g'ri Telegram API ga yuborish
-        success = _send_via_telegram_api(BOT_TOKEN, telegram_id, doc, payment_type)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # 3. BOT TOKEN NI CASH SETTINGS DAN OLISH (DYNAMIC!)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        bot_token = frappe.db.get_single_value("Cash Settings", "telegram_bot_token")
+
+        if not bot_token:
+            frappe.logger().error(
+                f"❌ [PAYMENT-NOTIF] Failed: {payment_id} | "
+                f"Bot token not configured in Cash Settings"
+            )
+            frappe.log_error(
+                f"Payment {payment_id}: Telegram Bot Token not found in Cash Settings\n"
+                f"Action: Set 'telegram_bot_token' in Cash Settings",
+                "Payment Notification Error"
+            )
+            return
+
+        frappe.logger().info(f"   [PAYMENT-NOTIF] Bot token loaded from Cash Settings")
+
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # 4. TELEGRAM GA YUBORISH
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        success = _send_via_telegram_api(bot_token, telegram_id, doc, payment_type)
 
         if success:
-            frappe.logger().info(f"✅ Payment notification sent: {payment_id} -> {telegram_id}")
+            frappe.logger().info(
+                f"✅ [PAYMENT-NOTIF] Success: {payment_id} -> {telegram_id} | "
+                f"Amount: {doc.paid_amount} | Contract: {doc.get('custom_contract_reference')}"
+            )
+        else:
+            frappe.logger().error(
+                f"❌ [PAYMENT-NOTIF] Failed: {payment_id} -> {telegram_id} | "
+                f"See error log for details"
+            )
 
     except Exception as e:
-        frappe.log_error(frappe.get_traceback(), f"Payment Notification Error - {doc.name}")
+        frappe.logger().error(
+            f"❌ [PAYMENT-NOTIF] Exception: {payment_id} | Error: {str(e)}"
+        )
+        frappe.log_error(
+            frappe.get_traceback(),
+            f"Payment Notification Unexpected Error - {doc.name}"
+        )
 
 
 def _send_via_telegram_api(bot_token, telegram_id, doc, payment_type):
-    """To'g'ridan-to'g'ri Telegram API ga xabar yuborish"""
+    """
+    To'g'ridan-to'g'ri Telegram API ga xabar yuborish (SERVER VERSION).
+
+    Args:
+        bot_token: Telegram bot token (Cash Settings dan)
+        telegram_id: Customer ning Telegram chat ID
+        doc: Payment Entry document
+        payment_type: "Receive" yoki "Pay"
+
+    Returns:
+        bool: Success = True, Failed = False
+    """
     import requests
 
-    # Xabar matnini tayyorlash
-    if payment_type == "Pay":
-        # Pul qaytarildi
-        message = f"""
-🔄 <b>Pul qaytarildi</b>
+    try:
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # XABAR MATNINI TAYYORLASH
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        if payment_type == "Pay":
+            # Pul qaytarildi
+            message = f"""🔄 <b>Pul qaytarildi</b>
 
 📄 Shartnoma: <code>{doc.get("custom_contract_reference") or "—"}</code>
 💵 Summa: <b>${frappe.utils.fmt_money(doc.paid_amount, currency="USD")}</b>
 🧾 ID: <code>{doc.name}</code>
 📅 Sana: {formatdate(doc.posting_date, "dd.MM.yyyy")}
 
-ℹ️ Savollar bo'lsa, murojaat qiling.
-"""
-    else:
-        # To'lov qabul qilindi
-        message = f"""
-💰 <b>To'lov qabul qilindi!</b>
+ℹ️ Savollar bo'lsa, murojaat qiling."""
+        else:
+            # To'lov qabul qilindi
+            message = f"""💰 <b>To'lov qabul qilindi!</b>
 
 📄 Shartnoma: <code>{doc.get("custom_contract_reference") or "—"}</code>
 💵 Summa: <b>${frappe.utils.fmt_money(doc.paid_amount, currency="USD")}</b>
+🏦 Usul: {doc.mode_of_payment or "Naqd"}
 🧾 ID: <code>{doc.name}</code>
 📅 Sana: {formatdate(doc.posting_date, "dd.MM.yyyy")}
 
-✅ Rahmat! Keyingi to'lovlar uchun /start bosing.
-"""
+✅ Rahmat! Keyingi to'lovlar uchun /start bosing."""
 
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    data = {
-        "chat_id": telegram_id,
-        "text": message.strip(),
-        "parse_mode": "HTML"
-    }
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # TELEGRAM API GA POST YUBORISH
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        data = {
+            "chat_id": telegram_id,
+            "text": message.strip(),
+            "parse_mode": "HTML"
+        }
 
-    response = requests.post(url, json=data, timeout=10)
+        frappe.logger().info(f"   [TELEGRAM-API] Sending to {telegram_id}...")
 
-    if response.status_code != 200:
-        error_msg = f"Telegram API error: {response.text}"
-        frappe.log_error(error_msg, f"Payment Notification Failed - {doc.name}")
-        raise Exception(error_msg)
+        response = requests.post(url, json=data, timeout=10)
 
-    return True
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # RESPONSE TEKSHIRISH
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        if response.status_code != 200:
+            error_msg = (
+                f"Telegram API error:\n"
+                f"Status: {response.status_code}\n"
+                f"Response: {response.text}\n"
+                f"Chat ID: {telegram_id}\n"
+                f"Payment: {doc.name}"
+            )
+            frappe.log_error(error_msg, f"Telegram API Error - {doc.name}")
+            frappe.logger().error(f"   [TELEGRAM-API] Error: {response.status_code}")
+            return False
+
+        frappe.logger().info(f"   [TELEGRAM-API] Success: {response.status_code}")
+        return True
+
+    except requests.exceptions.Timeout:
+        frappe.log_error(
+            f"Telegram API timeout (>10s)\nChat ID: {telegram_id}\nPayment: {doc.name}",
+            f"Telegram API Timeout - {doc.name}"
+        )
+        frappe.logger().error(f"   [TELEGRAM-API] Timeout")
+        return False
+
+    except requests.exceptions.RequestException as e:
+        frappe.log_error(
+            f"Telegram API network error: {str(e)}\nChat ID: {telegram_id}\nPayment: {doc.name}",
+            f"Telegram API Network Error - {doc.name}"
+        )
+        frappe.logger().error(f"   [TELEGRAM-API] Network error: {str(e)}")
+        return False
+
+    except Exception as e:
+        frappe.log_error(
+            frappe.get_traceback(),
+            f"Telegram API Unexpected Error - {doc.name}"
+        )
+        frappe.logger().error(f"   [TELEGRAM-API] Unexpected error: {str(e)}")
+        return False
 
 
 def _send_via_bot_webhook(webhook_url, telegram_id, doc, payment_type):
