@@ -285,14 +285,6 @@ fixtures = [
 	},
 
 	# ============================================
-	# 6. CASH SETTINGS - DOCTYPE ✅
-	# ============================================
-	{
-		"dt": "DocType",
-		"filters": [["name", "=", "Cash Settings"]]
-	}
-
-	# ============================================
 	# NOTE: Following fixtures removed - now created dynamically
 	# See: cash_flow_app.utils.setup_accounts.setup_cash_accounts
 	# - Account (Cash - B and hierarchy)
