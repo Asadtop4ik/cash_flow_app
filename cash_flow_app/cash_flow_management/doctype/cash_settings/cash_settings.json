@@ -1,106 +1,23 @@
 {
  "actions": [],
- "creation": "2025-10-12 10:30:00.000000",
+ "creation": "2025-11-27 05:00:00.000000",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "company",
-  "section_break_accounts",
-  "default_cash_account",
-  "default_cost_center",
-  "column_break_5",
-  "default_letter_head",
-  "default_income_account",
-  "section_break_series",
-  "cin_series",
-  "cout_series",
-  "section_break_telegram",
-  "telegram_bot_token",
-  "telegram_bot_webhook_url"
+  "telegram_bot_token"
  ],
  "fields": [
   {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company",
-   "reqd": 1
-  },
-  {
-   "fieldname": "section_break_accounts",
-   "fieldtype": "Section Break",
-   "label": "Default Accounts"
-  },
-  {
-   "fieldname": "default_cash_account",
-   "fieldtype": "Link",
-   "label": "Default Cash Account",
-   "options": "Account",
-   "reqd": 1
-  },
-  {
-   "fieldname": "default_cost_center",
-   "fieldtype": "Link",
-   "label": "Default Cost Center",
-   "options": "Cost Center",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_5",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "default_letter_head",
-   "fieldtype": "Link",
-   "label": "Default Letter Head",
-   "options": "Letter Head"
-  },
-  {
-   "fieldname": "default_income_account",
-   "fieldtype": "Link",
-   "label": "Default Income Account",
-   "options": "Account"
-  },
-  {
-   "fieldname": "section_break_series",
-   "fieldtype": "Section Break",
-   "label": "Number Series"
-  },
-  {
-   "default": "CIN-.YYYY.-.#####",
-   "fieldname": "cin_series",
-   "fieldtype": "Data",
-   "label": "Cash IN Series"
-  },
-  {
-   "default": "COUT-.YYYY.-.#####",
-   "fieldname": "cout_series",
-   "fieldtype": "Data",
-   "label": "Cash OUT Series"
-  },
-  {
-   "fieldname": "section_break_telegram",
-   "fieldtype": "Section Break",
-   "label": "Telegram Bot Settings"
-  },
-  {
    "fieldname": "telegram_bot_token",
-   "fieldtype": "Password",
-   "label": "Telegram Bot Token",
-   "description": "Telegram bot token (@BotFather dan olinadi)"
-  },
-  {
-   "fieldname": "telegram_bot_webhook_url",
    "fieldtype": "Data",
-   "label": "Telegram Bot Webhook URL",
-   "description": "Bot webhook URL (masalan: https://your-bot.com)"
+   "label": "Telegram Bot Token"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-10-12 10:30:00.000000",
+ "modified": "2025-11-27 05:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Flow Management",
  "name": "Cash Settings",
@@ -108,20 +25,13 @@
  "permissions": [
   {
    "create": 1,
-   "email": 1,
-   "print": 1,
+   "delete": 1,
    "read": 1,
    "role": "System Manager",
-   "share": 1,
    "write": 1
-  },
-  {
-   "read": 1,
-   "role": "Operator"
   }
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+ "states": []
 }
