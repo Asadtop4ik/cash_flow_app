@@ -120,85 +120,98 @@ jobs:
         if: steps.check_deploy.outputs.deployment_exists == 'true'
         run: |
           echo "🔄 Updating existing deployment..."
-          
+
           # Extract app name from repository
           APP_NAME=$(basename ${{ github.repository }})
           echo "📦 App name: ${APP_NAME}"
-          
+
           # ============================================
-          # CRITICAL FIX: Pass SITE_NAME as variable
-          # Problem: Single-quote heredoc 'FRAPPE_EOF' 
-          # prevents GitHub Actions variable interpolation
-          # Solution: Pass as env var to SSH session
+          # CRITICAL FIX: Proper variable passing and error handling
+          # Solution: Pass variables correctly and use trap for cleanup
           # ============================================
-          
-          ssh root@${{ secrets.SERVER_IP }} << ENDSSH
-            # Extract app name from repository for this SSH session
-            APP_NAME=\$(basename "${{ github.repository }}")
-            
-            # Pass environment variables to frappe user
-            # Using double-quote heredoc to expand variables
-            su - frappe << 'FRAPPE_EOF'
-          # Set environment variables inside frappe shell
-          export SITE_NAME="${{ secrets.SITE_NAME }}"
-          export BENCH_PATH="${{ env.BENCH_PATH }}"
-          export APP_NAME="\$(basename "${{ github.repository }}")"
-          
-          set -e
-          cd \${BENCH_PATH}
-          
+
+          ssh root@${{ secrets.SERVER_IP }} bash << 'ENDSSH'
+            # Set variables in root shell
+            SITE_NAME="${{ secrets.SITE_NAME }}"
+            BENCH_PATH="${{ env.BENCH_PATH }}"
+            APP_NAME="$(basename "${{ github.repository }}")"
+            BRANCH_NAME="${{ github.ref_name }}"
+
+            echo "🔧 Deployment variables:"
+            echo "  Site: $SITE_NAME"
+            echo "  Bench: $BENCH_PATH"
+            echo "  App: $APP_NAME"
+            echo "  Branch: $BRANCH_NAME"
+
+            # Run commands as frappe user
+            su - frappe bash << EOF
+          # Inherit variables from parent
+          export SITE_NAME="$SITE_NAME"
+          export BENCH_PATH="$BENCH_PATH"
+          export APP_NAME="$APP_NAME"
+          export BRANCH_NAME="$BRANCH_NAME"
+
+          cd \$BENCH_PATH
+
+          # ============================================
+          # CRITICAL: Setup trap to ALWAYS disable maintenance mode
+          # This ensures maintenance mode is off even if script fails
+          # ============================================
+          cleanup() {
+            echo "🧹 Cleanup: Disabling maintenance mode..."
+            bench --site \$SITE_NAME set-maintenance-mode off || true
+          }
+          trap cleanup EXIT
+
           # Enable maintenance mode
           echo "🔧 Enabling maintenance mode..."
-          bench --site \${SITE_NAME} set-maintenance-mode on || true
-          
+          bench --site \$SITE_NAME set-maintenance-mode on || true
+
           # Pull latest code - Auto-detect remote name
-          echo "📥 Pulling latest code for \${APP_NAME}..."
-          cd apps/\${APP_NAME}
-          
+          echo "📥 Pulling latest code for \$APP_NAME..."
+          cd apps/\$APP_NAME
+
           # Detect remote name (origin or upstream)
           REMOTE_NAME=\$(git remote | head -1)
-          echo "🔗 Using remote: \${REMOTE_NAME}"
-          
+          echo "🔗 Using remote: \$REMOTE_NAME"
+
           # Pull latest changes
-          git fetch \${REMOTE_NAME}
-          git reset --hard \${REMOTE_NAME}/${{ github.ref_name }}
-          
+          git fetch \$REMOTE_NAME
+          git reset --hard \$REMOTE_NAME/\$BRANCH_NAME
+
           echo "✅ Code updated to latest commit:"
           git log -1 --oneline
-          
-          cd \${BENCH_PATH}
-          
+
+          cd \$BENCH_PATH
+
           # Install dependencies
           echo "📦 Installing Python dependencies..."
           bench setup requirements || true
-          
+
           # ============================================
           # CRITICAL: Run migrations to apply fixtures
           # ============================================
           echo "🗄️  Running database migrations..."
-          bench --site \${SITE_NAME} migrate
-          
+          bench --site \$SITE_NAME migrate
+
           # Build assets
           echo "🎨 Building frontend assets..."
-          bench build --app \${APP_NAME}
-          
+          bench build --app \$APP_NAME
+
           # Clear cache (ALWAYS after migrate!)
           echo "🧹 Clearing cache..."
-          bench --site \${SITE_NAME} clear-cache
-          bench --site \${SITE_NAME} clear-website-cache
-          
-          # Disable maintenance mode
-          echo "✅ Disabling maintenance mode..."
-          bench --site \${SITE_NAME} set-maintenance-mode off
-          
+          bench --site \$SITE_NAME clear-cache
+          bench --site \$SITE_NAME clear-website-cache
+
           echo "✅ Frappe user tasks completed!"
-          FRAPPE_EOF
-          
+          # trap will automatically disable maintenance mode on exit
+          EOF
+
           # Restart services (as root)
           echo "🔄 Restarting services..."
           supervisorctl restart all
           systemctl reload nginx || true
-          
+
           echo "✅ Deployment updated successfully!"
           ENDSSH
 
