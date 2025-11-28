@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-cash_flow_app/cash_flow_management/api/telegram_bot_api.py
-Telegram Bot uchun 100% ishlaydigan, sinovdan o'tgan versiya
-2025-yil noyabr – oxirgi to'g'rilangan
-"""
-
 import frappe
 from frappe.utils import flt, formatdate, today, add_days, nowdate, cstr
 
@@ -1081,7 +1074,6 @@ def _send_via_telegram_api(bot_token, telegram_id, doc, payment_type):
 
 📄 Shartnoma: <code>{doc.get("custom_contract_reference") or "—"}</code>
 💵 Summa: <b>${frappe.utils.fmt_money(doc.paid_amount, currency="USD")}</b>
-🏦 Usul: {doc.mode_of_payment or "Naqd"}
 🧾 ID: <code>{doc.name}</code>
 📅 Sana: {formatdate(doc.posting_date, "dd.MM.yyyy")}
 
