@@ -686,7 +686,7 @@ def export_installment_application(spreadsheet_id=None, sheet_name='Shartnoma', 
 
                 row = {
                     'shartnoma_raqami': app.get('name'),
-                    'mijoz': app.get('customer_name') or app.get('customer'),
+                    'mijoz': app.get('customer'),
                     'sana': str(app.get('transaction_date') or ''),
                     'status': readable_status,
 
