@@ -2,6 +2,30 @@
 // For license information, please see license.txt
 
 frappe.query_reports["All Customer Payment"] = {
+    "onload": function(report) {
+        // Klient Nomi ustunini sticky qilish (2-ustun - customer_name)
+        setTimeout(() => {
+            const style = document.createElement('style');
+            style.textContent = `
+                .dt-scrollable .dt-cell[data-col-index="2"] {
+                    position: sticky !important;
+                    left: 0 !important;
+                    background-color: var(--bg-color) !important;
+                    z-index: 10 !important;
+                    box-shadow: 2px 0 5px rgba(0,0,0,0.1) !important;
+                }
+                .dt-scrollable .dt-cell--header[data-col-index="2"] {
+                    position: sticky !important;
+                    left: 0 !important;
+                    background-color: var(--bg-color) !important;
+                    z-index: 11 !important;
+                    box-shadow: 2px 0 5px rgba(0,0,0,0.1) !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }, 500);
+    },
+
     "filters": [
        {
           "fieldname": "from_date",
