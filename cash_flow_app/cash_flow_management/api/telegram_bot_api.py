@@ -1495,11 +1495,6 @@ def get_customers_needing_reminders(days: int = 3):
             "message": "Server xatosi"
         }
 
-
-# ============================================================
-# 13. BOT UCHUN BARCHA QARZDORLIKLAR (YANGI FUNKSIYA)
-# ============================================================
-
 @frappe.whitelist(allow_guest=True)
 def get_all_active_due_payments():
 	"""
