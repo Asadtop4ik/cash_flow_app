@@ -1496,3 +1496,97 @@ def get_customers_needing_reminders(days: int = 3):
         }
 
 
+# ============================================================
+# 13. BOT UCHUN BARCHA QARZDORLIKLAR (YANGI FUNKSIYA)
+# ============================================================
+
+@frappe.whitelist(allow_guest=True)
+def get_all_active_due_payments():
+	"""
+	Bot uchun maxsus: Barcha aktiv shartnomalarning navbatdagi to'lovini hisoblab qaytaradi.
+	Bot bu funksiyani har soatda chaqiradi va kerakli xabarni yuboradi.
+	"""
+	try:
+		# 1. Telegram ID si bor customerlarning aktiv shartnomalarini olamiz
+		contracts = frappe.db.sql("""
+            SELECT
+                so.name,
+                so.customer,
+                so.transaction_date,
+                c.customer_name,
+                c.custom_telegram_id
+            FROM `tabSales Order` so
+            JOIN `tabCustomer` c ON c.name = so.customer
+            WHERE so.docstatus = 1
+              AND so.status != 'Cancelled'
+              AND c.custom_telegram_id IS NOT NULL
+              AND c.custom_telegram_id != ''
+        """, as_dict=True)
+
+		due_payments = []
+
+		for contract in contracts:
+			contract_id = contract.name
+
+			# 2. To'lov jadvalini olamiz
+			schedule_rows = frappe.db.sql("""
+                SELECT idx, due_date, payment_amount
+                FROM `tabPayment Schedule`
+                WHERE parent = %s ORDER BY idx
+            """, contract_id, as_dict=True)
+
+			if not schedule_rows:
+				continue
+
+			# 3. Jami to'langan summani aniqlaymiz
+			total_paid_result = frappe.db.sql("""
+                SELECT COALESCE(
+                    SUM(CASE WHEN payment_type = 'Receive' THEN paid_amount ELSE -paid_amount END),
+                    0
+                ) as total_paid
+                FROM `tabPayment Entry`
+                WHERE custom_contract_reference = %s
+                  AND docstatus = 1
+                  AND payment_type IN ('Receive', 'Pay')
+            """, contract_id)
+
+			total_paid = flt(total_paid_result[0][0]) if total_paid_result else 0
+
+			# 4. Navbatdagi to'lanmagan oyni topamiz
+			remaining_payment = total_paid
+
+			next_payment_date = None
+			next_payment_amount = 0
+
+			for row in schedule_rows:
+				month_amount = flt(row.payment_amount)
+
+				if remaining_payment >= month_amount:
+					# Bu oy to'liq to'langan, keyingisiga o'tamiz
+					remaining_payment -= month_amount
+				else:
+					# Mana shu oy to'lanmagan yoki qisman to'langan
+					outstanding = month_amount - remaining_payment
+
+					# Agar qoldiq juda kichik bo'lsa (tiyinlar), hisobga olmaymiz
+					if outstanding > 1:
+						next_payment_date = row.due_date
+						next_payment_amount = outstanding
+						break  # Birinchi qarzdorlikni topdik, tsiklni to'xtatamiz
+
+			# Agar qarzdorlik topilgan bo'lsa, ro'yxatga qo'shamiz
+			if next_payment_date:
+				due_payments.append({
+					"name": contract.name,  # Shartnoma raqami
+					"customer": contract.customer,
+					"customer_name": contract.customer_name,
+					"custom_telegram_id": contract.custom_telegram_id,
+					"next_payment_date": str(next_payment_date),  # YYYY-MM-DD format
+					"next_payment_amount": next_payment_amount
+				})
+
+		return {"data": due_payments}
+
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Bot Get All Due Payments Error")
+		return {"data": []}
