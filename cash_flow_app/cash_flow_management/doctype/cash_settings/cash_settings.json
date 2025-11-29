@@ -16,8 +16,7 @@
   "cin_series",
   "cout_series",
   "section_break_telegram",
-  "telegram_bot_token",
-  "telegram_bot_webhook_url"
+  "telegram_bot_token"
  ],
  "fields": [
   {
