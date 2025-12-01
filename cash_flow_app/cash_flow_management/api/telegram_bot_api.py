@@ -957,7 +957,6 @@ def send_payment_cancel_notification(doc, method):
 def _process_payment_notification(doc, action):
 	"""
 	Umumiy logika: Tokenni olish, Customerni topish va yuborish.
-	Bu funksiya Submit va Cancel uchun umumiy markaz vazifasini bajaradi.
 	"""
 	try:
 		import requests
@@ -973,12 +972,9 @@ def _process_payment_notification(doc, action):
 		frappe.logger().info(
 			f"🔵 [NOTIF-START] ID: {payment_id} | Action: {action} | Type: {payment_type}")
 
-		# 2. Telegram ID ni olish (Aqlli qidiruv)
-		# Oldingi muammoni oldini olish uchun ikkala ehtimoliy nomni tekshiramiz
-		tg_id_1 = frappe.db.get_value("Customer", customer_id, "custom_telegram_id")
-		tg_id_2 = frappe.db.get_value("Customer", customer_id, "custom_telegram_chat_id")
-
-		telegram_id = tg_id_1 or tg_id_2
+		# 2. Telegram ID ni olish (TUZATILDI)
+		# Faqat bazada mavjud bo'lgan aniq maydon nomini ishlatamiz
+		telegram_id = frappe.db.get_value("Customer", customer_id, "custom_telegram_id")
 
 		if not telegram_id:
 			frappe.logger().warning(f"⚠️ [NOTIF-SKIP] Customer {customer_id} has no Telegram ID")
