@@ -37,27 +37,27 @@ doc_events = {
         ],
         "on_cancel": "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_installment"
     },
-	"Payment Entry": {
-		"autoname": "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.autoname_payment_entry",
-		"onload": "cash_flow_app.cash_flow_management.overrides.payment_entry_defaults.onload_payment_entry",
-		"validate": [
-			"cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.ensure_fiscal_year_for_payment",
-			"cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.validate_payment_entry",
-			"cash_flow_app.cash_flow_management.custom.payment_validations.validate_negative_balance",
-			"cash_flow_app.cash_flow_management.custom.payment_validations.warn_on_overdue_payments"
-		],
-		"on_submit": [
-			"cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_payment_entry",
-			"cash_flow_app.cash_flow_management.api.payment_entry.on_payment_submit",
-			"cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.publish_customer_dashboard_refresh",
-			"cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_payment",
-			"cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification"
-		],
-		"on_cancel": [
-			"cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry",
-			"cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_payment"
-
-		]
+    "Payment Entry": {
+        "autoname": "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.autoname_payment_entry",
+        "onload": "cash_flow_app.cash_flow_management.overrides.payment_entry_defaults.onload_payment_entry",
+        "validate": [
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.ensure_fiscal_year_for_payment",
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.validate_payment_entry",
+            "cash_flow_app.cash_flow_management.custom.payment_validations.validate_negative_balance",
+            "cash_flow_app.cash_flow_management.custom.payment_validations.warn_on_overdue_payments"
+        ],
+        "on_submit": [
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_payment_entry",
+            "cash_flow_app.cash_flow_management.api.payment_entry.on_payment_submit",
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.publish_customer_dashboard_refresh",
+            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_payment",
+            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification"
+        ],
+        "on_cancel": [
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry",
+            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_payment",
+            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_cancel_notification"
+        ]
     },
     "Sales Order": {
         "validate": "cash_flow_app.cash_flow_management.custom.payment_validations.validate_payment_schedule_paid_amount",
