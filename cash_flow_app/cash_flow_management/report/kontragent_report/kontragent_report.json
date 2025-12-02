@@ -16,6 +16,12 @@
    "width": 0
   },
   {
+   "fieldname": "party_group",
+   "fieldtype": "Data",
+   "label": "Group",
+   "width": 0
+  },
+  {
    "fieldname": "opening_credit",
    "fieldtype": "Currency",
    "label": "Opening Credit",

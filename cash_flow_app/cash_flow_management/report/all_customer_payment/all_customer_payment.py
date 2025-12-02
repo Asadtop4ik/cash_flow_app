@@ -48,6 +48,12 @@ def get_columns(filters):
 			"width": 150
 		},
 		{
+			"fieldname": "customer_group",
+			"label": _("Customer Group"),
+			"fieldtype": "Data",
+			"width": 120
+		},
+		{
 			"fieldname": "contract_link",
 			"label": _("Contract"),
 			"fieldtype": "Link",
@@ -129,6 +135,7 @@ def get_data(filters):
 	to_date = getdate(filters.get("to_date"))
 	classifications = filters.get("classification")
 	customers = filters.get("customer")
+	customer_group_filter = filters.get("customer_group")
 	report_type = filters.get("report_type", "Monthly")
 
 	# Convert string to list if needed
@@ -147,22 +154,33 @@ def get_data(filters):
 		contract_filters["customer"] = ["in", customers]
 
 	# ✅ Get contracts (Installment Application)
+	# Build customer group join and filter
+	customer_group_join = ""
+	customer_group_condition = ""
+	if customer_group_filter:
+		customer_group_join = "INNER JOIN `tabCustomer` cust ON cust.name = ia.customer"
+		customer_group_condition = f"AND cust.customer_group = '{customer_group_filter}'"
+
 	contracts = frappe.db.sql("""
 		SELECT
-			name,
-			customer,
-			custom_grand_total_with_interest,
-			downpayment_amount,
-			monthly_payment,
-			installment_months,
-			sales_order
-		FROM `tabInstallment Application`
-		WHERE docstatus = 1
-		AND status != 'Closed'
+			ia.name,
+			ia.customer,
+			ia.custom_grand_total_with_interest,
+			ia.downpayment_amount,
+			ia.monthly_payment,
+			ia.installment_months,
+			ia.sales_order
+		FROM `tabInstallment Application` ia
+		{customer_group_join}
+		WHERE ia.docstatus = 1
+		AND ia.status != 'Closed'
 		{customer_filter}
-		ORDER BY customer, name
+		{customer_group_condition}
+		ORDER BY ia.customer, ia.name
 	""".format(
-		customer_filter=f"AND customer IN ({','.join(['%s'] * len(customers))})" if customers else ""
+		customer_group_join=customer_group_join,
+		customer_filter=f"AND ia.customer IN ({','.join(['%s'] * len(customers))})" if customers else "",
+		customer_group_condition=customer_group_condition
 	), tuple(customers) if customers else (), as_dict=1)
 
 	if not contracts:
@@ -195,8 +213,10 @@ def get_data(filters):
 	period_totals = {}
 
 	for contract in contracts:
-		# Get customer classification
-		customer_classification = customer_classifications.get(contract.customer, "")
+		# Get customer classification and group
+		customer_data = customer_classifications.get(contract.customer, {})
+		customer_classification = customer_data.get("classification", "")
+		customer_group = customer_data.get("group", "")
 
 		# Filter by classification if specified
 		if classifications and customer_classification not in classifications:
@@ -220,6 +240,7 @@ def get_data(filters):
 		row = {
 			"classification": customer_classification,
 			"customer_name": contract.customer,
+			"customer_group": customer_group,
 			"contract_link": contract.name,
 			"total_amount": contract_amount,
 			"down_payment": contract.downpayment_amount,
@@ -282,6 +303,7 @@ def get_data(filters):
 		grand_total_row = {
 			"classification": "<b>Jami</b>",
 			"customer_name": "",
+			"customer_group": "",
 			"contract_link": "",
 			"total_amount": grand_total_amount,
 			"down_payment": grand_down_payment,
@@ -304,17 +326,17 @@ def get_data(filters):
 
 
 def get_customer_classifications(customer_names):
-	"""Bulk fetch customer classifications"""
+	"""Bulk fetch customer classifications and groups"""
 	if not customer_names:
 		return {}
 
 	customers = frappe.db.sql("""
-		SELECT name, customer_classification
+		SELECT name, customer_classification, customer_group
 		FROM `tabCustomer`
 		WHERE name IN ({})
 	""".format(','.join(['%s'] * len(customer_names))), tuple(customer_names), as_dict=1)
 
-	return {c.name: c.customer_classification for c in customers}
+	return {c.name: {"classification": c.customer_classification, "group": c.customer_group} for c in customers}
 
 
 def get_all_payment_schedules(contracts):

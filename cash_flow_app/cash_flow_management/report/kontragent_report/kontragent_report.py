@@ -27,6 +27,12 @@ def get_columns():
 			"width": 100
 		},
 		{
+			"label": _("Party Group"),
+			"fieldname": "party_group",
+			"fieldtype": "Data",
+			"width": 150
+		},
+		{
 			"label": _("Op. Debit"),
 			"fieldname": "opening_debit",
 			"fieldtype": "Currency",
@@ -102,6 +108,7 @@ def get_data(filters):
 		cust_total = {
 			'party': "Jami",
 			'party_type': 'CUSTOMER TOTAL',
+			'party_group': '',
 			'opening_debit': 0,
 			'opening_credit': 0,
 			'transaction_debit': 0,
@@ -111,6 +118,9 @@ def get_data(filters):
 		}
 
 		for c in customers:
+			# Customer Group ni olish
+			customer_group = frappe.db.get_value('Customer', c['customer'], 'customer_group') or ''
+
 			# Sales Order summalarini olish (DEBIT - klient bizdan qarz)
 			sales_data = frappe.db.sql("""
 				SELECT
@@ -175,6 +185,7 @@ def get_data(filters):
 			row = {
 				'party': c['customer'],
 				'party_type': 'Customer',
+				'party_group': customer_group,
 				'opening_debit': opening_balance if opening_balance > 0 else 0,
 				'opening_credit': abs(opening_balance) if opening_balance < 0 else 0,
 				'transaction_debit': period_debit,
@@ -191,7 +202,7 @@ def get_data(filters):
 		if customers:
 			data.append(cust_total)
 			data.append({
-				'party': '', 'party_type': '',
+				'party': '', 'party_type': '', 'party_group': '',
 				'opening_debit': 0, 'opening_credit': 0,
 				'transaction_debit': 0, 'transaction_credit': 0,
 				'closing_debit': 0, 'closing_credit': 0
@@ -238,6 +249,7 @@ def get_data(filters):
 		supp_total = {
 			'party': "Jami",
 			'party_type': 'SUPPLIER TOTAL',
+			'party_group': '',
 			'opening_debit': 0,
 			'opening_credit': 0,
 			'transaction_debit': 0,
@@ -248,6 +260,9 @@ def get_data(filters):
 
 		for s in suppliers:
 			supplier_name = s['supplier']
+
+			# Supplier Group ni olish
+			supplier_group = frappe.db.get_value('Supplier', supplier_name, 'supplier_group') or ''
 
 			# 1. Installment Application - CREDIT (biz supplier'dan qarz oldik)
 			installment_data = frappe.db.sql("""
@@ -314,6 +329,7 @@ def get_data(filters):
 			row = {
 				'party': supplier_name,
 				'party_type': 'Supplier',
+				'party_group': supplier_group,
 				'opening_debit': abs(opening_balance) if opening_balance < 0 else 0,
 				'opening_credit': opening_balance if opening_balance > 0 else 0,
 				'transaction_debit': period_debit,

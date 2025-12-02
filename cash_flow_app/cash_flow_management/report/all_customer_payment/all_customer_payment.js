@@ -55,6 +55,12 @@ frappe.query_reports["All Customer Payment"] = {
           "options": "Customer"
        },
        {
+          "fieldname": "customer_group",
+          "label": __("Customer Group"),
+          "fieldtype": "Link",
+          "options": "Customer Group"
+       },
+       {
           "fieldname": "report_type",
           "label": __("Report Type"),
           "fieldtype": "Select",
