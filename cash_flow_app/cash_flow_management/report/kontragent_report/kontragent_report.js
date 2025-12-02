@@ -44,9 +44,10 @@ frappe.query_reports["Kontragent Report"] = {
             "options": "\nCustomer\nSupplier\nEmployee",
             "default": "Customer",
             "on_change": function(query_report) {
-                // Party Type o'zgarganda Party filterini tozalash va yangilash
+                // Party Type o'zgarganda Party va Party Group filterlarini tozalash va yangilash
                 let party_type = query_report.get_filter_value('party_type');
                 let party_filter = query_report.get_filter('party');
+                let party_group_filter = query_report.get_filter('party_group');
 
                 if (party_filter && party_type) {
                     // Party filter options'ni yangilash
@@ -57,6 +58,26 @@ frappe.query_reports["Kontragent Report"] = {
                     query_report.set_filter_value('party', '');
 
                     console.log(`✅ Party filter options yangilandi: ${party_type}`);
+                }
+
+                if (party_group_filter && party_type) {
+                    // Party Group filter options'ni yangilash
+                    if (party_type === 'Customer') {
+                        party_group_filter.df.options = 'Customer Group';
+                        party_group_filter.df.label = __('Customer Group');
+                    } else if (party_type === 'Supplier') {
+                        party_group_filter.df.options = 'Supplier Group';
+                        party_group_filter.df.label = __('Supplier Group');
+                    } else {
+                        party_group_filter.df.options = '';
+                        party_group_filter.df.label = __('Party Group');
+                    }
+                    party_group_filter.refresh();
+
+                    // Party Group qiymatini tozalash
+                    query_report.set_filter_value('party_group', '');
+
+                    console.log(`✅ Party Group filter options yangilandi: ${party_group_filter.df.options}`);
                 }
             }
         },
@@ -78,6 +99,25 @@ frappe.query_reports["Kontragent Report"] = {
                     filters: {
                         'disabled': 0
                     }
+                };
+            }
+        },
+        {
+            "fieldname": "party_group",
+            "label": __("Party Group"),
+            "fieldtype": "Link",
+            "options": "Customer Group",  // Default - Party Type bilan o'zgaradi
+            "get_query": function() {
+                let party_type = frappe.query_report.get_filter_value('party_type');
+
+                if (!party_type) {
+                    frappe.msgprint(__('Avval Party Type tanlang'));
+                    return { filters: { 'name': '' } };  // Bo'sh natija
+                }
+
+                // Party Type'ga mos filterlar - disabled fieldini tekshirmaymiz
+                return {
+                    filters: {}
                 };
             }
         }

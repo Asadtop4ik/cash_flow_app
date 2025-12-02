@@ -89,6 +89,14 @@
    "mandatory": 0,
    "options": "Supplier",
    "wildcard_filter": 0
+  },
+  {
+   "fieldname": "party_group",
+   "fieldtype": "Link",
+   "label": "Party Group",
+   "mandatory": 0,
+   "options": "Customer Group",
+   "wildcard_filter": 0
   }
  ],
  "idx": 0,

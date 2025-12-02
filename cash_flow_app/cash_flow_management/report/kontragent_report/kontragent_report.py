@@ -70,20 +70,33 @@ def get_data(filters):
 	to_date = filters.get('to_date') or '2025-12-31'
 	party_type_filter = filters.get('party_type') or ''
 	party_filter = filters.get('party') or ''
+	party_group_filter = filters.get('party_group') or ''
 
 	data = []
 
 	# CUSTOMERS - Sales Order asosida
 	if not party_type_filter or party_type_filter == 'Customer':
+		# Customer group filter uchun qo'shimcha shart
+		group_join = ""
+		group_condition = ""
+		if party_group_filter:
+			group_join = "INNER JOIN `tabCustomer` c ON c.name = so.customer"
+			group_condition = f"AND c.customer_group = '{party_group_filter}'"
+
 		customers = frappe.db.sql("""
-			SELECT DISTINCT customer FROM `tabSales Order`
-			WHERE docstatus = 1
-			AND customer IS NOT NULL
-			AND customer != ''
+			SELECT DISTINCT so.customer
+			FROM `tabSales Order` so
+			{group_join}
+			WHERE so.docstatus = 1
+			AND so.customer IS NOT NULL
+			AND so.customer != ''
 			{party_condition}
-			ORDER BY customer
+			{group_condition}
+			ORDER BY so.customer
 		""".format(
-			party_condition=f"AND customer = '{party_filter}'" if party_filter else ""
+			group_join=group_join,
+			party_condition=f"AND so.customer = '{party_filter}'" if party_filter else "",
+			group_condition=group_condition
 		), as_dict=True)
 
 		cust_total = {
@@ -187,8 +200,16 @@ def get_data(filters):
 	# SUPPLIERS - Installment Application + Payment Entry asosida
 	if not party_type_filter or party_type_filter == 'Supplier':
 		# Barcha supplier'larni Installment Application va Payment Entry dan olish
+		# Supplier group filter uchun qo'shimcha shart
+		group_join = ""
+		group_condition = ""
+		if party_group_filter:
+			group_join = "INNER JOIN `tabSupplier` s ON s.name = suppliers.supplier"
+			group_condition = f"AND s.supplier_group = '{party_group_filter}'"
+
 		suppliers = frappe.db.sql("""
-			SELECT DISTINCT supplier FROM (
+			SELECT DISTINCT suppliers.supplier
+			FROM (
 				SELECT DISTINCT item.custom_supplier as supplier
 				FROM `tabInstallment Application` ia
 				INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
@@ -203,11 +224,15 @@ def get_data(filters):
 				AND party IS NOT NULL
 				AND party != ''
 			) as suppliers
+			{group_join}
 			WHERE 1=1
 			{party_condition}
-			ORDER BY supplier
+			{group_condition}
+			ORDER BY suppliers.supplier
 		""".format(
-			party_condition=f"AND supplier = '{party_filter}'" if party_filter else ""
+			group_join=group_join,
+			party_condition=f"AND suppliers.supplier = '{party_filter}'" if party_filter else "",
+			group_condition=group_condition
 		), as_dict=True)
 
 		supp_total = {
