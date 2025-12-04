@@ -54,21 +54,56 @@ def get_customer_by_passport(passport_series: str, telegram_chat_id: str = None)
     # ✅ XAVFSIZLIK: Bir passport faqat bitta Telegram ID ga bog'lanadi
     if telegram_chat_id:
         existing_telegram_id = customer.custom_telegram_id
+        telegram_chat_id_str = str(telegram_chat_id)
 
-        # Agar allaqachon bog'langan bo'lsa va boshqa Telegram ID bo'lsa - XATO
-        if existing_telegram_id and str(existing_telegram_id) != str(telegram_chat_id):
+        # ⚡ YANGI XAVFSIZLIK: Bir Telegram ID faqat bitta passportga bog'lanadi
+        # Avval shu telegram_chat_id boshqa customerga bog'langanligini tekshiramiz
+        other_customer = frappe.db.get_value(
+            "Customer",
+            {
+                "custom_telegram_id": telegram_chat_id_str,
+                "name": ["!=", customer_id]  # Bu customer'dan boshqa
+            },
+            ["name", "customer_name", "custom_passport_series"],
+            as_dict=True
+        )
+
+        if other_customer:
+            # Bu telegram ID allaqachon boshqa customerga bog'langan!
+            return {
+                "success": False,
+                "message": "Bu Telegram account allaqachon boshqa mijozga bog'langan",
+                "message_uz": (
+                    f"❌ Xavfsizlik: Sizning Telegram hisobingiz allaqachon "
+                    f"boshqa mijoz hisobiga bog'langan.\n\n"
+                    f"Agar siz bu passport ({passport_series}) egasi bo'lsangiz, "
+                    f"iltimos operator bilan bog'laning va avvalgi bog'lanishni "
+                    f"o'chirish so'rang.\n\n"
+                    f"⚠️ Bitta Telegram hisobi faqat bitta mijoz hisobiga bog'lanishi mumkin."
+                ),
+                "error_code": "TELEGRAM_ALREADY_LINKED_TO_OTHER_CUSTOMER",
+                "linked_customer_id": other_customer.name  # Debug uchun
+            }
+
+        # Agar bu passport allaqachon boshqa Telegram ID ga bog'langan bo'lsa - XATO
+        if existing_telegram_id and existing_telegram_id != telegram_chat_id_str:
             return {
                 "success": False,
                 "message": "Bu passport allaqachon boshqa Telegram accountga bog'langan",
-                "message_uz": f"❌ Xavfsizlik: Bu passport {passport_series} allaqachon boshqa accountga bog'langan.\n\n"
-                             f"Agar bu sizning passportingiz bo'lsa, administrator bilan bog'laning.",
-                "error_code": "PASSPORT_ALREADY_LINKED"
+                "message_uz": (
+                    f"❌ Xavfsizlik: Bu passport ({passport_series}) allaqachon "
+                    f"boshqa Telegram accountga bog'langan.\n\n"
+                    f"Agar bu sizning passportingiz bo'lsa, iltimos operator bilan "
+                    f"bog'laning va avvalgi bog'lanishni o'chirish so'rang.\n\n"
+                    f"⚠️ Bitta passport faqat bitta Telegram hisobiga bog'lanishi mumkin."
+                ),
+                "error_code": "PASSPORT_ALREADY_LINKED_TO_OTHER_TELEGRAM"
             }
 
-        # Agar hali bog'lanmagan bo'lsa - bog'lash
+        # ✅ Agar hali bog'lanmagan bo'lsa - bog'lash
         if not existing_telegram_id:
             frappe.db.set_value(
-                "Customer", customer_id, "custom_telegram_id", str(telegram_chat_id)
+                "Customer", customer_id, "custom_telegram_id", telegram_chat_id_str
             )
             frappe.db.commit()
 
@@ -1552,3 +1587,154 @@ def get_all_active_due_payments():
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), "Bot Get All Due Payments Error")
 		return {"data": []}
+
+
+# ============================================================
+# 13. SUPPORT CONTACTS - Operator telefon raqamini olish
+# ============================================================
+
+@frappe.whitelist(allow_guest=True)
+def get_support_contacts():
+	"""
+	ERPNext'dan operator/administrator telefon raqamini olish.
+
+	Bu funksiya xato xabarlarida operator telefon raqamini ko'rsatish uchun
+	ishlatiladi. Frappe User doctype'dan "Operator" yoki "System Manager"
+	role'iga ega foydalanuvchilarning telefon raqamlarini oladi.
+
+	Qidiruv Tartibi:
+	----------------
+	1. "Operator" role'li userlar (birinchi prioritet)
+	2. "System Manager" role'li userlar (ikkinchi prioritet)
+	3. Cash Settings'dagi support_phone (fallback)
+	4. Default telefon raqami (oxirgi fallback)
+
+	Frappe User Requirements:
+	-------------------------
+	User doctype'da quyidagi fieldlar to'ldirilishi kerak:
+	- Full Name: Operator ismi
+	- Phone yoki Mobile No: Telefon raqami (+998 XX XXX XX XX)
+	- Roles: "Operator" yoki "System Manager" role
+
+	Returns:
+		{
+			"success": True,
+			"contact": {
+				"name": "Operator Ismi",
+				"phone": "+998 90 123 45 67",
+				"email": "operator@example.com",
+				"role": "Operator",
+				"source": "user_doctype"
+			}
+		}
+
+	Example:
+		>>> data = get_support_contacts()
+		>>> if data.get("success"):
+		>>>     phone = data["contact"]["phone"]
+		>>>     await msg.answer(f"Yordam: {phone}")
+	"""
+	try:
+		# 1. "Operator" role'iga ega userlarni topish
+		# Has Role doctypidan Operator role'li userlarni olamiz
+		operator_users = frappe.db.sql("""
+			SELECT DISTINCT hr.parent AS user_email
+			FROM `tabHas Role` hr
+			WHERE hr.role = 'Operator'
+			  AND hr.parenttype = 'User'
+			LIMIT 5
+		""", as_dict=True)
+
+		# 2. Agar Operator topilmasa, System Manager'larni qidiramiz
+		if not operator_users:
+			operator_users = frappe.db.sql("""
+				SELECT DISTINCT hr.parent AS user_email
+				FROM `tabHas Role` hr
+				WHERE hr.role = 'System Manager'
+				  AND hr.parenttype = 'User'
+				LIMIT 5
+			""", as_dict=True)
+
+		if not operator_users:
+			# 3. Hech kim topilmasa - fallback (Cash Settings dan olish mumkin)
+			fallback_phone = frappe.db.get_single_value("Cash Settings", "support_phone")
+			fallback_name = frappe.db.get_single_value("Cash Settings", "support_name")
+
+			if fallback_phone:
+				return {
+					"success": True,
+					"contact": {
+						"name": fallback_name or "Operator",
+						"phone": fallback_phone,
+						"email": "",
+						"role": "Support",
+						"source": "cash_settings_fallback"
+					}
+				}
+
+			# Agar Cash Settings'da ham bo'lmasa - default
+			return {
+				"success": True,
+				"contact": {
+					"name": "Operator",
+					"phone": "+998 99 123 45 67",
+					"email": "",
+					"role": "Support",
+					"source": "default_fallback"
+				}
+			}
+
+		# 4. Birinchi operator userning ma'lumotlarini olish
+		first_operator = operator_users[0]
+		user_email = first_operator.user_email
+
+		user_data = frappe.db.get_value(
+			"User",
+			user_email,
+			["full_name", "phone", "mobile_no", "email"],
+			as_dict=True
+		)
+
+		if not user_data:
+			return {
+				"success": False,
+				"message": "Operator ma'lumotlari topilmadi"
+			}
+
+		# 5. Phone raqamini olish (phone yoki mobile_no)
+		phone = user_data.phone or user_data.mobile_no or "+998 99 123 45 67"
+		name = user_data.full_name or "Operator"
+
+		# 6. Operator role'ni aniqlash
+		has_operator_role = frappe.db.exists("Has Role", {
+			"parent": user_email,
+			"role": "Operator"
+		})
+		role = "Operator" if has_operator_role else "System Manager"
+
+		return {
+			"success": True,
+			"contact": {
+				"name": name,
+				"phone": phone,
+				"email": user_data.email,
+				"role": role,
+				"source": "user_doctype"
+			}
+		}
+
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Get Support Contacts Error")
+
+		# Xato bo'lsa - default qaytarish
+		return {
+			"success": True,
+			"contact": {
+				"name": "Operator",
+				"phone": "+998 99 123 45 67",
+				"email": "",
+				"role": "Support",
+				"source": "error_fallback"
+			},
+			"error": str(e)
+		}
