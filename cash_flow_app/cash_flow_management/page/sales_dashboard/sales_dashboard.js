@@ -7,667 +7,460 @@ frappe.pages['sales-dashboard'].on_page_load = function(wrapper) {
         single_column: true
     });
 
-    // Initialize Dashboard
-    new SalesDashboard(page);
+    new ModernSalesDashboard(page);
 };
 
-class SalesDashboard {
+class ModernSalesDashboard {
     constructor(page) {
         this.page = page;
         this.wrapper = this.page.main;
         this.charts = {};
         this.data = {};
+        this.selectedYears = this.getDefaultYears();
 
-        // Create HTML structure
         this.createHTML();
-
-        // Load Chart.js
         this.loadChartJS().then(() => {
             this.setup();
         });
     }
 
+    getDefaultYears() {
+        const currentYear = new Date().getFullYear();
+        return [currentYear - 2, currentYear - 1, currentYear];
+    }
+
     createHTML() {
         const html = `
             <style>
-                /* Reset & Base */
+                /* ========== NEON THEME + FIGMA LAYOUT ========== */
                 * {
                     box-sizing: border-box;
+                    margin: 0;
+                    padding: 0;
                 }
 
-                .sales-dashboard-container {
+                .dashboard-fullscreen {
                     position: fixed;
                     top: 0;
                     left: 0;
                     right: 0;
                     bottom: 0;
-                    padding: 0;
-                    margin: 0;
-                    background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1729 100%);
+                    background: linear-gradient(135deg, #0a0e27 0%, #1a1134 50%, #0d1b2a 100%);
                     overflow-y: auto;
-                    overflow-x: hidden;
+                    padding: 20px;
                     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
                 }
 
-                .dashboard-grid {
-                    display: grid;
-                    grid-template-columns: repeat(24, 1fr);
-                    grid-auto-rows: minmax(60px, auto);
-                    gap: 15px;
-                    padding: 20px;
-                    min-height: 100vh;
+                /* Loading */
+                .dashboard-loading {
+                    position: fixed;
+                    inset: 0;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    background: linear-gradient(135deg, #0a0e27 0%, #1a1134 100%);
+                    z-index: 9999;
                 }
 
-                /* Widget Base Style */
-                .widget {
-                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(45, 55, 72, 0.9) 100%);
+                .loading-spinner {
+                    width: 60px;
+                    height: 60px;
+                    border: 4px solid rgba(0, 255, 255, 0.2);
+                    border-top-color: #00ffff;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                }
+
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+
+                .loading-text {
+                    margin-top: 20px;
+                    font-size: 18px;
+                    color: #00ffff;
+                    font-weight: 600;
+                    text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+                }
+
+                /* Year Filter */
+                .year-filter {
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: rgba(30, 41, 59, 0.95);
+                    border-radius: 12px;
+                    padding: 12px 18px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+                    z-index: 100;
+                    display: flex;
+                    gap: 12px;
+                    align-items: center;
+                    border: 1px solid rgba(0, 255, 255, 0.3);
+                }
+
+                .year-filter-label {
+                    font-size: 12px;
+                    font-weight: 700;
+                    color: #00ffff;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+
+                .year-btn {
+                    padding: 8px 16px;
+                    border: 2px solid rgba(99, 102, 241, 0.5);
+                    background: rgba(30, 41, 59, 0.5);
+                    color: #a78bfa;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: 700;
+                    font-size: 12px;
+                    transition: all 0.3s;
+                }
+
+                .year-btn:hover {
+                    border-color: #8b5cf6;
+                    background: rgba(139, 92, 246, 0.2);
+                    transform: translateY(-2px);
+                }
+
+                .year-btn.active {
+                    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                    border-color: #8b5cf6;
+                    color: white;
+                    box-shadow: 0 5px 20px rgba(139, 92, 246, 0.4);
+                }
+
+                /* Top KPI Row - 7 cards */
+                .kpi-row {
+                    display: grid;
+                    grid-template-columns: repeat(7, 1fr);
+                    gap: 15px;
+                    margin-bottom: 20px;
+                    padding-top: 70px; /* Space for year filter */
+                }
+
+                .kpi-card {
+                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(45, 55, 72, 0.9));
                     border-radius: 16px;
-                    padding: 20px;
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
-                                inset 0 1px 0 rgba(255, 255, 255, 0.1);
-                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    padding: 25px 15px; /* More vertical padding */
+                    text-align: center;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    transition: all 0.3s ease;
                     position: relative;
                     overflow: hidden;
-                    transition: all 0.3s ease;
+                    min-height: 120px; /* Ensure minimum height */
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
                 }
 
-                .widget:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5),
-                                0 0 40px rgba(99, 102, 241, 0.2);
-                }
-
-                .widget::before {
+                .kpi-card::before {
                     content: '';
                     position: absolute;
                     top: 0;
                     left: 0;
                     right: 0;
                     height: 3px;
-                    background: linear-gradient(90deg,
-                        #6366f1 0%,
-                        #8b5cf6 25%,
-                        #d946ef 50%,
-                        #00ffff 75%,
-                        #00ff88 100%);
-                    opacity: 0.6;
+                    background: linear-gradient(90deg, var(--card-color), transparent);
                 }
 
-                /* Loading State */
-                .dashboard-loading {
-                    position: fixed;
+                .kpi-card:hover {
+                    transform: translateY(-5px);
+                    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+                }
+
+                .kpi-card.cyan { --card-color: #00ffff; }
+                .kpi-card.green { --card-color: #00ff88; }
+                .kpi-card.purple { --card-color: #a78bfa; }
+                .kpi-card.orange { --card-color: #ff6b00; }
+                .kpi-card.pink { --card-color: #d946ef; }
+
+                .kpi-value {
+                    font-size: 26px; /* Slightly smaller to fit better */
+                    font-weight: 900;
+                    color: var(--card-color);
+                    margin-bottom: 10px;
+                    text-shadow: 0 0 20px var(--card-color);
+                    line-height: 1.2;
+                }
+
+                .kpi-label {
+                    font-size: 11px;
+                    color: #94a3b8;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    font-weight: 600;
+                    line-height: 1.4;
+                }
+
+                /* Charts Grid - Figma Layout */
+                .charts-grid {
+                    display: grid;
+                    grid-template-columns: repeat(12, 1fr);
+                    grid-template-rows: repeat(6, 140px);
+                    gap: 15px;
+                }
+
+                /* Chart positions matching Figma */
+                .chart-1 {
+                    grid-column: 1 / 7;
+                    grid-row: 1 / 3;
+                }
+
+                .chart-2 {
+                    grid-column: 1 / 7;
+                    grid-row: 3 / 5;
+                }
+
+                .chart-3 {
+                    grid-column: 1 / 4;
+                    grid-row: 5 / 7;
+                }
+
+                .chart-4 {
+                    grid-column: 4 / 7;
+                    grid-row: 5 / 7;
+                }
+
+                .chart-5 {
+                    grid-column: 7 / 10;
+                    grid-row: 1 / 4;
+                }
+
+                .chart-6 {
+                    grid-column: 10 / 13;
+                    grid-row: 1 / 7;
+                }
+
+                .chart-container {
+                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(45, 55, 72, 0.9));
+                    border-radius: 16px;
+                    padding: 20px;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+                    position: relative;
+                }
+
+                .chart-container::before {
+                    content: '';
+                    position: absolute;
                     top: 0;
                     left: 0;
                     right: 0;
-                    bottom: 0;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
-                    z-index: 9999;
-                    color: #00ffff;
-                }
-
-                /* Header Widget */
-                .widget-header {
-                    grid-column: 1 / 25;
-                    grid-row: 1 / 3;
-                    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 25px 30px;
-                }
-
-                .widget-header::before {
-                    background: none;
-                }
-
-                .header-left h1 {
-                    font-size: 32px;
-                    font-weight: 900;
-                    margin: 0;
-                    color: white;
-                    text-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
-                }
-
-                .header-left p {
-                    margin: 5px 0 0 0;
-                    opacity: 0.95;
-                    font-size: 14px;
-                }
-
-                .header-right {
-                    text-align: right;
-                }
-
-                .refresh-btn {
-                    background: rgba(255, 255, 255, 0.2);
-                    border: 1px solid rgba(255, 255, 255, 0.3);
-                    color: white;
-                    padding: 10px 24px;
-                    border-radius: 10px;
-                    font-weight: 700;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                    backdrop-filter: blur(10px);
-                }
-
-                .refresh-btn:hover {
-                    background: rgba(255, 255, 255, 0.3);
-                    transform: translateY(-2px);
-                }
-
-                /* KPI Widgets */
-                .widget-kpi {
-                    grid-row: span 2;
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: center;
-                }
-
-                .kpi-icon {
-                    width: 60px;
-                    height: 60px;
-                    border-radius: 16px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 28px;
-                    margin-bottom: 15px;
-                    position: relative;
-                }
-
-                .kpi-icon::after {
-                    content: '';
-                    position: absolute;
-                    inset: -2px;
-                    border-radius: 16px;
-                    padding: 2px;
-                    background: linear-gradient(135deg, currentColor, transparent);
-                    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-                    -webkit-mask-composite: xor;
-                    mask-composite: exclude;
-                    opacity: 0.5;
-                }
-
-                .kpi-title {
-                    font-size: 11px;
-                    color: #94a3b8;
-                    text-transform: uppercase;
-                    letter-spacing: 1.2px;
-                    margin: 0 0 8px 0;
-                    font-weight: 600;
-                }
-
-                .kpi-value {
-                    font-size: 28px;
-                    font-weight: 900;
-                    color: #ffffff;
-                    margin: 0;
-                    text-shadow: 0 0 20px currentColor;
-                }
-
-                .kpi-trend {
-                    display: inline-block;
-                    margin-top: 8px;
-                    padding: 4px 10px;
-                    border-radius: 12px;
-                    font-size: 12px;
-                    font-weight: 700;
-                }
-
-                .kpi-trend.up {
-                    background: rgba(0, 255, 136, 0.15);
-                    color: #00ff88;
-                }
-
-                .kpi-trend.down {
-                    background: rgba(255, 68, 102, 0.15);
-                    color: #ff4466;
-                }
-
-                /* Color Variants */
-                .kpi-cyan { color: #00ffff; }
-                .kpi-cyan .kpi-icon { background: rgba(0, 255, 255, 0.15); }
-
-                .kpi-green { color: #00ff88; }
-                .kpi-green .kpi-icon { background: rgba(0, 255, 136, 0.15); }
-
-                .kpi-purple { color: #a78bfa; }
-                .kpi-purple .kpi-icon { background: rgba(167, 139, 250, 0.15); }
-
-                .kpi-orange { color: #ff6b00; }
-                .kpi-orange .kpi-icon { background: rgba(255, 107, 0, 0.15); }
-
-                /* Chart Widgets */
-                .widget-chart {
-                    padding: 25px;
-                }
-
-                .chart-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 20px;
+                    height: 3px;
+                    background: linear-gradient(90deg, #6366f1, #8b5cf6, #d946ef);
+                    opacity: 0.6;
                 }
 
                 .chart-title {
-                    font-size: 16px;
+                    font-size: 14px;
                     font-weight: 700;
-                    color: #ffffff;
-                    margin: 0;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                }
-
-                .chart-title i {
                     color: #00ffff;
-                    filter: drop-shadow(0 0 10px #00ffff);
+                    margin-bottom: 15px;
+                    text-align: center;
+                    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
                 }
 
                 .chart-body {
+                    flex: 1;
                     position: relative;
+                    min-height: 0;
                 }
 
-                /* Donut Center */
-                .donut-center {
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    text-align: center;
-                    pointer-events: none;
+                .chart-body canvas {
+                    width: 100% !important;
+                    height: 100% !important;
                 }
 
-                .donut-center h3 {
-                    font-size: 36px;
-                    font-weight: 900;
-                    margin: 0;
-                    color: #ffffff;
-                    text-shadow: 0 0 20px #00ffff;
+                /* Table Styles */
+                .debt-table-wrapper {
+                    overflow-y: auto;
+                    max-height: 100%;
                 }
 
-                .donut-center p {
-                    font-size: 12px;
-                    color: #94a3b8;
-                    margin: 5px 0 0 0;
-                    text-transform: uppercase;
-                }
-
-                /* Progress Bars */
-                .progress-item {
-                    margin-bottom: 15px;
-                }
-
-                .progress-label {
-                    display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 8px;
-                    font-size: 13px;
-                }
-
-                .progress-label-name {
-                    color: #e2e8f0;
-                    font-weight: 600;
-                }
-
-                .progress-label-value {
-                    color: #00ffff;
-                    font-weight: 700;
-                }
-
-                .progress-bar-container {
-                    height: 8px;
-                    background: rgba(255, 255, 255, 0.05);
-                    border-radius: 10px;
-                    overflow: hidden;
-                    position: relative;
-                }
-
-                .progress-bar {
-                    height: 100%;
-                    border-radius: 10px;
-                    background: linear-gradient(90deg, #6366f1, #8b5cf6);
-                    box-shadow: 0 0 10px currentColor;
-                    transition: width 1s ease;
-                    position: relative;
-                }
-
-                .progress-bar::after {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    right: 0;
-                    bottom: 0;
-                    width: 30%;
-                    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
-                    animation: shimmer 2s infinite;
-                }
-
-                @keyframes shimmer {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(100%); }
-                }
-
-                /* List Items */
-                .list-item {
-                    padding: 12px 15px;
-                    border-radius: 10px;
-                    margin-bottom: 10px;
-                    background: rgba(0, 0, 0, 0.2);
-                    border: 1px solid rgba(255, 255, 255, 0.05);
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    transition: all 0.3s ease;
-                }
-
-                .list-item:hover {
-                    background: rgba(0, 0, 0, 0.3);
-                    border-color: rgba(0, 255, 255, 0.3);
-                    transform: translateX(5px);
-                }
-
-                .list-item-name {
-                    color: #e2e8f0;
-                    font-weight: 600;
-                    font-size: 13px;
-                }
-
-                .list-item-value {
-                    color: #00ffff;
-                    font-weight: 700;
-                    font-size: 14px;
-                }
-
-                /* Mini Stats */
-                .mini-stat {
-                    text-align: center;
-                    padding: 15px 10px;
-                    border-radius: 10px;
-                    background: rgba(0, 0, 0, 0.2);
-                    margin-bottom: 10px;
-                }
-
-                .mini-stat-value {
-                    font-size: 24px;
-                    font-weight: 900;
-                    color: #ffffff;
-                    margin: 0;
-                    text-shadow: 0 0 15px currentColor;
-                }
-
-                .mini-stat-label {
-                    font-size: 11px;
-                    color: #94a3b8;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    margin: 5px 0 0 0;
-                }
-
-                /* Table */
-                .data-table {
+                .debt-table {
                     width: 100%;
                     border-collapse: collapse;
                 }
 
-                .data-table thead th {
-                    background: rgba(0, 0, 0, 0.3);
-                    color: #00ffff;
-                    font-size: 11px;
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
+                .debt-table thead {
+                    position: sticky;
+                    top: 0;
+                    background: rgba(0, 0, 0, 0.5);
+                    backdrop-filter: blur(10px);
+                    z-index: 10;
+                }
+
+                .debt-table th {
                     padding: 12px 10px;
                     text-align: left;
+                    font-size: 11px;
+                    color: #00ffff;
                     font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
                     border-bottom: 2px solid rgba(0, 255, 255, 0.3);
                 }
 
-                .data-table tbody tr {
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-                    transition: all 0.3s ease;
-                }
-
-                .data-table tbody tr:hover {
-                    background: rgba(0, 255, 255, 0.05);
-                }
-
-                .data-table tbody td {
+                .debt-table td {
                     padding: 10px;
                     font-size: 12px;
                     color: #cbd5e1;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
                 }
 
-                .data-table tbody td a {
-                    color: #00ffff;
-                    text-decoration: none;
-                    font-weight: 600;
+                .debt-table tbody tr:hover {
+                    background: rgba(0, 255, 255, 0.05);
                 }
 
-                .status-badge {
+                .classification-badge {
+                    display: inline-block;
                     padding: 4px 12px;
-                    border-radius: 12px;
-                    font-size: 10px;
+                    border-radius: 8px;
+                    font-size: 11px;
                     font-weight: 700;
                     text-transform: uppercase;
-                    background: linear-gradient(135deg, #00ff88 0%, #00d4aa 100%);
+                }
+
+                .classification-badge.class-a {
+                    background: linear-gradient(135deg, #00ff88, #00d4aa);
                     color: #0a0e27;
-                    display: inline-block;
                 }
 
-                /* Grid Positioning */
-                .widget-earnings { grid-column: 1 / 5; }
-                .widget-contracts { grid-column: 5 / 9; }
-                .widget-paid { grid-column: 9 / 13; }
-                .widget-outstanding { grid-column: 13 / 17; }
-                .widget-monthly { grid-column: 17 / 21; }
-                .widget-courses { grid-column: 21 / 25; }
-
-                .widget-trends { grid-column: 1 / 13; grid-row: 3 / 7; }
-                .widget-donut { grid-column: 13 / 17; grid-row: 3 / 7; }
-                .widget-performance { grid-column: 17 / 25; grid-row: 3 / 7; }
-
-                .widget-customers { grid-column: 1 / 9; grid-row: 7 / 11; }
-                .widget-products { grid-column: 9 / 17; grid-row: 7 / 11; }
-                .widget-team { grid-column: 17 / 25; grid-row: 7 / 11; }
-
-                .widget-table { grid-column: 1 / 17; grid-row: 11 / 15; }
-                .widget-stats { grid-column: 17 / 25; grid-row: 11 / 15; }
-
-                /* Scrollbar */
-                ::-webkit-scrollbar {
-                    width: 8px;
-                    height: 8px;
+                .classification-badge.class-b {
+                    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                    color: white;
                 }
 
-                ::-webkit-scrollbar-track {
-                    background: rgba(0, 0, 0, 0.2);
+                .classification-badge.class-c {
+                    background: linear-gradient(135deg, #ff6b00, #ff8c42);
+                    color: white;
                 }
 
-                ::-webkit-scrollbar-thumb {
-                    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-                    border-radius: 4px;
+                .classification-badge.class-n-a {
+                    background: rgba(148, 163, 184, 0.3);
+                    color: #94a3b8;
                 }
 
                 /* Responsive */
                 @media (max-width: 1600px) {
-                    .dashboard-grid {
-                        grid-template-columns: repeat(12, 1fr);
+                    .kpi-row {
+                        grid-template-columns: repeat(4, 1fr);
                     }
-                    .widget-earnings, .widget-contracts, .widget-paid, .widget-outstanding { grid-column: span 3; }
-                    .widget-monthly, .widget-courses { grid-column: span 3; }
-                    .widget-trends { grid-column: 1 / 9; }
-                    .widget-donut { grid-column: 9 / 13; }
-                    .widget-performance { grid-column: 1 / 13; grid-row: 7 / 11; }
-                    .widget-customers, .widget-products, .widget-team { grid-column: span 4; }
-                    .widget-table { grid-column: 1 / 10; }
-                    .widget-stats { grid-column: 10 / 13; }
+
+                    .charts-grid {
+                        grid-template-columns: 1fr 1fr;
+                        grid-template-rows: auto;
+                    }
+
+                    .chart-1, .chart-2, .chart-3, .chart-4, .chart-5, .chart-6 {
+                        grid-column: auto;
+                        grid-row: auto;
+                        min-height: 300px;
+                    }
+                }
+
+                @media (max-width: 768px) {
+                    .kpi-row {
+                        grid-template-columns: repeat(2, 1fr);
+                        padding-top: 80px;
+                    }
+
+                    .charts-grid {
+                        grid-template-columns: 1fr;
+                    }
+
+                    .year-filter {
+                        top: 10px;
+                        right: 10px;
+                        left: 10px;
+                        flex-wrap: wrap;
+                    }
                 }
             </style>
 
-            <div class="sales-dashboard-container">
+            <div class="dashboard-fullscreen">
                 <div class="dashboard-loading" id="dashboardLoading">
-                    <div class="spinner-border text-primary" role="status" style="width: 4rem; height: 4rem;"></div>
-                    <p style="margin-top: 20px; font-size: 18px; font-weight: 600;">Ma'lumotlar yuklanmoqda...</p>
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Ma'lumotlar yuklanmoqda...</div>
                 </div>
 
-                <div class="dashboard-grid" id="dashboardContent" style="display: none;">
-                    <!-- Header -->
-                    <div class="widget widget-header">
-                        <div class="header-left">
-                            <h1><i class="fa fa-chart-line"></i> Sales Dashboard</h1>
-                            <p>Real-time biznes analitikasi va statistika</p>
-                        </div>
-                        <div class="header-right">
-                            <button class="refresh-btn" id="refreshBtn">
-                                <i class="fa fa-sync"></i> Yangilash
-                            </button>
-                            <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.9;" id="lastUpdated">
-                                Oxirgi: Hozir
-                            </p>
-                        </div>
+                <div id="dashboardContent" style="display: none;">
+                    <!-- Year Filter -->
+                    <div class="year-filter">
+                        <span class="year-filter-label">Yillar</span>
+                        <div id="yearButtons" style="display: flex; gap: 8px;"></div>
                     </div>
 
-                    <!-- KPI Cards -->
-                    <div class="widget widget-kpi widget-earnings kpi-cyan">
-                        <div class="kpi-icon"><i class="fa fa-dollar-sign"></i></div>
-                        <h3 class="kpi-title">Total Earnings</h3>
-                        <h2 class="kpi-value" id="totalEarnings">0</h2>
-                        <span class="kpi-trend up" id="earningsTrend">+0%</span>
-                    </div>
+                    <!-- Top KPI Row -->
+                    <div class="kpi-row" id="kpiRow"></div>
 
-                    <div class="widget widget-kpi widget-contracts kpi-green">
-                        <div class="kpi-icon"><i class="fa fa-file-contract"></i></div>
-                        <h3 class="kpi-title">Shartnomalar</h3>
-                        <h2 class="kpi-value" id="totalContracts">0</h2>
-                        <p style="color: #94a3b8; font-size: 12px; margin-top: 8px;">Aktiv</p>
-                    </div>
-
-                    <div class="widget widget-kpi widget-paid kpi-purple">
-                        <div class="kpi-icon"><i class="fa fa-check-circle"></i></div>
-                        <h3 class="kpi-title">To'langan</h3>
-                        <h2 class="kpi-value" id="totalPaid">0</h2>
-                        <p style="color: #94a3b8; font-size: 12px; margin-top: 8px;" id="paidPercent">0%</p>
-                    </div>
-
-                    <div class="widget widget-kpi widget-outstanding kpi-orange">
-                        <div class="kpi-icon"><i class="fa fa-clock"></i></div>
-                        <h3 class="kpi-title">Kutilmoqda</h3>
-                        <h2 class="kpi-value" id="outstanding">0</h2>
-                        <p style="color: #94a3b8; font-size: 12px; margin-top: 8px;" id="unpaidPercent">0%</p>
-                    </div>
-
-                    <div class="widget widget-kpi widget-monthly kpi-purple">
-                        <div class="kpi-icon"><i class="fa fa-calendar"></i></div>
-                        <h3 class="kpi-title">Monthly</h3>
-                        <h2 class="kpi-value" id="monthlyValue">Jan-Dec</h2>
-                        <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px;" id="monthButtons"></div>
-                    </div>
-
-                    <div class="widget widget-kpi widget-courses kpi-cyan">
-                        <div class="kpi-icon"><i class="fa fa-graduation-cap"></i></div>
-                        <h3 class="kpi-title">Enrolled Courses</h3>
-                        <h2 class="kpi-value" id="enrolledCourses">0</h2>
-                        <p style="color: #94a3b8; font-size: 12px; margin-top: 8px;">Courses</p>
-                    </div>
-
-                    <!-- Main Trend Chart -->
-                    <div class="widget widget-chart widget-trends">
-                        <div class="chart-header">
-                            <h4 class="chart-title"><i class="fa fa-chart-area"></i> Oylik Tendensiyalar</h4>
-                        </div>
-                        <div class="chart-body">
-                            <canvas id="trendsChart" height="100"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Donut Chart -->
-                    <div class="widget widget-chart widget-donut">
-                        <div class="chart-header">
-                            <h4 class="chart-title"><i class="fa fa-chart-pie"></i> To'lov Statistikasi</h4>
-                        </div>
-                        <div class="chart-body">
-                            <canvas id="donutChart" height="180"></canvas>
-                            <div class="donut-center">
-                                <h3 id="donutPercent">0%</h3>
-                                <p>To'langan</p>
+                    <!-- Charts Grid -->
+                    <div class="charts-grid">
+                        <!-- Chart 1: Line Grapha Oylik Chiqim Summa Oyma oy -->
+                        <div class="chart-container chart-1">
+                            <div class="chart-title">Oylik Moliyaviy Tendensiyalar (Tikilgan Pul)</div>
+                            <div class="chart-body">
+                                <canvas id="chart1"></canvas>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Performance Widget -->
-                    <div class="widget widget-chart widget-performance">
-                        <div class="chart-header">
-                            <h4 class="chart-title"><i class="fa fa-chart-line"></i> Team Performance</h4>
+                        <!-- Chart 2: Bar graph Klientlarda Kirim Bolgan Summa Oyma Oy -->
+                        <div class="chart-container chart-2">
+                            <div class="chart-title">Oylik Kirim (Klientlardan to'lovlar)</div>
+                            <div class="chart-body">
+                                <canvas id="chart2"></canvas>
+                            </div>
                         </div>
-                        <div class="chart-body" id="teamPerformance">
-                            <!-- Will be populated -->
-                        </div>
-                    </div>
 
-                    <!-- Top Customers -->
-                    <div class="widget widget-chart widget-customers">
-                        <div class="chart-header">
-                            <h4 class="chart-title"><i class="fa fa-users"></i> Top Mijozlar</h4>
+                        <!-- Chart 3: Bar graph Shartnomalar soni oyma oy -->
+                        <div class="chart-container chart-3">
+                            <div class="chart-title">Oylik Shartnomalar Soni</div>
+                            <div class="chart-body">
+                                <canvas id="chart3"></canvas>
+                            </div>
                         </div>
-                        <div class="chart-body">
-                            <canvas id="customersChart" height="120"></canvas>
-                        </div>
-                    </div>
 
-                    <!-- Products -->
-                    <div class="widget widget-chart widget-products">
-                        <div class="chart-header">
-                            <h4 class="chart-title"><i class="fa fa-box"></i> Top Mahsulotlar</h4>
+                        <!-- Chart 4: Pie Chart ROI ochun -->
+                        <div class="chart-container chart-4">
+                            <div class="chart-title">ROI Statistikasi</div>
+                            <div class="chart-body">
+                                <canvas id="chart4"></canvas>
+                            </div>
                         </div>
-                        <div class="chart-body">
-                            <canvas id="productsChart" height="120"></canvas>
-                        </div>
-                    </div>
 
-                    <!-- Team Stats -->
-                    <div class="widget widget-chart widget-team">
-                        <div class="chart-header">
-                            <h4 class="chart-title"><i class="fa fa-user-friends"></i> Sales Team</h4>
+                        <!-- Chart 5: Bar graph Oylik sof foyda -->
+                        <div class="chart-container chart-5">
+                            <div class="chart-title">Oylik Sof Foyda</div>
+                            <div class="chart-body">
+                                <canvas id="chart5"></canvas>
+                            </div>
                         </div>
-                        <div class="chart-body" id="teamStats">
-                            <!-- Will be populated -->
-                        </div>
-                    </div>
 
-                    <!-- Recent Applications Table -->
-                    <div class="widget widget-chart widget-table">
-                        <div class="chart-header">
-                            <h4 class="chart-title"><i class="fa fa-history"></i> So'nggi Shartnomalar</h4>
-                        </div>
-                        <div class="chart-body" style="overflow-x: auto;">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Mijoz</th>
-                                        <th>Sana</th>
-                                        <th>Summa</th>
-                                        <th>Oylik</th>
-                                        <th>Muddat</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tableBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Additional Stats -->
-                    <div class="widget widget-chart widget-stats">
-                        <div class="chart-header">
-                            <h4 class="chart-title"><i class="fa fa-chart-bar"></i> Statistics</h4>
-                        </div>
-                        <div class="chart-body" id="additionalStats">
-                            <!-- Will be populated -->
+                        <!-- Chart 6: Spiska Qarzdor haqdorlarniki -->
+                        <div class="chart-container chart-6">
+                            <div class="chart-title">Klientlar Qarzdorligi</div>
+                            <div class="chart-body">
+                                <div class="debt-table-wrapper">
+                                    <table class="debt-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Kategoriya</th>
+                                                <th>Klient</th>
+                                                <th>Qarz</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="debtTableBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -692,9 +485,58 @@ class SalesDashboard {
     }
 
     setup() {
-        this.wrapper.find('#refreshBtn').on('click', () => this.loadData());
+        this.loadAvailableYears();
         this.loadData();
-        setInterval(() => this.loadData(), 300000);
+    }
+
+    loadAvailableYears() {
+        frappe.call({
+            method: 'cash_flow_app.cash_flow_management.api.dashboard.get_available_years',
+            callback: (r) => {
+                if (r.message && r.message.length > 0) {
+                    this.availableYears = r.message;
+                } else {
+                    this.availableYears = this.getDefaultYears();
+                }
+                this.renderYearFilter();
+            }
+        });
+    }
+
+    renderYearFilter() {
+        const container = this.wrapper.find('#yearButtons');
+        container.empty();
+
+        this.availableYears.forEach(year => {
+            const isActive = this.selectedYears.includes(year);
+            const btn = $(`<button class="year-btn ${isActive ? 'active' : ''}" data-year="${year}">${year}</button>`);
+            btn.on('click', () => this.toggleYear(year));
+            container.append(btn);
+        });
+    }
+
+    toggleYear(year) {
+        const index = this.selectedYears.indexOf(year);
+
+        if (index > -1) {
+            if (this.selectedYears.length > 1) {
+                this.selectedYears.splice(index, 1);
+            } else {
+                frappe.msgprint('Kamida bitta yil tanlanishi kerak');
+                return;
+            }
+        } else {
+            if (this.selectedYears.length < 3) {
+                this.selectedYears.push(year);
+                this.selectedYears.sort();
+            } else {
+                frappe.msgprint('Maksimum 3 ta yil tanlanishi mumkin');
+                return;
+            }
+        }
+
+        this.renderYearFilter();
+        this.loadData();
     }
 
     loadData() {
@@ -703,13 +545,16 @@ class SalesDashboard {
 
         frappe.call({
             method: 'cash_flow_app.cash_flow_management.api.dashboard.get_dashboard_data',
+            args: {
+                year_filter: this.selectedYears
+            },
             callback: (r) => {
+                console.log('Dashboard Data:', r.message);
                 if (r.message) {
                     this.data = r.message;
                     this.renderDashboard();
                     this.wrapper.find('#dashboardLoading').hide();
-                    this.wrapper.find('#dashboardContent').css('display', 'grid');
-                    this.updateLastRefreshTime();
+                    this.wrapper.find('#dashboardContent').show();
                 } else {
                     frappe.msgprint('Ma\'lumot topilmadi');
                     this.wrapper.find('#dashboardLoading').hide();
@@ -717,7 +562,7 @@ class SalesDashboard {
             },
             error: (err) => {
                 console.error('Dashboard Error:', err);
-                frappe.msgprint('Xatolik: ' + (err.message || 'Unknown error'));
+                frappe.msgprint('Xatolik: ' + (err.message || 'Unknown'));
                 this.wrapper.find('#dashboardLoading').hide();
             }
         });
@@ -725,161 +570,181 @@ class SalesDashboard {
 
     renderDashboard() {
         this.renderKPICards();
-        this.renderTrendsChart();
-        this.renderDonutChart();
-        this.renderCustomersChart();
-        this.renderProductsChart();
-        this.renderTeamPerformance();
-        this.renderTeamStats();
-        this.renderTable();
-        this.renderAdditionalStats();
-        this.renderMonthButtons();
+        this.renderChart1();
+        this.renderChart2();
+        this.renderChart3();
+        this.renderChart4();
+        this.renderChart5();
+        this.renderDebtTable();
     }
 
     renderKPICards() {
-        const kpi = this.data.kpi || {};
+        const row = this.wrapper.find('#kpiRow');
+        row.empty();
 
-        this.wrapper.find('#totalEarnings').text(this.formatCurrency(kpi.total_earnings || 0, true));
-        this.wrapper.find('#totalContracts').text(kpi.total_contracts || 0);
-        this.wrapper.find('#totalPaid').text(this.formatCurrency(kpi.total_paid || 0, true));
-        this.wrapper.find('#outstanding').text(this.formatCurrency(kpi.outstanding_amount || 0, true));
+        const shareholders = this.data.shareholders || {};
+        const debtSummary = this.data.debt_summary || {};
+        const debtByClass = this.data.debt_by_classification || {};
+        const contracts = this.data.active_contracts || {};
 
-        const growth = kpi.growth_percentage || 0;
-        const trendEl = this.wrapper.find('#earningsTrend');
-        trendEl.html('<i class="fa fa-arrow-' + (growth >= 0 ? 'up' : 'down') + '"></i> ' + Math.abs(growth) + '%');
-        trendEl.toggleClass('up', growth >= 0).toggleClass('down', growth < 0);
+        console.log('KPI Data:', { shareholders, debtSummary, debtByClass, contracts });
 
-        const paidPct = kpi.total_earnings > 0 ? ((kpi.total_paid / kpi.total_earnings) * 100).toFixed(1) : 0;
-        this.wrapper.find('#paidPercent').text(paidPct + '%');
-        this.wrapper.find('#unpaidPercent').text((100 - paidPct).toFixed(1) + '%');
+        const cards = [
+            {
+                value: this.formatCurrency(shareholders.net_capital || 0),
+                label: 'Tikilgan Pul',
+                color: 'cyan'
+            },
+            {
+                value: this.formatCurrency(debtSummary.total_debt || 0),
+                label: 'Jami qarzdorlik',
+                color: 'orange'
+            },
+            {
+                value: this.formatCurrency(debtByClass.A?.debt || 0),
+                label: 'Qarzdorlik A',
+                color: 'green'
+            },
+            {
+                value: this.formatCurrency(debtByClass.B?.debt || 0),
+                label: 'Qarzdorlik B',
+                color: 'purple'
+            },
+            {
+                value: this.formatCurrency(debtByClass.C?.debt || 0),
+                label: 'Qarzdorlik C',
+                color: 'pink'
+            },
+            {
+                value: contracts.active || 0,
+                label: 'Aktiva Shartnoma',
+                color: 'cyan'
+            },
+            {
+                value: contracts.completed || 0,
+                label: 'Yopilgan Shartnoma',
+                color: 'green'
+            }
+        ];
 
-        this.wrapper.find('#enrolledCourses').text(kpi.total_contracts || 0);
-    }
-
-    renderMonthButtons() {
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const container = this.wrapper.find('#monthButtons');
-        container.empty();
-
-        months.forEach(month => {
-            container.append(`
-                <div style="
-                    padding: 4px 8px;
-                    background: rgba(167, 139, 250, 0.2);
-                    border: 1px solid rgba(167, 139, 250, 0.4);
-                    border-radius: 6px;
-                    font-size: 10px;
-                    font-weight: 600;
-                    color: #a78bfa;
-                    cursor: pointer;
-                ">${month}</div>
+        cards.forEach(card => {
+            row.append(`
+                <div class="kpi-card ${card.color}">
+                    <div class="kpi-value">${card.value}</div>
+                    <div class="kpi-label">${card.label}</div>
+                </div>
             `);
         });
     }
 
-    renderTrendsChart() {
-        const canvas = this.wrapper.find('#trendsChart')[0];
+    renderChart1() {
+        const canvas = this.wrapper.find('#chart1')[0];
         if (!canvas) return;
+        if (this.charts.chart1) this.charts.chart1.destroy();
 
-        const data = this.data.monthly_trends || [];
+        const data = this.data.monthly_finance || {};
+        const datasets = [];
+        const colors = ['#00ffff', '#8b5cf6', '#d946ef'];
 
-        if (this.charts.trends) this.charts.trends.destroy();
+        this.selectedYears.forEach((year, index) => {
+            const yearData = data[year] || Array(12).fill(0);
+            datasets.push({
+                label: year,
+                data: yearData,
+                borderColor: colors[index],
+                backgroundColor: `${colors[index]}20`,
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            });
+        });
 
-        const ctx = canvas.getContext('2d');
-        const gradient1 = ctx.createLinearGradient(0, 0, 0, 300);
-        gradient1.addColorStop(0, 'rgba(139, 92, 246, 0.4)');
-        gradient1.addColorStop(1, 'rgba(139, 92, 246, 0)');
-
-        const gradient2 = ctx.createLinearGradient(0, 0, 0, 300);
-        gradient2.addColorStop(0, 'rgba(0, 255, 136, 0.4)');
-        gradient2.addColorStop(1, 'rgba(0, 255, 136, 0)');
-
-        this.charts.trends = new Chart(canvas, {
+        this.charts.chart1 = new Chart(canvas, {
             type: 'line',
             data: {
-                labels: data.map(d => d.month),
-                datasets: [{
-                    label: 'Daromad',
-                    data: data.map(d => d.revenue),
-                    borderColor: '#8b5cf6',
-                    backgroundColor: gradient1,
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 0,
-                    pointHoverRadius: 6
-                }, {
-                    label: 'To\'lovlar',
-                    data: data.map(d => d.payments),
-                    borderColor: '#00ff88',
-                    backgroundColor: gradient2,
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 0,
-                    pointHoverRadius: 6
-                }]
+                labels: ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'],
+                datasets: datasets
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top',
-                        labels: {
-                            color: '#e2e8f0',
-                            font: { size: 12, weight: '600' },
-                            usePointStyle: true,
-                            padding: 15
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                        titleColor: '#00ffff',
-                        bodyColor: '#e2e8f0',
-                        borderColor: 'rgba(0, 255, 255, 0.3)',
-                        borderWidth: 1,
-                        padding: 12,
-                        cornerRadius: 8
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
-                        ticks: { color: '#94a3b8', font: { size: 11 } }
-                    },
-                    x: {
-                        grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
-                        ticks: { color: '#94a3b8', font: { size: 11 } }
-                    }
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
-                }
-            }
+            options: this.getChartOptions()
         });
     }
 
-    renderDonutChart() {
-        const canvas = this.wrapper.find('#donutChart')[0];
+    renderChart2() {
+        const canvas = this.wrapper.find('#chart2')[0];
         if (!canvas) return;
+        if (this.charts.chart2) this.charts.chart2.destroy();
 
-        const stats = this.data.payment_statistics || {};
+        const data = this.data.monthly_revenue || {};
+        const datasets = [];
+        const colors = ['#00ff88', '#6366f1', '#ff6b00'];
 
-        if (this.charts.donut) this.charts.donut.destroy();
+        this.selectedYears.forEach((year, index) => {
+            const yearData = data[year] || Array(12).fill(0);
+            datasets.push({
+                label: year,
+                data: yearData,
+                backgroundColor: colors[index],
+                borderWidth: 0,
+                borderRadius: 8
+            });
+        });
 
-        this.wrapper.find('#donutPercent').text((stats.paid_percentage || 0) + '%');
+        this.charts.chart2 = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'],
+                datasets: datasets
+            },
+            options: this.getChartOptions()
+        });
+    }
 
-        this.charts.donut = new Chart(canvas, {
+    renderChart3() {
+        const canvas = this.wrapper.find('#chart3')[0];
+        if (!canvas) return;
+        if (this.charts.chart3) this.charts.chart3.destroy();
+
+        const data = this.data.monthly_contracts || {};
+        const datasets = [];
+        const colors = ['#a78bfa', '#00d4ff', '#d946ef'];
+
+        this.selectedYears.forEach((year, index) => {
+            const yearData = data[year] || Array(12).fill(0);
+            datasets.push({
+                label: year,
+                data: yearData,
+                backgroundColor: colors[index],
+                borderWidth: 0,
+                borderRadius: 8
+            });
+        });
+
+        this.charts.chart3 = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'],
+                datasets: datasets
+            },
+            options: this.getChartOptions()
+        });
+    }
+
+    renderChart4() {
+        const canvas = this.wrapper.find('#chart4')[0];
+        if (!canvas) return;
+        if (this.charts.chart4) this.charts.chart4.destroy();
+
+        const roiData = this.data.roi_data || {};
+
+        this.charts.chart4 = new Chart(canvas, {
             type: 'doughnut',
             data: {
-                labels: ['To\'langan', 'Kutilmoqda'],
+                labels: ['Foyda', 'Kapital'],
                 datasets: [{
-                    data: [stats.paid || 50, stats.unpaid || 50],
-                    backgroundColor: ['#00ff88', '#ff6b00'],
+                    data: [roiData.total_interest || 0, roiData.total_finance || 0],
+                    backgroundColor: ['#00ff88', '#6366f1'],
                     borderWidth: 0,
                     hoverOffset: 8
                 }]
@@ -887,14 +752,14 @@ class SalesDashboard {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '75%',
+                cutout: '70%',
                 plugins: {
                     legend: {
                         display: true,
                         position: 'bottom',
                         labels: {
                             color: '#e2e8f0',
-                            font: { size: 12, weight: '600' },
+                            font: { size: 11, weight: '600' },
                             padding: 12,
                             usePointStyle: true
                         }
@@ -911,204 +776,139 @@ class SalesDashboard {
         });
     }
 
-    renderCustomersChart() {
-        const canvas = this.wrapper.find('#customersChart')[0];
+    renderChart5() {
+        const canvas = this.wrapper.find('#chart5')[0];
         if (!canvas) return;
+        if (this.charts.chart5) this.charts.chart5.destroy();
 
-        const data = (this.data.top_customers || []).slice(0, 6);
+        const data = this.data.monthly_profit || {};
+        const datasets = [];
+        const colors = ['#00ff88', '#d946ef', '#00d4ff'];
 
-        if (this.charts.customers) this.charts.customers.destroy();
+        this.selectedYears.forEach((year, index) => {
+            const yearData = data[year] || Array(12).fill(0);
+            datasets.push({
+                label: year,
+                data: yearData,
+                backgroundColor: colors[index],
+                borderWidth: 0,
+                borderRadius: 8
+            });
+        });
 
-        const colors = ['#00d4ff', '#6366f1', '#8b5cf6', '#d946ef', '#00ffff', '#00ff88'];
-
-        this.charts.customers = new Chart(canvas, {
+        this.charts.chart5 = new Chart(canvas, {
             type: 'bar',
             data: {
-                labels: data.map(d => d.customer_name),
-                datasets: [{
-                    data: data.map(d => d.total_value),
-                    backgroundColor: colors,
-                    borderWidth: 0,
-                    borderRadius: 8
-                }]
+                labels: ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'],
+                datasets: datasets
             },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                        titleColor: '#00ffff',
-                        bodyColor: '#e2e8f0',
-                        padding: 12,
-                        cornerRadius: 8
-                    }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
-                        ticks: { color: '#94a3b8', font: { size: 10 } }
-                    },
-                    y: {
-                        grid: { display: false },
-                        ticks: { color: '#e2e8f0', font: { size: 11, weight: '600' } }
-                    }
-                }
-            }
+            options: this.getChartOptions()
         });
     }
 
-    renderProductsChart() {
-        const canvas = this.wrapper.find('#productsChart')[0];
-        if (!canvas) return;
-
-        const data = (this.data.product_sales || []).slice(0, 6);
-
-        if (this.charts.products) this.charts.products.destroy();
-
-        const colors = ['#d946ef', '#8b5cf6', '#6366f1', '#00d4ff', '#00ffff', '#00ff88'];
-
-        this.charts.products = new Chart(canvas, {
-            type: 'bar',
-            data: {
-                labels: data.map(d => d.item_name),
-                datasets: [{
-                    data: data.map(d => d.total_sales),
-                    backgroundColor: colors,
-                    borderWidth: 0,
-                    borderRadius: 8
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                        titleColor: '#00ffff',
-                        bodyColor: '#e2e8f0',
-                        padding: 12,
-                        cornerRadius: 8
-                    }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
-                        ticks: { color: '#94a3b8', font: { size: 10 } }
-                    },
-                    y: {
-                        grid: { display: false },
-                        ticks: { color: '#e2e8f0', font: { size: 11, weight: '600' } }
-                    }
-                }
-            }
-        });
-    }
-
-    renderTeamPerformance() {
-        const container = this.wrapper.find('#teamPerformance');
-        container.empty();
-
-        const teams = [
-            { name: 'Hossam', value: 7.1, color: '#00ff88' },
-            { name: 'Rovan', value: 5.7, color: '#6366f1' },
-            { name: 'Beyablo', value: 3.5, color: '#d946ef' },
-            { name: 'Haidy', value: 7.0, color: '#00d4ff' }
-        ];
-
-        teams.forEach(team => {
-            const percent = (team.value / 10 * 100).toFixed(0);
-            container.append(`
-                <div class="progress-item">
-                    <div class="progress-label">
-                        <span class="progress-label-name">${team.name}</span>
-                        <span class="progress-label-value">${team.value}B</span>
-                    </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar" style="width: ${percent}%; background: ${team.color};"></div>
-                    </div>
-                </div>
-            `);
-        });
-    }
-
-    renderTeamStats() {
-        const container = this.wrapper.find('#teamStats');
-        container.empty();
-
-        const customers = this.data.top_customers || [];
-
-        customers.slice(0, 6).forEach(customer => {
-            container.append(`
-                <div class="list-item">
-                    <span class="list-item-name">${customer.customer_name}</span>
-                    <span class="list-item-value">${this.formatCurrency(customer.total_value, true)}</span>
-                </div>
-            `);
-        });
-    }
-
-    renderTable() {
-        const tbody = this.wrapper.find('#tableBody');
+    renderDebtTable() {
+        const tbody = this.wrapper.find('#debtTableBody');
         tbody.empty();
 
-        const data = (this.data.recent_applications || []).slice(0, 8);
+        const debtList = this.data.debt_list?.data || [];
 
-        data.forEach(app => {
+        console.log('Debt List Data:', debtList);
+
+        if (debtList.length === 0) {
             tbody.append(`
                 <tr>
-                    <td><a href="/app/installment-application/${app.name}">${app.name}</a></td>
-                    <td>${app.customer_name}</td>
-                    <td>${app.transaction_date || '-'}</td>
-                    <td><strong>${this.formatCurrency(app.total_amount, true)}</strong></td>
-                    <td>${this.formatCurrency(app.monthly_payment, true)}</td>
-                    <td>${app.installment_months} oy</td>
-                    <td><span class="status-badge">${app.status}</span></td>
+                    <td colspan="3" style="text-align: center; color: #94a3b8; padding: 30px;">
+                        Ma'lumot topilmadi
+                    </td>
+                </tr>
+            `);
+            return;
+        }
+
+        debtList.forEach(item => {
+            const classKey = (item.classification || 'N/A').toLowerCase().replace('/', '-').replace(' ', '-');
+            tbody.append(`
+                <tr>
+                    <td><span class="classification-badge class-${classKey}">${item.classification}</span></td>
+                    <td><strong>${item.customer_name}</strong></td>
+                    <td style="font-weight: 700; color: #ff6b00;">${this.formatCurrency(item.debt)}</td>
                 </tr>
             `);
         });
     }
 
-    renderAdditionalStats() {
-        const container = this.wrapper.find('#additionalStats');
-        container.empty();
-
-        const kpi = this.data.kpi || {};
-
-        const stats = [
-            { label: 'Total Calls', value: '1,557', icon: 'phone' },
-            { label: 'Avg Response', value: '2.2', icon: 'clock' },
-            { label: 'Conversion', value: '34%', icon: 'chart-line' },
-            { label: 'Satisfaction', value: '4.8', icon: 'star' }
-        ];
-
-        stats.forEach(stat => {
-            container.append(`
-                <div class="mini-stat" style="color: #00ffff;">
-                    <h3 class="mini-stat-value"><i class="fa fa-${stat.icon}"></i> ${stat.value}</h3>
-                    <p class="mini-stat-label">${stat.label}</p>
-                </div>
-            `);
-        });
+    getChartOptions() {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        color: '#e2e8f0',
+                        font: { size: 11, weight: '600' },
+                        usePointStyle: true,
+                        padding: 12
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    titleColor: '#00ffff',
+                    bodyColor: '#e2e8f0',
+                    borderColor: 'rgba(0, 255, 255, 0.3)',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 8
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { size: 10 }
+                    }
+                },
+                x: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { size: 10 }
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        };
     }
 
-    formatCurrency(value, short = false) {
-        if (!value) return '0';
+    formatCurrency(value) {
+        if (!value) return '$0';
         const num = parseFloat(value);
-        if (short && num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
-        if (short && num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-        if (short && num >= 1000) return (num / 1000).toFixed(1) + 'K';
-        return num.toLocaleString('uz-UZ');
-    }
 
-    updateLastRefreshTime() {
-        const now = new Date();
-        this.wrapper.find('#lastUpdated').text('Oxirgi: ' + now.toLocaleTimeString('uz-UZ'));
+        if (num >= 1000000000) {
+            return '$' + (num / 1000000000).toFixed(2) + 'B';
+        }
+        if (num >= 1000000) {
+            return '$' + (num / 1000000).toFixed(2) + 'M';
+        }
+        if (num >= 1000) {
+            return '$' + (num / 1000).toFixed(1) + 'K';
+        }
+
+        return '$' + num.toLocaleString('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
     }
 }

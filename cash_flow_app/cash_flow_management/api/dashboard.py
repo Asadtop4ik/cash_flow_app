@@ -1,438 +1,480 @@
 import frappe
 from frappe import _
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 
 @frappe.whitelist()
-def get_dashboard_data(party_type=None, group_name=None):
-    """
-    Returns dashboard data. Optional filters:
-      - party_type: 'Customer' or 'Supplier'
-      - group_name: name of the group to filter by
-    """
-    try:
-        return {
-            'kpi': get_kpi_data(party_type=party_type, group_name=group_name),
-            'monthly_trends': get_monthly_trends(party_type=party_type, group_name=group_name),
-            'top_customers': get_top_customers(party_type=party_type, group_name=group_name),
-            'payment_statistics': get_payment_statistics(party_type=party_type, group_name=group_name),
-            'product_sales': get_product_sales(),
-            'status_breakdown': get_status_breakdown(),
-            'recent_applications': get_recent_applications(party_type=party_type, group_name=group_name),
-            'payment_timeline': get_payment_timeline(party_type=party_type, group_name=group_name)
-        }
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), 'Dashboard Data Error')
-        return {"error": "Failed to load dashboard data"}
+def get_dashboard_data(year_filter=None):
+	"""
+	Returns comprehensive dashboard data with multi-year comparison
+	Args:
+		year_filter: List of years to compare (default: last 3 years)
+	"""
+	try:
+		# Default to last 3 years if not provided
+		if not year_filter:
+			current_year = datetime.now().year
+			year_filter = [current_year - 2, current_year - 1, current_year]
+		elif isinstance(year_filter, str):
+			year_filter = frappe.parse_json(year_filter)
+
+		return {
+			'shareholders': get_shareholder_capital(),
+			'debt_summary': get_debt_summary(),
+			'debt_by_classification': get_debt_by_classification(),
+			'active_contracts': get_active_contracts_count(),
+			'monthly_finance': get_monthly_finance_chart(year_filter),
+			'monthly_revenue': get_monthly_revenue_chart(year_filter),
+			'monthly_contracts': get_monthly_contracts_chart(year_filter),
+			'roi_data': get_roi_calculation(),
+			'monthly_profit': get_monthly_profit_chart(year_filter),
+			'debt_list': get_debt_list(),
+			'year_filter': year_filter
+		}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), 'Dashboard Data Error')
+		return {"error": str(e)}
 
 
 @frappe.whitelist()
-def get_party_groups(party_type):
-    """
-    Return list of groups for the given party_type ('Customer' or 'Supplier')
-    """
-    try:
-        if not party_type:
-            return []
-        if party_type.lower() == 'customer':
-            groups = frappe.db.sql("SELECT name FROM `tabCustomer Group` ORDER BY name", as_dict=1)
-        elif party_type.lower() == 'supplier':
-            groups = frappe.db.sql("SELECT name FROM `tabSupplier Group` ORDER BY name", as_dict=1)
-        else:
-            return []
-
-        return [g.get('name') for g in groups]
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), 'Party Groups Error')
-        return []
-
-
-def _build_ia_filters(party_type, group_name):
-    """Helper - returns SQL filter string and params for Installment Application queries"""
-    filters = "WHERE ia.docstatus = 1"
-    params = {}
-    if party_type and group_name:
-        if party_type.lower() == 'customer':
-            filters += " AND ia.customer_group = %(group)s"
-            params['group'] = group_name
-        elif party_type.lower() == 'supplier':
-            filters += " AND ia.supplier_group = %(group)s"
-            params['group'] = group_name
-    return filters, params
-
-
-@frappe.whitelist()
-def get_kpi_data(party_type=None, group_name=None):
-    """KPI numbers with optional filtering by group"""
-    try:
-        filters, params = _build_ia_filters(party_type, group_name)
-
-        total_contracts = frappe.db.sql(f"""
-            SELECT
-                COUNT(*) as count,
-                SUM(total_amount) as total_amount,
-                SUM(finance_amount) as finance_amount,
-                SUM(downpayment_amount) as downpayment,
-                SUM(total_amount) as total_with_interest
-            FROM `tabInstallment Application` ia
-            {filters}
-        """, params, as_dict=1)[0] or {}
-
-        # Payments: if filters present join to IA to scope payments
-        if params:
-            total_paid = frappe.db.sql(f"""
-                SELECT
-                    COUNT(pe.name) as payment_count,
-                    SUM(pe.paid_amount) as total_paid
-                FROM `tabPayment Entry` pe
-                LEFT JOIN `tabInstallment Application` ia ON pe.custom_installment_application = ia.name
-                WHERE pe.docstatus = 1
-                  AND ia.name IS NOT NULL
-                  AND ({'ia.customer_group = %(group)s' if party_type.lower() == 'customer' else 'ia.supplier_group = %(group)s'})
-            """, params, as_dict=1)[0] or {}
-        else:
-            total_paid = frappe.db.sql("""
-                SELECT
-                    COUNT(*) as payment_count,
-                    SUM(paid_amount) as total_paid
-                FROM `tabPayment Entry`
-                WHERE docstatus = 1
-            """, as_dict=1)[0] or {}
-
-        outstanding = (total_contracts.get('finance_amount') or 0) - (total_paid.get('total_paid') or 0)
-        growth = calculate_growth()
-
-        avg_monthly = frappe.db.sql("""
-            SELECT AVG(monthly_payment) as avg_payment
-            FROM `tabInstallment Application`
+def get_shareholder_capital():
+	"""
+	Calculate total capital from shareholders
+	Formula: SUM(receive payments) - SUM(pay payments) where party_type = 'Shareholder'
+	"""
+	try:
+		received = frappe.db.sql("""
+            SELECT COALESCE(SUM(paid_amount), 0) as total
+            FROM `tabPayment Entry`
             WHERE docstatus = 1
-        """, as_dict=1)[0].get('avg_payment', 0) or 0
-
-        return {
-            'total_earnings': float(total_contracts.get('total_with_interest') or 0),
-            'total_contracts': int(total_contracts.get('count') or 0),
-            'total_paid': float(total_paid.get('total_paid') or 0),
-            'outstanding_amount': float(outstanding or 0),
-            'downpayment_collected': float(total_contracts.get('downpayment') or 0),
-            'payment_count': int(total_paid.get('payment_count') or 0),
-            'growth_percentage': float(growth or 0),
-            'avg_monthly_payment': float(avg_monthly or 0)
-        }
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), 'KPI Data Error')
-        return {
-            'total_earnings': 0,
-            'total_contracts': 0,
-            'total_paid': 0,
-            'outstanding_amount': 0,
-            'downpayment_collected': 0,
-            'payment_count': 0,
-            'growth_percentage': 0,
-            'avg_monthly_payment': 0
-        }
-
-
-@frappe.whitelist()
-def get_monthly_trends(party_type=None, group_name=None):
-    """Return monthly contract and payment trends (last 12 months)"""
-    try:
-        filters, params = _build_ia_filters(party_type, group_name)
-        # Add date constraint
-        filters = filters.replace('WHERE', "WHERE transaction_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH) AND")
-
-        data = frappe.db.sql(f"""
-            SELECT
-                DATE_FORMAT(transaction_date, '%Y-%m') as month,
-                COUNT(*) as contract_count,
-                SUM(total_amount) as total_amount,
-                SUM(finance_amount) as finance_amount,
-                SUM(downpayment_amount) as downpayment
-            FROM `tabInstallment Application` ia
-            {filters}
-            GROUP BY month
-            ORDER BY month
-        """, params, as_dict=1) or []
-
-        # Payments: join to IA if filtering by group, otherwise aggregate directly
-        if params:
-            payments = frappe.db.sql(f"""
-                SELECT
-                    DATE_FORMAT(pe.posting_date, '%Y-%m') as month,
-                    COUNT(pe.name) as payment_count,
-                    SUM(pe.paid_amount) as paid_amount
-                FROM `tabPayment Entry` pe
-                LEFT JOIN `tabInstallment Application` ia ON pe.custom_installment_application = ia.name
-                WHERE pe.docstatus = 1
-                  AND pe.posting_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-                  AND ia.name IS NOT NULL
-                  AND ({'ia.customer_group = %(group)s' if party_type.lower() == 'customer' else 'ia.supplier_group = %(group)s'})
-                GROUP BY month
-                ORDER BY month
-            """, params, as_dict=1) or []
-        else:
-            payments = frappe.db.sql("""
-                SELECT
-                    DATE_FORMAT(posting_date, '%Y-%m') as month,
-                    COUNT(*) as payment_count,
-                    SUM(paid_amount) as paid_amount
-                FROM `tabPayment Entry`
-                WHERE docstatus = 1
-                  AND posting_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-                GROUP BY month
-                ORDER BY month
-            """, as_dict=1) or []
-
-        months_dict = {}
-        for item in data:
-            months_dict[item['month']] = {
-                'month': item['month'],
-                'contracts': item['contract_count'],
-                'revenue': float(item['total_amount'] or 0),
-                'finance': float(item['finance_amount'] or 0),
-                'downpayment': float(item['downpayment'] or 0),
-                'payments': 0
-            }
-
-        for payment in payments:
-            if payment['month'] in months_dict:
-                months_dict[payment['month']]['payments'] = float(payment['paid_amount'] or 0)
-            else:
-                months_dict[payment['month']] = {
-                    'month': payment['month'],
-                    'contracts': 0,
-                    'revenue': 0,
-                    'finance': 0,
-                    'downpayment': 0,
-                    'payments': float(payment['paid_amount'] or 0)
-                }
-
-        return list(months_dict.values())
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), 'Monthly Trends Error')
-        return []
-
-
-@frappe.whitelist()
-def get_top_customers(party_type=None, group_name=None):
-    """Top customers by total contract value (filtered by group if provided)"""
-    try:
-        filters, params = _build_ia_filters(party_type, group_name)
-        data = frappe.db.sql(f"""
-            SELECT
-                ia.customer,
-                ia.customer_name,
-                COUNT(*) as contract_count,
-                SUM(ia.total_amount) as total_value,
-                SUM(ia.finance_amount) as finance_amount
-            FROM `tabInstallment Application` ia
-            {filters}
-            GROUP BY ia.customer
-            ORDER BY total_value DESC
-            LIMIT 10
-        """, params, as_dict=1) or []
-        return data
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), 'Top Customers Error')
-        return []
-
-
-@frappe.whitelist()
-def get_payment_statistics(party_type=None, group_name=None):
-    """Paid vs unpaid statistics (supports group filtering)"""
-    try:
-        filters, params = _build_ia_filters(party_type, group_name)
-        # total expected from IA
-        total_expected = frappe.db.sql(f"""
-            SELECT SUM(ia.finance_amount) as total
-            FROM `tabInstallment Application` ia
-            {filters}
-        """, params, as_dict=1)[0].get('total') or 0
-
-        # total paid: if filtering, join payments to IA
-        if params:
-            total_paid = frappe.db.sql(f"""
-                SELECT SUM(pe.paid_amount) as total
-                FROM `tabPayment Entry` pe
-                LEFT JOIN `tabInstallment Application` ia ON pe.custom_installment_application = ia.name
-                WHERE pe.docstatus = 1
-                  AND ia.name IS NOT NULL
-                  AND ({'ia.customer_group = %(group)s' if party_type.lower() == 'customer' else 'ia.supplier_group = %(group)s'})
-            """, params, as_dict=1)[0].get('total') or 0
-        else:
-            total_paid = frappe.db.sql("""
-                SELECT SUM(paid_amount) as total
-                FROM `tabPayment Entry`
-                WHERE docstatus = 1
-            """, as_dict=1)[0].get('total') or 0
-
-        unpaid = max(0, (total_expected or 0) - (total_paid or 0))
-        paid_percentage = (total_paid / total_expected * 100) if total_expected > 0 else 0
-        unpaid_percentage = 100 - paid_percentage
-
-        return {
-            'paid': float(total_paid or 0),
-            'unpaid': float(unpaid),
-            'paid_percentage': round(paid_percentage, 2),
-            'unpaid_percentage': round(unpaid_percentage, 2),
-            'total_expected': float(total_expected or 0)
-        }
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), 'Payment Statistics Error')
-        return {
-            'paid': 0,
-            'unpaid': 0,
-            'paid_percentage': 0,
-            'unpaid_percentage': 0,
-            'total_expected': 0
-        }
-
-
-@frappe.whitelist()
-def get_product_sales():
-    """Top product sales"""
-    data = frappe.db.sql("""
-        SELECT
-            soi.item_code,
-            soi.item_name,
-            COUNT(DISTINCT so.name) as sales_count,
-            SUM(soi.amount) as total_sales,
-            AVG(soi.rate) as avg_price
-        FROM `tabSales Order Item` soi
-        LEFT JOIN `tabSales Order` so ON soi.parent = so.name
-        WHERE so.docstatus = 1
-          AND soi.item_name NOT LIKE '%Foiz%'
-          AND soi.item_name NOT LIKE '%Interest%'
-        GROUP BY soi.item_code
-        ORDER BY total_sales DESC
-        LIMIT 10
-    """, as_dict=1)
-    return data
-
-
-@frappe.whitelist()
-def get_status_breakdown():
-    data = frappe.db.sql("""
-        SELECT
-            status,
-            COUNT(*) as count,
-            SUM(total_amount) as total_amount
-        FROM `tabInstallment Application`
-        GROUP BY status
-    """, as_dict=1)
-    return data
-
-
-@frappe.whitelist()
-def get_recent_applications(party_type=None, group_name=None):
-    """Return recent applications optionally filtered by group"""
-    try:
-        filters, params = _build_ia_filters(party_type, group_name)
-        data = frappe.db.sql(f"""
-            SELECT
-                name,
-                customer_name,
-                transaction_date,
-                total_amount,
-                finance_amount,
-                monthly_payment,
-                installment_months,
-                workflow_state as status
-            FROM `tabInstallment Application` ia
-            {filters}
-            ORDER BY transaction_date DESC
-            LIMIT 10
-        """, params, as_dict=1) or []
-        return data
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), 'Recent Applications Error')
-        return []
-
-
-@frappe.whitelist()
-def get_payment_timeline(party_type=None, group_name=None):
-    """Payments timeline (last 30 days) optionally filtered by group"""
-    try:
-        if party_type and group_name:
-            # join to IA and filter
-            data = frappe.db.sql(f"""
-                SELECT
-                    pe.name,
-                    pe.posting_date,
-                    pe.party_name,
-                    pe.paid_amount,
-                    pe.custom_installment_application,
-                    ia.customer_name
-                FROM `tabPayment Entry` pe
-                LEFT JOIN `tabInstallment Application` ia ON pe.custom_installment_application = ia.name
-                WHERE pe.docstatus = 1
-                  AND pe.posting_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                  AND ia.name IS NOT NULL
-                  AND ({'ia.customer_group = %(group)s' if party_type.lower() == 'customer' else 'ia.supplier_group = %(group)s'})
-                ORDER BY pe.posting_date DESC
-            """, {'group': group_name}, as_dict=1) or []
-        else:
-            data = frappe.db.sql("""
-                SELECT
-                    pe.name,
-                    pe.posting_date,
-                    pe.party_name,
-                    pe.paid_amount,
-                    pe.custom_installment_application,
-                    ia.customer_name
-                FROM `tabPayment Entry` pe
-                LEFT JOIN `tabInstallment Application` ia
-                    ON pe.custom_installment_application = ia.name
-                WHERE pe.docstatus = 1
-                  AND pe.posting_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                ORDER BY pe.posting_date DESC
-            """, as_dict=1) or []
-
-        return data
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), 'Payment Timeline Error')
-        return []
-
-
-def calculate_growth():
-    """Growth percent last 30 days vs previous"""
-    try:
-        current = frappe.db.sql("""
-            SELECT SUM(total_amount) as total
-            FROM `tabInstallment Application`
-            WHERE docstatus = 1
-              AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+              AND party_type = 'Shareholder'
+              AND payment_type = 'Receive'
         """, as_dict=1)[0].get('total', 0) or 0
 
-        previous = frappe.db.sql("""
-            SELECT SUM(total_amount) as total
-            FROM `tabInstallment Application`
+		paid = frappe.db.sql("""
+            SELECT COALESCE(SUM(paid_amount), 0) as total
+            FROM `tabPayment Entry`
             WHERE docstatus = 1
-              AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
-              AND transaction_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+              AND party_type = 'Shareholder'
+              AND payment_type = 'Pay'
         """, as_dict=1)[0].get('total', 0) or 0
 
-        if previous > 0:
-            growth = ((current - previous) / previous) * 100
-            return round(growth, 2)
-        return 0
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), 'Calculate Growth Error')
-        return 0
+		net_capital = float(received) - float(paid)
+
+		return {
+			'received': float(received),
+			'paid': float(paid),
+			'net_capital': net_capital
+		}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), 'Shareholder Capital Error')
+		return {'received': 0, 'paid': 0, 'net_capital': 0}
 
 
 @frappe.whitelist()
-def get_average_payment_duration():
-    """Average installment months"""
-    try:
-        data = frappe.db.sql("""
-            SELECT
-                AVG(installment_months) as avg_months,
-                MIN(installment_months) as min_months,
-                MAX(installment_months) as max_months
+def get_debt_summary():
+	"""
+	Calculate total debt from all customers
+	Formula: SUM(all contract grand_total) - SUM(all customer payments received)
+	"""
+	try:
+		# Total contract amounts from Sales Orders
+		total_contracts = frappe.db.sql("""
+            SELECT COALESCE(SUM(grand_total), 0) as total
+            FROM `tabSales Order`
+            WHERE docstatus = 1
+        """, as_dict=1)[0].get('total', 0) or 0
+
+		# Total payments received from customers
+		total_paid = frappe.db.sql("""
+            SELECT COALESCE(SUM(paid_amount), 0) as total
+            FROM `tabPayment Entry`
+            WHERE docstatus = 1
+              AND party_type = 'Customer'
+              AND payment_type = 'Receive'
+        """, as_dict=1)[0].get('total', 0) or 0
+
+		total_debt = float(total_contracts) - float(total_paid)
+		payment_percentage = (
+				float(total_paid) / float(total_contracts) * 100) if total_contracts > 0 else 0
+
+		return {
+			'total_contracts': float(total_contracts),
+			'total_paid': float(total_paid),
+			'total_debt': total_debt,
+			'payment_percentage': round(payment_percentage, 2)
+		}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), 'Debt Summary Error')
+		return {'total_contracts': 0, 'total_paid': 0, 'total_debt': 0, 'payment_percentage': 0}
+
+
+@frappe.whitelist()
+def get_debt_by_classification():
+	"""
+	Calculate debt for each customer classification (A, B, C)
+	Formula: For each classification, SUM(contracts) - SUM(payments received)
+	"""
+	try:
+		classifications = ['A', 'B', 'C']
+		result = {}
+
+		for classification in classifications:
+			# Get all customers with this classification
+			# Note: field is customer_classification NOT custom_classification
+			customers = frappe.db.sql("""
+                SELECT name
+                FROM `tabCustomer`
+                WHERE COALESCE(customer_classification, '') = %s
+            """, (classification,), as_dict=1)
+
+			customer_names = [c.name for c in customers]
+
+			if not customer_names:
+				result[classification] = {
+					'contracts': 0,
+					'paid': 0,
+					'debt': 0,
+					'customer_count': 0
+				}
+				continue
+
+			# Total contracts for these customers
+			contracts_total = frappe.db.sql("""
+                SELECT COALESCE(SUM(grand_total), 0) as total
+                FROM `tabSales Order`
+                WHERE docstatus = 1
+                  AND customer IN ({})
+            """.format(','.join(['%s'] * len(customer_names))),
+											tuple(customer_names), as_dict=1)[0].get('total',
+																					 0) or 0
+
+			# Total payments from these customers
+			paid_total = frappe.db.sql("""
+                SELECT COALESCE(SUM(paid_amount), 0) as total
+                FROM `tabPayment Entry`
+                WHERE docstatus = 1
+                  AND party_type = 'Customer'
+                  AND payment_type = 'Receive'
+                  AND party IN ({})
+            """.format(','.join(['%s'] * len(customer_names))),
+									   tuple(customer_names), as_dict=1)[0].get('total', 0) or 0
+
+			debt = float(contracts_total) - float(paid_total)
+
+			result[classification] = {
+				'contracts': float(contracts_total),
+				'paid': float(paid_total),
+				'debt': debt,
+				'customer_count': len(customer_names)
+			}
+
+		return result
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), 'Debt By Classification Error')
+		return {'A': {'contracts': 0, 'paid': 0, 'debt': 0, 'customer_count': 0},
+				'B': {'contracts': 0, 'paid': 0, 'debt': 0, 'customer_count': 0},
+				'C': {'contracts': 0, 'paid': 0, 'debt': 0, 'customer_count': 0}}
+
+
+@frappe.whitelist()
+def get_active_contracts_count():
+	"""
+	Count active and completed contracts from Sales Orders
+	Active: submitted but not completed status
+	Completed: completed status
+	"""
+	try:
+		# Active contracts (submitted, not completed)
+		active = frappe.db.sql("""
+            SELECT COUNT(*) as count
+            FROM `tabSales Order`
+            WHERE docstatus = 1
+              AND status NOT IN ('Completed', 'Closed', 'Cancelled')
+        """, as_dict=1)[0].get('count', 0) or 0
+
+		# Completed contracts
+		completed = frappe.db.sql("""
+            SELECT COUNT(*) as count
+            FROM `tabSales Order`
+            WHERE docstatus = 1
+              AND status = 'Completed'
+        """, as_dict=1)[0].get('count', 0) or 0
+
+		return {
+			'active': int(active),
+			'completed': int(completed),
+			'total': int(active) + int(completed)
+		}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), 'Active Contracts Error')
+		return {'active': 0, 'completed': 0, 'total': 0}
+
+
+@frappe.whitelist()
+def get_monthly_finance_chart(year_filter):
+	"""
+	Monthly finance amount (Tikilgan Pul) from Installment Application
+	Groups by month and year, returns data for comparison
+	"""
+	try:
+		if isinstance(year_filter, str):
+			year_filter = frappe.parse_json(year_filter)
+
+		result = {}
+
+		for year in year_filter:
+			data = frappe.db.sql("""
+                SELECT
+                    MONTH(transaction_date) as month,
+                    COALESCE(SUM(finance_amount), 0) as total
+                FROM `tabInstallment Application`
+                WHERE docstatus = 1
+                  AND YEAR(transaction_date) = %s
+                GROUP BY MONTH(transaction_date)
+                ORDER BY month
+            """, (year,), as_dict=1)
+
+			# Create 12-month array
+			monthly_data = [0] * 12
+			for row in data:
+				monthly_data[row['month'] - 1] = float(row['total'])
+
+			result[str(year)] = monthly_data
+
+		return result
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), 'Monthly Finance Chart Error')
+		return {}
+
+
+@frappe.whitelist()
+def get_monthly_revenue_chart(year_filter):
+	"""
+	Monthly revenue from customer payments (Payment Entry with payment_type='Receive')
+	12 months data for each year
+	"""
+	try:
+		if isinstance(year_filter, str):
+			year_filter = frappe.parse_json(year_filter)
+
+		result = {}
+
+		for year in year_filter:
+			data = frappe.db.sql("""
+                SELECT
+                    MONTH(posting_date) as month,
+                    COALESCE(SUM(paid_amount), 0) as total
+                FROM `tabPayment Entry`
+                WHERE docstatus = 1
+                  AND party_type = 'Customer'
+                  AND payment_type = 'Receive'
+                  AND YEAR(posting_date) = %s
+                GROUP BY MONTH(posting_date)
+                ORDER BY month
+            """, (year,), as_dict=1)
+
+			monthly_data = [0] * 12
+			for row in data:
+				monthly_data[row['month'] - 1] = float(row['total'])
+
+			result[str(year)] = monthly_data
+
+		return result
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), 'Monthly Revenue Chart Error')
+		return {}
+
+
+@frappe.whitelist()
+def get_monthly_contracts_chart(year_filter):
+	"""
+	Number of contracts per month from Sales Orders
+	Count by transaction_date
+	"""
+	try:
+		if isinstance(year_filter, str):
+			year_filter = frappe.parse_json(year_filter)
+
+		result = {}
+
+		for year in year_filter:
+			data = frappe.db.sql("""
+                SELECT
+                    MONTH(transaction_date) as month,
+                    COUNT(*) as count
+                FROM `tabSales Order`
+                WHERE docstatus = 1
+                  AND YEAR(transaction_date) = %s
+                GROUP BY MONTH(transaction_date)
+                ORDER BY month
+            """, (year,), as_dict=1)
+
+			monthly_data = [0] * 12
+			for row in data:
+				monthly_data[row['month'] - 1] = int(row['count'])
+
+			result[str(year)] = monthly_data
+
+		return result
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), 'Monthly Contracts Chart Error')
+		return {}
+
+
+@frappe.whitelist()
+def get_roi_calculation():
+	"""
+	Calculate ROI (Return on Investment)
+	Formula: (Total Interest / Finance Amount) * 100
+	"""
+	try:
+		# Total interest from all installment applications
+		total_interest = frappe.db.sql("""
+            SELECT COALESCE(SUM(custom_total_interest), 0) as total
             FROM `tabInstallment Application`
             WHERE docstatus = 1
-        """, as_dict=1)[0]
-        return data
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), 'Average Payment Duration Error')
-        return {}
+        """, as_dict=1)[0].get('total', 0) or 0
+
+		# Total finance amount
+		total_finance = frappe.db.sql("""
+            SELECT COALESCE(SUM(finance_amount), 0) as total
+            FROM `tabInstallment Application`
+            WHERE docstatus = 1
+        """, as_dict=1)[0].get('total', 0) or 0
+
+		roi_percentage = (
+				float(total_interest) / float(total_finance) * 100) if total_finance > 0 else 0
+
+		return {
+			'total_interest': float(total_interest),
+			'total_finance': float(total_finance),
+			'roi_percentage': round(roi_percentage, 2)
+		}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), 'ROI Calculation Error')
+		return {'total_interest': 0, 'total_finance': 0, 'roi_percentage': 0}
+
+
+@frappe.whitelist()
+def get_monthly_profit_chart(year_filter):
+	"""
+	Monthly profit from custom_total_interest in Installment Application
+	Filtered by transaction_date
+	"""
+	try:
+		if isinstance(year_filter, str):
+			year_filter = frappe.parse_json(year_filter)
+
+		result = {}
+
+		for year in year_filter:
+			data = frappe.db.sql("""
+                SELECT
+                    MONTH(transaction_date) as month,
+                    COALESCE(SUM(custom_total_interest), 0) as total
+                FROM `tabInstallment Application`
+                WHERE docstatus = 1
+                  AND YEAR(transaction_date) = %s
+                GROUP BY MONTH(transaction_date)
+                ORDER BY month
+            """, (year,), as_dict=1)
+
+			monthly_data = [0] * 12
+			for row in data:
+				monthly_data[row['month'] - 1] = float(row['total'])
+
+			result[str(year)] = monthly_data
+
+		return result
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), 'Monthly Profit Chart Error')
+		return {}
+
+
+@frappe.whitelist()
+def get_debt_list(limit_start=0, limit_page_length=20):
+	"""
+	Get list of customers with their debt amounts
+	Grouped by customer, showing classification, name, and total debt
+	Sorted by debt amount (descending)
+	"""
+	try:
+		# Get all customers with their debt
+		# Note: field is customer_classification NOT custom_classification
+		data = frappe.db.sql("""
+            SELECT
+                c.name as customer_id,
+                c.customer_name,
+                COALESCE(c.customer_classification, 'N/A') as classification,
+                COALESCE(contracts.total, 0) as contract_total,
+                COALESCE(payments.total, 0) as paid_total,
+                COALESCE(contracts.total, 0) - COALESCE(payments.total, 0) as debt
+            FROM `tabCustomer` c
+            LEFT JOIN (
+                SELECT customer, SUM(grand_total) as total
+                FROM `tabSales Order`
+                WHERE docstatus = 1
+                GROUP BY customer
+            ) contracts ON c.name = contracts.customer
+            LEFT JOIN (
+                SELECT party, SUM(paid_amount) as total
+                FROM `tabPayment Entry`
+                WHERE docstatus = 1
+                  AND party_type = 'Customer'
+                  AND payment_type = 'Receive'
+                GROUP BY party
+            ) payments ON c.name = payments.party
+            WHERE COALESCE(contracts.total, 0) > 0
+            HAVING debt > 0
+            ORDER BY debt DESC
+            LIMIT %s, %s
+        """, (limit_start, limit_page_length), as_dict=1)
+
+		# Format the data
+		result = []
+		for row in data:
+			result.append({
+				'customer_id': row.customer_id,
+				'customer_name': row.customer_name,
+				'classification': row.classification or 'N/A',
+				'contract_total': float(row.contract_total),
+				'paid_total': float(row.paid_total),
+				'debt': float(row.debt)
+			})
+
+		# Get total count
+		total_count = frappe.db.sql("""
+            SELECT COUNT(DISTINCT c.name) as count
+            FROM `tabCustomer` c
+            INNER JOIN `tabSales Order` so ON c.name = so.customer
+            WHERE so.docstatus = 1
+        """, as_dict=1)[0].get('count', 0)
+
+		return {
+			'data': result,
+			'total_count': int(total_count)
+		}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), 'Debt List Error')
+		return {'data': [], 'total_count': 0}
+
+
+@frappe.whitelist()
+def get_available_years():
+	"""
+	Get list of years that have data in the system
+	"""
+	try:
+		years = frappe.db.sql("""
+            SELECT DISTINCT YEAR(transaction_date) as year
+            FROM `tabInstallment Application`
+            WHERE docstatus = 1
+            ORDER BY year DESC
+        """, as_dict=1)
+
+		return [int(y['year']) for y in years if y['year']]
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), 'Available Years Error')
+		return []
