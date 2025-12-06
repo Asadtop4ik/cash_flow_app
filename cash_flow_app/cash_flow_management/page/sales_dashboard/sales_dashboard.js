@@ -32,6 +32,26 @@ class ModernSalesDashboard {
     createHTML() {
         const html = `
             <style>
+                /* ========== REMOVE FRAPPE DEFAULTS ========== */
+                .page-wrapper,
+                .page-content,
+                .page-content .frappe-control,
+                .page-card {
+                    background: transparent !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                }
+
+                .layout-main-section {
+                    padding: 0 !important;
+                }
+
+                /* Full page dark background */
+                body {
+                    background: linear-gradient(135deg, #0a0e27 0%, #1a1134 50%, #0d1b2a 100%) !important;
+                    overflow-x: hidden;
+                }
+
                 /* ========== NEON THEME + FIGMA LAYOUT ========== */
                 * {
                     box-sizing: border-box;
@@ -40,15 +60,15 @@ class ModernSalesDashboard {
                 }
 
                 .dashboard-fullscreen {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
                     background: linear-gradient(135deg, #0a0e27 0%, #1a1134 50%, #0d1b2a 100%);
-                    overflow-y: auto;
                     padding: 20px;
+                    min-height: 100vh;
+                    width: 100%;
                     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    margin-left: -15px;
+                    margin-right: -15px;
+                    margin-top: -15px;
+                    padding-bottom: 50px;
                 }
 
                 /* Loading */
@@ -61,6 +81,10 @@ class ModernSalesDashboard {
                     justify-content: center;
                     background: linear-gradient(135deg, #0a0e27 0%, #1a1134 100%);
                     z-index: 9999;
+                    width: 100vw;
+                    height: 100vh;
+                    left: 0;
+                    top: 0;
                 }
 
                 .loading-spinner {
@@ -84,53 +108,80 @@ class ModernSalesDashboard {
                     text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
                 }
 
-                /* Year Filter */
+                /* Year Filter - Below page title */
                 .year-filter {
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: rgba(30, 41, 59, 0.95);
+                    position: relative; /* Fixed emas, static */
+                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(45, 55, 72, 0.95));
                     border-radius: 12px;
-                    padding: 12px 18px;
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-                    z-index: 100;
+                    padding: 15px 20px;
+                    margin-bottom: 20px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 255, 255, 0.4);
                     display: flex;
                     gap: 12px;
                     align-items: center;
-                    border: 1px solid rgba(0, 255, 255, 0.3);
+                    justify-content: center;
+                    border: 2px solid rgba(0, 255, 255, 0.4);
+                    backdrop-filter: blur(10px);
                 }
 
                 .year-filter-label {
-                    font-size: 12px;
+                    font-size: 13px;
                     font-weight: 700;
                     color: #00ffff;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
+                    letter-spacing: 1.5px;
+                    text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+                    margin-right: 15px;
+                }
+
+                .year-buttons-container {
+                    display: flex;
+                    gap: 10px;
+                    flex-wrap: wrap;
+                    align-items: center;
                 }
 
                 .year-btn {
-                    padding: 8px 16px;
-                    border: 2px solid rgba(99, 102, 241, 0.5);
-                    background: rgba(30, 41, 59, 0.5);
+                    padding: 10px 18px;
+                    border: 2px solid rgba(139, 92, 246, 0.6);
+                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(45, 55, 72, 0.6));
                     color: #a78bfa;
-                    border-radius: 8px;
+                    border-radius: 10px;
                     cursor: pointer;
                     font-weight: 700;
-                    font-size: 12px;
-                    transition: all 0.3s;
+                    font-size: 14px;
+                    transition: all 0.3s ease;
+                    min-width: 70px;
+                    text-align: center;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
                 }
 
                 .year-btn:hover {
-                    border-color: #8b5cf6;
-                    background: rgba(139, 92, 246, 0.2);
-                    transform: translateY(-2px);
+                    border-color: #00ffff;
+                    background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(139, 92, 246, 0.2));
+                    color: #00ffff;
+                    transform: translateY(-3px);
+                    box-shadow: 0 6px 20px rgba(0, 255, 255, 0.4);
                 }
 
                 .year-btn.active {
                     background: linear-gradient(135deg, #6366f1, #8b5cf6);
-                    border-color: #8b5cf6;
+                    border-color: #00ffff;
                     color: white;
-                    box-shadow: 0 5px 20px rgba(139, 92, 246, 0.4);
+                    box-shadow: 0 6px 24px rgba(99, 102, 241, 0.6), 0 0 20px rgba(0, 255, 255, 0.5);
+                    transform: translateY(-2px);
+                }
+
+                .year-btn.active::before {
+                    content: '✓ ';
+                    margin-right: 4px;
+                }
+
+                .year-selection-info {
+                    font-size: 11px;
+                    color: #94a3b8;
+                    margin-left: 15px;
+                    font-style: italic;
                 }
 
                 /* Top KPI Row - 7 cards */
@@ -139,7 +190,7 @@ class ModernSalesDashboard {
                     grid-template-columns: repeat(7, 1fr);
                     gap: 15px;
                     margin-bottom: 20px;
-                    padding-top: 70px; /* Space for year filter */
+                    /* No padding-top needed - year filter is static now */
                 }
 
                 .kpi-card {
@@ -370,7 +421,6 @@ class ModernSalesDashboard {
                 @media (max-width: 768px) {
                     .kpi-row {
                         grid-template-columns: repeat(2, 1fr);
-                        padding-top: 80px;
                     }
 
                     .charts-grid {
@@ -378,32 +428,53 @@ class ModernSalesDashboard {
                     }
 
                     .year-filter {
-                        top: 10px;
-                        right: 10px;
-                        left: 10px;
-                        flex-wrap: wrap;
+                        flex-direction: column;
+                        text-align: center;
+                        padding: 15px;
+                    }
+
+                    .year-filter-label {
+                        margin-right: 0;
+                        margin-bottom: 10px;
+                    }
+
+                    .year-buttons-container {
+                        justify-content: center;
+                    }
+
+                    .year-btn {
+                        min-width: 65px;
+                        padding: 8px 14px;
+                        font-size: 13px;
+                    }
+
+                    .year-selection-info {
+                        margin-left: 0;
+                        margin-top: 8px;
                     }
                 }
             </style>
 
-            <div class="dashboard-fullscreen">
-                <div class="dashboard-loading" id="dashboardLoading">
-                    <div class="loading-spinner"></div>
-                    <div class="loading-text">Ma'lumotlar yuklanmoqda...</div>
+            <!-- Loading -->
+            <div class="dashboard-loading" id="dashboardLoading">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Ma'lumotlar yuklanmoqda...</div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="dashboard-fullscreen" id="dashboardContent" style="display: none;">
+                <!-- Year Filter -->
+                <div class="year-filter">
+                    <span class="year-filter-label">📅 Yillarni tanlang</span>
+                    <div class="year-buttons-container" id="yearButtons"></div>
+                    <span class="year-selection-info" id="yearSelectionInfo">(3 tagacha tanlashingiz mumkin)</span>
                 </div>
 
-                <div id="dashboardContent" style="display: none;">
-                    <!-- Year Filter -->
-                    <div class="year-filter">
-                        <span class="year-filter-label">Yillar</span>
-                        <div id="yearButtons" style="display: flex; gap: 8px;"></div>
-                    </div>
+                <!-- KPI Cards -->
+                <div class="kpi-row" id="kpiRow"></div>
 
-                    <!-- Top KPI Row -->
-                    <div class="kpi-row" id="kpiRow"></div>
-
-                    <!-- Charts Grid -->
-                    <div class="charts-grid">
+                <!-- Charts Grid -->
+                <div class="charts-grid">
                         <!-- Chart 1: Line Grapha Oylik Chiqim Summa Oyma oy -->
                         <div class="chart-container chart-1">
                             <div class="chart-title">Oylik Moliyaviy Tendensiyalar (Tikilgan Pul)</div>
@@ -505,6 +576,7 @@ class ModernSalesDashboard {
 
     renderYearFilter() {
         const container = this.wrapper.find('#yearButtons');
+        const infoSpan = this.wrapper.find('#yearSelectionInfo');
         container.empty();
 
         this.availableYears.forEach(year => {
@@ -513,6 +585,14 @@ class ModernSalesDashboard {
             btn.on('click', () => this.toggleYear(year));
             container.append(btn);
         });
+
+        // Update info text
+        const selectedCount = this.selectedYears.length;
+        if (selectedCount === 3) {
+            infoSpan.text('(Maksimum: 3/3 tanlangan)').css('color', '#ff6b00');
+        } else {
+            infoSpan.text(`(${selectedCount}/3 tanlangan)`).css('color', '#94a3b8');
+        }
     }
 
     toggleYear(year) {
