@@ -108,80 +108,112 @@ class ModernSalesDashboard {
                     text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
                 }
 
-                /* Year Filter - Below page title */
+                /* Year Filter - 3 Select Boxes */
                 .year-filter {
-                    position: relative; /* Fixed emas, static */
+                    position: relative;
                     background: linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(45, 55, 72, 0.95));
                     border-radius: 12px;
-                    padding: 15px 20px;
+                    padding: 20px 25px;
                     margin-bottom: 20px;
                     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 255, 255, 0.4);
                     display: flex;
-                    gap: 12px;
+                    gap: 15px;
                     align-items: center;
                     justify-content: center;
                     border: 2px solid rgba(0, 255, 255, 0.4);
                     backdrop-filter: blur(10px);
+                    flex-wrap: wrap;
                 }
 
                 .year-filter-label {
-                    font-size: 13px;
+                    font-size: 14px;
                     font-weight: 700;
                     color: #00ffff;
                     text-transform: uppercase;
                     letter-spacing: 1.5px;
                     text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
-                    margin-right: 15px;
+                    margin-right: 10px;
                 }
 
-                .year-buttons-container {
+                .year-selectors {
                     display: flex;
-                    gap: 10px;
-                    flex-wrap: wrap;
+                    gap: 15px;
                     align-items: center;
+                    flex-wrap: wrap;
                 }
 
-                .year-btn {
-                    padding: 10px 18px;
-                    border: 2px solid rgba(139, 92, 246, 0.6);
-                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(45, 55, 72, 0.6));
-                    color: #a78bfa;
-                    border-radius: 10px;
-                    cursor: pointer;
-                    font-weight: 700;
-                    font-size: 14px;
-                    transition: all 0.3s ease;
-                    min-width: 70px;
-                    text-align: center;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                .year-select-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 5px;
                 }
 
-                .year-btn:hover {
-                    border-color: #00ffff;
-                    background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(139, 92, 246, 0.2));
-                    color: #00ffff;
-                    transform: translateY(-3px);
-                    box-shadow: 0 6px 20px rgba(0, 255, 255, 0.4);
-                }
-
-                .year-btn.active {
-                    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-                    border-color: #00ffff;
-                    color: white;
-                    box-shadow: 0 6px 24px rgba(99, 102, 241, 0.6), 0 0 20px rgba(0, 255, 255, 0.5);
-                    transform: translateY(-2px);
-                }
-
-                .year-btn.active::before {
-                    content: '✓ ';
-                    margin-right: 4px;
-                }
-
-                .year-selection-info {
+                .year-select-label {
                     font-size: 11px;
                     color: #94a3b8;
-                    margin-left: 15px;
-                    font-style: italic;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    font-weight: 600;
+                }
+
+                .year-select {
+                    padding: 10px 35px 10px 15px;
+                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(45, 55, 72, 0.8));
+                    border: 2px solid rgba(139, 92, 246, 0.6);
+                    color: #e2e8f0;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    outline: none;
+                    min-width: 100px;
+                    appearance: none;
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2300ffff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+                    background-repeat: no-repeat;
+                    background-position: right 10px center;
+                }
+
+                .year-select:hover {
+                    border-color: #00ffff;
+                    background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(139, 92, 246, 0.2));
+                    box-shadow: 0 5px 15px rgba(0, 255, 255, 0.3);
+                }
+
+                .year-select:focus {
+                    border-color: #00ffff;
+                    box-shadow: 0 0 0 3px rgba(0, 255, 255, 0.2);
+                }
+
+                .year-select option {
+                    background: #1e293b;
+                    color: #e2e8f0;
+                    padding: 10px;
+                }
+
+                .apply-years-btn {
+                    padding: 12px 25px;
+                    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                    border: 2px solid #00ffff;
+                    color: white;
+                    border-radius: 10px;
+                    font-weight: 700;
+                    font-size: 14px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+                }
+
+                .apply-years-btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 25px rgba(0, 255, 255, 0.5);
+                    background: linear-gradient(135deg, #8b5cf6, #d946ef);
+                }
+
+                .apply-years-btn:active {
+                    transform: translateY(0);
                 }
 
                 /* Top KPI Row - 7 cards */
@@ -429,7 +461,6 @@ class ModernSalesDashboard {
 
                     .year-filter {
                         flex-direction: column;
-                        text-align: center;
                         padding: 15px;
                     }
 
@@ -438,19 +469,21 @@ class ModernSalesDashboard {
                         margin-bottom: 10px;
                     }
 
-                    .year-buttons-container {
-                        justify-content: center;
+                    .year-selectors {
+                        flex-direction: column;
+                        width: 100%;
                     }
 
-                    .year-btn {
-                        min-width: 65px;
-                        padding: 8px 14px;
-                        font-size: 13px;
+                    .year-select-group {
+                        width: 100%;
                     }
 
-                    .year-selection-info {
-                        margin-left: 0;
-                        margin-top: 8px;
+                    .year-select {
+                        width: 100%;
+                    }
+
+                    .apply-years-btn {
+                        width: 100%;
                     }
                 }
             </style>
@@ -466,8 +499,23 @@ class ModernSalesDashboard {
                 <!-- Year Filter -->
                 <div class="year-filter">
                     <span class="year-filter-label">📅 Yillarni tanlang</span>
-                    <div class="year-buttons-container" id="yearButtons"></div>
-                    <span class="year-selection-info" id="yearSelectionInfo">(3 tagacha tanlashingiz mumkin)</span>
+                    <div class="year-selectors">
+                        <div class="year-select-group">
+                            <label class="year-select-label">Yil 1</label>
+                            <select class="year-select" id="yearSelect1"></select>
+                        </div>
+                        <div class="year-select-group">
+                            <label class="year-select-label">Yil 2</label>
+                            <select class="year-select" id="yearSelect2"></select>
+                        </div>
+                        <div class="year-select-group">
+                            <label class="year-select-label">Yil 3</label>
+                            <select class="year-select" id="yearSelect3"></select>
+                        </div>
+                        <button class="apply-years-btn" id="applyYearsBtn">
+                            <i class="fa fa-check"></i> Qo'llash
+                        </button>
+                    </div>
                 </div>
 
                 <!-- KPI Cards -->
@@ -557,7 +605,7 @@ class ModernSalesDashboard {
 
     setup() {
         this.loadAvailableYears();
-        this.loadData();
+        this.wrapper.find('#applyYearsBtn').on('click', () => this.applyYearSelection());
     }
 
     loadAvailableYears() {
@@ -567,55 +615,73 @@ class ModernSalesDashboard {
                 if (r.message && r.message.length > 0) {
                     this.availableYears = r.message;
                 } else {
-                    this.availableYears = this.getDefaultYears();
+                    // Fallback: generate last 5 years
+                    const currentYear = new Date().getFullYear();
+                    this.availableYears = [];
+                    for (let i = 0; i < 5; i++) {
+                        this.availableYears.push(currentYear - i);
+                    }
                 }
-                this.renderYearFilter();
+                this.renderYearSelects();
+                this.loadData();
+            },
+            error: () => {
+                // Fallback on error
+                const currentYear = new Date().getFullYear();
+                this.availableYears = [];
+                for (let i = 0; i < 5; i++) {
+                    this.availableYears.push(currentYear - i);
+                }
+                this.renderYearSelects();
+                this.loadData();
             }
         });
     }
 
-    renderYearFilter() {
-        const container = this.wrapper.find('#yearButtons');
-        const infoSpan = this.wrapper.find('#yearSelectionInfo');
-        container.empty();
+    renderYearSelects() {
+        const select1 = this.wrapper.find('#yearSelect1');
+        const select2 = this.wrapper.find('#yearSelect2');
+        const select3 = this.wrapper.find('#yearSelect3');
 
+        // Clear existing options
+        [select1, select2, select3].forEach(select => select.empty());
+
+        // Populate all selects with available years
         this.availableYears.forEach(year => {
-            const isActive = this.selectedYears.includes(year);
-            const btn = $(`<button class="year-btn ${isActive ? 'active' : ''}" data-year="${year}">${year}</button>`);
-            btn.on('click', () => this.toggleYear(year));
-            container.append(btn);
+            const option1 = $(`<option value="${year}">${year}</option>`);
+            const option2 = $(`<option value="${year}">${year}</option>`);
+            const option3 = $(`<option value="${year}">${year}</option>`);
+
+            select1.append(option1);
+            select2.append(option2);
+            select3.append(option3);
         });
 
-        // Update info text
-        const selectedCount = this.selectedYears.length;
-        if (selectedCount === 3) {
-            infoSpan.text('(Maksimum: 3/3 tanlangan)').css('color', '#ff6b00');
-        } else {
-            infoSpan.text(`(${selectedCount}/3 tanlangan)`).css('color', '#94a3b8');
+        // Set default selections (last 3 years)
+        if (this.selectedYears.length === 3) {
+            select1.val(this.selectedYears[0]);
+            select2.val(this.selectedYears[1]);
+            select3.val(this.selectedYears[2]);
+        } else if (this.availableYears.length >= 3) {
+            select1.val(this.availableYears[2]); // 3rd year (oldest)
+            select2.val(this.availableYears[1]); // 2nd year
+            select3.val(this.availableYears[0]); // 1st year (newest)
+            this.selectedYears = [this.availableYears[2], this.availableYears[1], this.availableYears[0]];
         }
     }
 
-    toggleYear(year) {
-        const index = this.selectedYears.indexOf(year);
+    applyYearSelection() {
+        const year1 = parseInt(this.wrapper.find('#yearSelect1').val());
+        const year2 = parseInt(this.wrapper.find('#yearSelect2').val());
+        const year3 = parseInt(this.wrapper.find('#yearSelect3').val());
 
-        if (index > -1) {
-            if (this.selectedYears.length > 1) {
-                this.selectedYears.splice(index, 1);
-            } else {
-                frappe.msgprint('Kamida bitta yil tanlanishi kerak');
-                return;
-            }
-        } else {
-            if (this.selectedYears.length < 3) {
-                this.selectedYears.push(year);
-                this.selectedYears.sort();
-            } else {
-                frappe.msgprint('Maksimum 3 ta yil tanlanishi mumkin');
-                return;
-            }
-        }
+        // Update selected years
+        this.selectedYears = [year1, year2, year3].filter(y => !isNaN(y));
+        this.selectedYears.sort((a, b) => a - b); // Sort ascending
 
-        this.renderYearFilter();
+        console.log('Selected years:', this.selectedYears);
+
+        // Reload data with new years
         this.loadData();
     }
 
