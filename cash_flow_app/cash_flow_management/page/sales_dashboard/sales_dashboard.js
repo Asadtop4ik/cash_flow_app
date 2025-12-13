@@ -46,9 +46,9 @@ class ModernSalesDashboard {
                     padding: 0 !important;
                 }
 
-                /* Full page dark background */
+                /* Full page dark background - TINIQ QORA */
                 body {
-                    background: linear-gradient(135deg, #0a0e27 0%, #1a1134 50%, #0d1b2a 100%) !important;
+                    background: #000000 !important;
                     overflow-x: hidden;
                 }
 
@@ -60,7 +60,7 @@ class ModernSalesDashboard {
                 }
 
                 .dashboard-fullscreen {
-                    background: linear-gradient(135deg, #0a0e27 0%, #1a1134 50%, #0d1b2a 100%);
+                    background: #000000;
                     padding: 20px;
                     min-height: 100vh;
                     width: 100%;
@@ -79,7 +79,7 @@ class ModernSalesDashboard {
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    background: linear-gradient(135deg, #0a0e27 0%, #1a1134 100%);
+                    background: #000000;
                     z-index: 9999;
                     width: 100vw;
                     height: 100vh;
@@ -90,8 +90,8 @@ class ModernSalesDashboard {
                 .loading-spinner {
                     width: 60px;
                     height: 60px;
-                    border: 4px solid rgba(0, 255, 255, 0.2);
-                    border-top-color: #00ffff;
+                    border: 4px solid rgba(139, 92, 246, 0.2);
+                    border-top-color: #8b5cf6;
                     border-radius: 50%;
                     animation: spin 1s linear infinite;
                 }
@@ -103,35 +103,118 @@ class ModernSalesDashboard {
                 .loading-text {
                     margin-top: 20px;
                     font-size: 18px;
-                    color: #00ffff;
+                    color: #ffffff;
                     font-weight: 600;
-                    text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
                 }
 
-                /* Year Filter - 3 Select Boxes */
+                /* Top KPI Row - 7 cards - XIRA QORA */
+                .kpi-row {
+                    display: grid;
+                    grid-template-columns: repeat(7, 1fr);
+                    gap: 15px;
+                    margin-bottom: 15px;
+                }
+
+                .kpi-card {
+                    background: #0d0d0d;
+                    border-radius: 16px;
+                    padding: 25px 15px;
+                    text-align: center;
+                    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+                    border: 1px solid #1a1a1a;
+                    transition: all 0.3s ease;
+                    position: relative;
+                    overflow: hidden;
+                    min-height: 120px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                }
+
+                .kpi-card::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    height: 3px;
+                    background: var(--card-color);
+                }
+
+                .kpi-card:hover {
+                    transform: translateY(-5px);
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+                    border-color: var(--card-color);
+                    background: #121212;
+                }
+
+                .kpi-card.cyan { --card-color: #00d4ff; }
+                .kpi-card.green { --card-color: #00ff88; }
+                .kpi-card.purple { --card-color: #8b5cf6; }
+                .kpi-card.orange { --card-color: #ff6b00; }
+                .kpi-card.pink { --card-color: #d946ef; }
+
+                .kpi-value {
+                    font-size: 26px;
+                    font-weight: 900;
+                    color: var(--card-color);
+                    margin-bottom: 10px;
+                    line-height: 1.2;
+                }
+
+                .kpi-label {
+                    font-size: 11px;
+                    color: #ffffff;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    font-weight: 600;
+                    line-height: 1.4;
+                }
+
+                /* Chart 4 ROI - O'rtada matn uchun */
+                .chart-4 .chart-body {
+                    position: relative;
+                }
+
+                .roi-center-text {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    text-align: center;
+                    pointer-events: none;
+                    z-index: 10;
+                }
+
+                .roi-percentage {
+                    font-size: 32px;
+                    font-weight: 900;
+                    color: #8b5cf6;
+                    line-height: 1;
+                }
+
+                /* Year Filter - KPI qatoridan keyin - XIRA QORA */
                 .year-filter {
                     position: relative;
-                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(45, 55, 72, 0.95));
+                    background: #0d0d0d;
                     border-radius: 12px;
                     padding: 20px 25px;
                     margin-bottom: 20px;
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 255, 255, 0.4);
+                    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
                     display: flex;
                     gap: 15px;
                     align-items: center;
                     justify-content: center;
-                    border: 2px solid rgba(0, 255, 255, 0.4);
-                    backdrop-filter: blur(10px);
+                    border: 1px solid #1a1a1a;
                     flex-wrap: wrap;
                 }
 
                 .year-filter-label {
                     font-size: 14px;
                     font-weight: 700;
-                    color: #00ffff;
+                    color: #ffffff;
                     text-transform: uppercase;
                     letter-spacing: 1.5px;
-                    text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
                     margin-right: 10px;
                 }
 
@@ -150,7 +233,7 @@ class ModernSalesDashboard {
 
                 .year-select-label {
                     font-size: 11px;
-                    color: #94a3b8;
+                    color: #999999;
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
                     font-weight: 600;
@@ -158,9 +241,9 @@ class ModernSalesDashboard {
 
                 .year-select {
                     padding: 10px 35px 10px 15px;
-                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(45, 55, 72, 0.8));
-                    border: 2px solid rgba(139, 92, 246, 0.6);
-                    color: #e2e8f0;
+                    background: #000000;
+                    border: 2px solid #1a1a1a;
+                    color: #ffffff;
                     border-radius: 10px;
                     font-size: 14px;
                     font-weight: 700;
@@ -169,32 +252,37 @@ class ModernSalesDashboard {
                     outline: none;
                     min-width: 100px;
                     appearance: none;
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2300ffff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b5cf6' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
                     background-repeat: no-repeat;
                     background-position: right 10px center;
                 }
 
                 .year-select:hover {
-                    border-color: #00ffff;
-                    background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(139, 92, 246, 0.2));
-                    box-shadow: 0 5px 15px rgba(0, 255, 255, 0.3);
+                    border-color: #8b5cf6;
+                    background: #0d0d0d;
                 }
 
                 .year-select:focus {
-                    border-color: #00ffff;
-                    box-shadow: 0 0 0 3px rgba(0, 255, 255, 0.2);
+                    border-color: #8b5cf6;
+                    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
                 }
 
                 .year-select option {
-                    background: #1e293b;
-                    color: #e2e8f0;
+                    background: #000000;
+                    color: #ffffff;
                     padding: 10px;
+                }
+
+                /* Bo'sh option uchun alohida stil */
+                .year-select option[value=""] {
+                    color: #666666;
+                    font-style: italic;
                 }
 
                 .apply-years-btn {
                     padding: 12px 25px;
-                    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-                    border: 2px solid #00ffff;
+                    background: linear-gradient(135deg, #8b5cf6, #d946ef);
+                    border: none;
                     color: white;
                     border-radius: 10px;
                     font-weight: 700;
@@ -203,81 +291,16 @@ class ModernSalesDashboard {
                     transition: all 0.3s ease;
                     text-transform: uppercase;
                     letter-spacing: 1px;
-                    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+                    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
                 }
 
                 .apply-years-btn:hover {
                     transform: translateY(-2px);
-                    box-shadow: 0 8px 25px rgba(0, 255, 255, 0.5);
-                    background: linear-gradient(135deg, #8b5cf6, #d946ef);
+                    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.6);
                 }
 
                 .apply-years-btn:active {
                     transform: translateY(0);
-                }
-
-                /* Top KPI Row - 7 cards */
-                .kpi-row {
-                    display: grid;
-                    grid-template-columns: repeat(7, 1fr);
-                    gap: 15px;
-                    margin-bottom: 20px;
-                    /* No padding-top needed - year filter is static now */
-                }
-
-                .kpi-card {
-                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(45, 55, 72, 0.9));
-                    border-radius: 16px;
-                    padding: 25px 15px; /* More vertical padding */
-                    text-align: center;
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    transition: all 0.3s ease;
-                    position: relative;
-                    overflow: hidden;
-                    min-height: 120px; /* Ensure minimum height */
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: center;
-                }
-
-                .kpi-card::before {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    height: 3px;
-                    background: linear-gradient(90deg, var(--card-color), transparent);
-                }
-
-                .kpi-card:hover {
-                    transform: translateY(-5px);
-                    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
-                }
-
-                .kpi-card.cyan { --card-color: #00ffff; }
-                .kpi-card.green { --card-color: #00ff88; }
-                .kpi-card.purple { --card-color: #a78bfa; }
-                .kpi-card.orange { --card-color: #ff6b00; }
-                .kpi-card.pink { --card-color: #d946ef; }
-
-                .kpi-value {
-                    font-size: 26px; /* Slightly smaller to fit better */
-                    font-weight: 900;
-                    color: var(--card-color);
-                    margin-bottom: 10px;
-                    text-shadow: 0 0 20px var(--card-color);
-                    line-height: 1.2;
-                }
-
-                .kpi-label {
-                    font-size: 11px;
-                    color: #94a3b8;
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                    font-weight: 600;
-                    line-height: 1.4;
                 }
 
                 /* Charts Grid - Figma Layout */
@@ -314,20 +337,25 @@ class ModernSalesDashboard {
                     grid-row: 1 / 4;
                 }
 
+                /* Chart 5 maxsus stillar - oddiy vertikal barlar */
+                .chart-5 .chart-body {
+                    padding: 10px;
+                }
+
                 .chart-6 {
                     grid-column: 10 / 13;
                     grid-row: 1 / 7;
                 }
 
                 .chart-container {
-                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(45, 55, 72, 0.9));
+                    background: #0d0d0d;
                     border-radius: 16px;
                     padding: 20px;
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+                    border: 1px solid #1a1a1a;
+                    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
                     position: relative;
                 }
 
@@ -337,18 +365,17 @@ class ModernSalesDashboard {
                     top: 0;
                     left: 0;
                     right: 0;
-                    height: 3px;
-                    background: linear-gradient(90deg, #6366f1, #8b5cf6, #d946ef);
+                    height: 2px;
+                    background: linear-gradient(90deg, #8b5cf6, #d946ef);
                     opacity: 0.6;
                 }
 
                 .chart-title {
                     font-size: 14px;
                     font-weight: 700;
-                    color: #00ffff;
+                    color: #ffffff;
                     margin-bottom: 15px;
                     text-align: center;
-                    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
                 }
 
                 .chart-body {
@@ -376,8 +403,7 @@ class ModernSalesDashboard {
                 .debt-table thead {
                     position: sticky;
                     top: 0;
-                    background: rgba(0, 0, 0, 0.5);
-                    backdrop-filter: blur(10px);
+                    background: #000000;
                     z-index: 10;
                 }
 
@@ -385,22 +411,22 @@ class ModernSalesDashboard {
                     padding: 12px 10px;
                     text-align: left;
                     font-size: 11px;
-                    color: #00ffff;
+                    color: #ffffff;
                     font-weight: 700;
                     text-transform: uppercase;
                     letter-spacing: 1px;
-                    border-bottom: 2px solid rgba(0, 255, 255, 0.3);
+                    border-bottom: 2px solid #1a1a1a;
                 }
 
                 .debt-table td {
                     padding: 10px;
                     font-size: 12px;
-                    color: #cbd5e1;
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                    color: #ffffff;
+                    border-bottom: 1px solid #121212;
                 }
 
                 .debt-table tbody tr:hover {
-                    background: rgba(0, 255, 255, 0.05);
+                    background: rgba(139, 92, 246, 0.1);
                 }
 
                 .classification-badge {
@@ -413,23 +439,23 @@ class ModernSalesDashboard {
                 }
 
                 .classification-badge.class-a {
-                    background: linear-gradient(135deg, #00ff88, #00d4aa);
-                    color: #0a0e27;
+                    background: #00ff88;
+                    color: #000000;
                 }
 
                 .classification-badge.class-b {
-                    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-                    color: white;
+                    background: #8b5cf6;
+                    color: #ffffff;
                 }
 
                 .classification-badge.class-c {
-                    background: linear-gradient(135deg, #ff6b00, #ff8c42);
-                    color: white;
+                    background: #ff6b00;
+                    color: #ffffff;
                 }
 
                 .classification-badge.class-n-a {
-                    background: rgba(148, 163, 184, 0.3);
-                    color: #94a3b8;
+                    background: #333333;
+                    color: #999999;
                 }
 
                 /* Responsive */
@@ -496,21 +522,30 @@ class ModernSalesDashboard {
 
             <!-- Main Content -->
             <div class="dashboard-fullscreen" id="dashboardContent" style="display: none;">
-                <!-- Year Filter -->
+                <!-- KPI Cards - Eng tepada -->
+                <div class="kpi-row" id="kpiRow"></div>
+
+                <!-- Year Filter - KPI qatoridan keyin -->
                 <div class="year-filter">
                     <span class="year-filter-label">📅 Yillarni tanlang</span>
                     <div class="year-selectors">
                         <div class="year-select-group">
                             <label class="year-select-label">Yil 1</label>
-                            <select class="year-select" id="yearSelect1"></select>
+                            <select class="year-select" id="yearSelect1">
+                                <option value="">Tanlanmagan</option>
+                            </select>
                         </div>
                         <div class="year-select-group">
                             <label class="year-select-label">Yil 2</label>
-                            <select class="year-select" id="yearSelect2"></select>
+                            <select class="year-select" id="yearSelect2">
+                                <option value="">Tanlanmagan</option>
+                            </select>
                         </div>
                         <div class="year-select-group">
                             <label class="year-select-label">Yil 3</label>
-                            <select class="year-select" id="yearSelect3"></select>
+                            <select class="year-select" id="yearSelect3">
+                                <option value="">Tanlanmagan</option>
+                            </select>
                         </div>
                         <button class="apply-years-btn" id="applyYearsBtn">
                             <i class="fa fa-check"></i> Qo'llash
@@ -518,14 +553,11 @@ class ModernSalesDashboard {
                     </div>
                 </div>
 
-                <!-- KPI Cards -->
-                <div class="kpi-row" id="kpiRow"></div>
-
                 <!-- Charts Grid -->
                 <div class="charts-grid">
                         <!-- Chart 1: Line Grapha Oylik Chiqim Summa Oyma oy -->
                         <div class="chart-container chart-1">
-                            <div class="chart-title">Oylik Moliyaviy Tendensiyalar (Tikilgan Pul)</div>
+                            <div class="chart-title">Har Oylik Tikilgan Pul</div>
                             <div class="chart-body">
                                 <canvas id="chart1"></canvas>
                             </div>
@@ -552,6 +584,9 @@ class ModernSalesDashboard {
                             <div class="chart-title">ROI Statistikasi</div>
                             <div class="chart-body">
                                 <canvas id="chart4"></canvas>
+                                <div class="roi-center-text">
+                                    <div class="roi-percentage" id="roiPercentage">0%</div>
+                                </div>
                             </div>
                         </div>
 
@@ -623,6 +658,7 @@ class ModernSalesDashboard {
                     }
                 }
                 this.renderYearSelects();
+                // Avtomatik ma'lumot yuklash
                 this.loadData();
             },
             error: () => {
@@ -633,6 +669,7 @@ class ModernSalesDashboard {
                     this.availableYears.push(currentYear - i);
                 }
                 this.renderYearSelects();
+                // Avtomatik ma'lumot yuklash
                 this.loadData();
             }
         });
@@ -643,10 +680,7 @@ class ModernSalesDashboard {
         const select2 = this.wrapper.find('#yearSelect2');
         const select3 = this.wrapper.find('#yearSelect3');
 
-        // Clear existing options
-        [select1, select2, select3].forEach(select => select.empty());
-
-        // Populate all selects with available years
+        // Bo'sh optiondan keyin yillarni qo'shish
         this.availableYears.forEach(year => {
             const option1 = $(`<option value="${year}">${year}</option>`);
             const option2 = $(`<option value="${year}">${year}</option>`);
@@ -657,29 +691,43 @@ class ModernSalesDashboard {
             select3.append(option3);
         });
 
-        // Set default selections (last 3 years)
-        if (this.selectedYears.length === 3) {
+        // Default qiymatlarni o'rnatish
+        if (this.selectedYears.length >= 3) {
             select1.val(this.selectedYears[0]);
             select2.val(this.selectedYears[1]);
             select3.val(this.selectedYears[2]);
         } else if (this.availableYears.length >= 3) {
-            select1.val(this.availableYears[2]); // 3rd year (oldest)
-            select2.val(this.availableYears[1]); // 2nd year
-            select3.val(this.availableYears[0]); // 1st year (newest)
+            // Agar selectedYears bo'sh bo'lsa, so'nggi 3 yilni tanlash
+            select1.val(this.availableYears[2]); // 3rd newest
+            select2.val(this.availableYears[1]); // 2nd newest
+            select3.val(this.availableYears[0]); // newest
             this.selectedYears = [this.availableYears[2], this.availableYears[1], this.availableYears[0]];
         }
     }
 
     applyYearSelection() {
-        const year1 = parseInt(this.wrapper.find('#yearSelect1').val());
-        const year2 = parseInt(this.wrapper.find('#yearSelect2').val());
-        const year3 = parseInt(this.wrapper.find('#yearSelect3').val());
+        const year1 = this.wrapper.find('#yearSelect1').val();
+        const year2 = this.wrapper.find('#yearSelect2').val();
+        const year3 = this.wrapper.find('#yearSelect3').val();
 
-        // Update selected years
-        this.selectedYears = [year1, year2, year3].filter(y => !isNaN(y));
+        // Faqat tanlangan yillarni olish (bo'sh bo'lmaganlarini)
+        this.selectedYears = [year1, year2, year3]
+            .filter(y => y !== '' && y !== null && y !== undefined)
+            .map(y => parseInt(y))
+            .filter(y => !isNaN(y));
+
         this.selectedYears.sort((a, b) => a - b); // Sort ascending
 
         console.log('Selected years:', this.selectedYears);
+
+        if (this.selectedYears.length === 0) {
+            frappe.msgprint({
+                title: 'Diqqat',
+                indicator: 'orange',
+                message: 'Iltimos, kamida bitta yilni tanlang!'
+            });
+            return;
+        }
 
         // Reload data with new years
         this.loadData();
@@ -790,20 +838,37 @@ class ModernSalesDashboard {
 
         const data = this.data.monthly_finance || {};
         const datasets = [];
-        const colors = ['#00ffff', '#8b5cf6', '#d946ef'];
+        const colors = [
+            { line: '#8b5cf6', gradientStart: 'rgba(139, 92, 246, 0.3)', gradientEnd: 'rgba(139, 92, 246, 0)' },
+            { line: '#d946ef', gradientStart: 'rgba(217, 70, 239, 0.3)', gradientEnd: 'rgba(217, 70, 239, 0)' },
+            { line: '#00d4ff', gradientStart: 'rgba(0, 212, 255, 0.3)', gradientEnd: 'rgba(0, 212, 255, 0)' }
+        ];
 
         this.selectedYears.forEach((year, index) => {
             const yearData = data[year] || Array(12).fill(0);
+
+            // Gradient yaratish
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, colors[index % colors.length].gradientStart);
+            gradient.addColorStop(1, colors[index % colors.length].gradientEnd);
+
             datasets.push({
                 label: year,
                 data: yearData,
-                borderColor: colors[index],
-                backgroundColor: `${colors[index]}20`,
+                borderColor: colors[index % colors.length].line,
+                backgroundColor: gradient,
                 borderWidth: 3,
                 fill: true,
                 tension: 0.4,
-                pointRadius: 4,
-                pointHoverRadius: 6
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                pointBackgroundColor: colors[index % colors.length].line,
+                pointBorderColor: '#000000',
+                pointBorderWidth: 2,
+                pointHoverBackgroundColor: colors[index % colors.length].line,
+                pointHoverBorderColor: '#ffffff',
+                pointHoverBorderWidth: 3
             });
         });
 
@@ -813,7 +878,80 @@ class ModernSalesDashboard {
                 labels: ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'],
                 datasets: datasets
             },
-            options: this.getChartOptions()
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: '#ffffff',
+                            font: { size: 11, weight: '600' },
+                            usePointStyle: true,
+                            padding: 12
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        backgroundColor: '#000000',
+                        titleColor: '#ffffff',
+                        bodyColor: '#ffffff',
+                        borderColor: '#8b5cf6',
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 8,
+                        displayColors: true,
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed.y;
+                                const formattedValue = value >= 1000000
+                                    ? (value / 1000000).toFixed(2) + 'M'
+                                    : value >= 1000
+                                    ? (value / 1000).toFixed(1) + 'K'
+                                    : value.toFixed(0);
+                                return `${context.dataset.label}: $${formattedValue}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#121212',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#999999',
+                            font: { size: 10 },
+                            callback: function(value) {
+                                if (value >= 1000000) {
+                                    return (value / 1000000).toFixed(0) + 'M';
+                                }
+                                if (value >= 1000) {
+                                    return (value / 1000).toFixed(0) + 'K';
+                                }
+                                return value;
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: '#121212',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#999999',
+                            font: { size: 10 }
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
         });
     }
 
@@ -826,12 +964,13 @@ class ModernSalesDashboard {
         const datasets = [];
         const colors = ['#00ff88', '#6366f1', '#ff6b00'];
 
+        // Faqat tanlangan yillar uchun barlar ko'rsatish
         this.selectedYears.forEach((year, index) => {
             const yearData = data[year] || Array(12).fill(0);
             datasets.push({
                 label: year,
                 data: yearData,
-                backgroundColor: colors[index],
+                backgroundColor: colors[index % colors.length],
                 borderWidth: 0,
                 borderRadius: 8
             });
@@ -856,12 +995,13 @@ class ModernSalesDashboard {
         const datasets = [];
         const colors = ['#a78bfa', '#00d4ff', '#d946ef'];
 
+        // Faqat tanlangan yillar uchun barlar ko'rsatish
         this.selectedYears.forEach((year, index) => {
             const yearData = data[year] || Array(12).fill(0);
             datasets.push({
                 label: year,
                 data: yearData,
-                backgroundColor: colors[index],
+                backgroundColor: colors[index % colors.length],
                 borderWidth: 0,
                 borderRadius: 8
             });
@@ -883,13 +1023,22 @@ class ModernSalesDashboard {
         if (this.charts.chart4) this.charts.chart4.destroy();
 
         const roiData = this.data.roi_data || {};
+        const totalFinance = roiData.total_finance || 0;
+        const totalInterest = roiData.total_interest || 0;
+        const total = totalFinance + totalInterest;
+
+        // ROI foizini hisoblash
+        const roiPercentage = totalFinance > 0 ? ((totalInterest / totalFinance) * 100).toFixed(1) : 0;
+
+        // Faqat foizni yangilash
+        this.wrapper.find('#roiPercentage').text(`${roiPercentage}%`);
 
         this.charts.chart4 = new Chart(canvas, {
             type: 'doughnut',
             data: {
                 labels: ['Foyda', 'Kapital'],
                 datasets: [{
-                    data: [roiData.total_interest || 0, roiData.total_finance || 0],
+                    data: [totalInterest, totalFinance],
                     backgroundColor: ['#00ff88', '#6366f1'],
                     borderWidth: 0,
                     hoverOffset: 8
@@ -898,7 +1047,7 @@ class ModernSalesDashboard {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '70%',
+                cutout: '65%', // Qalinroq
                 plugins: {
                     legend: {
                         display: true,
@@ -907,7 +1056,28 @@ class ModernSalesDashboard {
                             color: '#e2e8f0',
                             font: { size: 11, weight: '600' },
                             padding: 12,
-                            usePointStyle: true
+                            usePointStyle: true,
+                            generateLabels: function(chart) {
+                                const data = chart.data;
+                                if (data.labels.length && data.datasets.length) {
+                                    return data.labels.map((label, i) => {
+                                        const value = data.datasets[0].data[i];
+                                        const formattedValue = value >= 1000000
+                                            ? (value / 1000000).toFixed(1) + 'M'
+                                            : value >= 1000
+                                            ? (value / 1000).toFixed(1) + 'K'
+                                            : value.toFixed(0);
+
+                                        return {
+                                            text: `${label}: $${formattedValue}`,
+                                            fillStyle: data.datasets[0].backgroundColor[i],
+                                            hidden: false,
+                                            index: i
+                                        };
+                                    });
+                                }
+                                return [];
+                            }
                         }
                     },
                     tooltip: {
@@ -915,7 +1085,15 @@ class ModernSalesDashboard {
                         titleColor: '#00ffff',
                         bodyColor: '#e2e8f0',
                         padding: 12,
-                        cornerRadius: 8
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return `${label}: $${(value / 1000000).toFixed(2)}M (${percentage}%)`;
+                            }
+                        }
                     }
                 }
             }
@@ -931,14 +1109,17 @@ class ModernSalesDashboard {
         const datasets = [];
         const colors = ['#00ff88', '#d946ef', '#00d4ff'];
 
+        // Faqat tanlangan yillar uchun barlar ko'rsatish
         this.selectedYears.forEach((year, index) => {
             const yearData = data[year] || Array(12).fill(0);
             datasets.push({
                 label: year,
                 data: yearData,
-                backgroundColor: colors[index],
+                backgroundColor: colors[index % colors.length],
                 borderWidth: 0,
-                borderRadius: 8
+                borderRadius: 8,
+                barThickness: 'flex',
+                maxBarThickness: 30
             });
         });
 
@@ -948,7 +1129,78 @@ class ModernSalesDashboard {
                 labels: ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'],
                 datasets: datasets
             },
-            options: this.getChartOptions()
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: '#e2e8f0',
+                            font: { size: 11, weight: '600' },
+                            usePointStyle: true,
+                            padding: 12
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#00ffff',
+                        bodyColor: '#e2e8f0',
+                        borderColor: 'rgba(0, 255, 255, 0.3)',
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed.y;
+                                const formattedValue = value >= 1000000
+                                    ? (value / 1000000).toFixed(2) + 'M'
+                                    : value >= 1000
+                                    ? (value / 1000).toFixed(1) + 'K'
+                                    : value.toFixed(0);
+                                return `${context.dataset.label}: $${formattedValue}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: { size: 10 },
+                            callback: function(value) {
+                                if (value >= 1000000) {
+                                    return (value / 1000000).toFixed(0) + 'M';
+                                }
+                                if (value >= 1000) {
+                                    return (value / 1000).toFixed(0) + 'K';
+                                }
+                                return value;
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: { size: 10 }
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
         });
     }
 
@@ -971,7 +1223,28 @@ class ModernSalesDashboard {
             return;
         }
 
-        debtList.forEach(item => {
+        // Toifalar bo'yicha saralash funksiyasi
+        const classificationOrder = { 'C': 1, 'B': 2, 'A': 3, 'N/A': 4 };
+
+        // Avval toifa bo'yicha, keyin qarz miqdori bo'yicha saralash
+        const sortedDebtList = debtList.sort((a, b) => {
+            const classA = (a.classification || 'N/A').toUpperCase();
+            const classB = (b.classification || 'N/A').toUpperCase();
+
+            // Toifalarni solishtirish
+            const orderA = classificationOrder[classA] || 999;
+            const orderB = classificationOrder[classB] || 999;
+
+            if (orderA !== orderB) {
+                return orderA - orderB; // C (1), B (2), A (3) tartibida
+            }
+
+            // Agar toifalar bir xil bo'lsa, qarz miqdori bo'yicha kamayish tartibida
+            return (b.debt || 0) - (a.debt || 0);
+        });
+
+        // Saralangan ma'lumotlarni jadvalga qo'shish
+        sortedDebtList.forEach(item => {
             const classKey = (item.classification || 'N/A').toLowerCase().replace('/', '-').replace(' ', '-');
             tbody.append(`
                 <tr>
@@ -992,17 +1265,17 @@ class ModernSalesDashboard {
                     display: true,
                     position: 'top',
                     labels: {
-                        color: '#e2e8f0',
+                        color: '#ffffff',
                         font: { size: 11, weight: '600' },
                         usePointStyle: true,
                         padding: 12
                     }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                    titleColor: '#00ffff',
-                    bodyColor: '#e2e8f0',
-                    borderColor: 'rgba(0, 255, 255, 0.3)',
+                    backgroundColor: '#000000',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    borderColor: '#8b5cf6',
                     borderWidth: 1,
                     padding: 12,
                     cornerRadius: 8
@@ -1012,21 +1285,21 @@ class ModernSalesDashboard {
                 y: {
                     beginAtZero: true,
                     grid: {
-                        color: 'rgba(255, 255, 255, 0.05)',
+                        color: '#121212',
                         drawBorder: false
                     },
                     ticks: {
-                        color: '#94a3b8',
+                        color: '#999999',
                         font: { size: 10 }
                     }
                 },
                 x: {
                     grid: {
-                        color: 'rgba(255, 255, 255, 0.05)',
+                        color: '#121212',
                         drawBorder: false
                     },
                     ticks: {
-                        color: '#94a3b8',
+                        color: '#999999',
                         font: { size: 10 }
                     }
                 }
