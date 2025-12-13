@@ -962,17 +962,29 @@ class ModernSalesDashboard {
 
         const data = this.data.monthly_revenue || {};
         const datasets = [];
-        const colors = ['#00ff88', '#6366f1', '#ff6b00'];
+        const colors = [
+            { main: '#10b981', light: '#34d399' },  // Emerald green
+            { main: '#8b5cf6', light: '#a78bfa' },  // Purple
+            { main: '#06b6d4', light: '#22d3ee' }   // Cyan
+        ];
 
-        // Faqat tanlangan yillar uchun barlar ko'rsatish
         this.selectedYears.forEach((year, index) => {
             const yearData = data[year] || Array(12).fill(0);
+
+            // Gradient yaratish
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, colors[index % colors.length].light);
+            gradient.addColorStop(1, colors[index % colors.length].main);
+
             datasets.push({
                 label: year,
                 data: yearData,
-                backgroundColor: colors[index % colors.length],
+                backgroundColor: gradient,
                 borderWidth: 0,
-                borderRadius: 8
+                borderRadius: 6,
+                barPercentage: 0.6,
+                categoryPercentage: 0.7
             });
         });
 
@@ -993,17 +1005,29 @@ class ModernSalesDashboard {
 
         const data = this.data.monthly_contracts || {};
         const datasets = [];
-        const colors = ['#a78bfa', '#00d4ff', '#d946ef'];
+        const colors = [
+            { main: '#8b5cf6', light: '#a78bfa' },  // Purple
+            { main: '#ec4899', light: '#f472b6' },  // Pink
+            { main: '#06b6d4', light: '#22d3ee' }   // Cyan
+        ];
 
-        // Faqat tanlangan yillar uchun barlar ko'rsatish
         this.selectedYears.forEach((year, index) => {
             const yearData = data[year] || Array(12).fill(0);
+
+            // Gradient yaratish
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, colors[index % colors.length].light);
+            gradient.addColorStop(1, colors[index % colors.length].main);
+
             datasets.push({
                 label: year,
                 data: yearData,
-                backgroundColor: colors[index % colors.length],
+                backgroundColor: gradient,
                 borderWidth: 0,
-                borderRadius: 8
+                borderRadius: 6,
+                barPercentage: 0.6,
+                categoryPercentage: 0.7
             });
         });
 
