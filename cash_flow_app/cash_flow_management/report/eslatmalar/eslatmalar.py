@@ -80,20 +80,22 @@ def get_data(filters):
 	"""Get report data with grouped customers by payment due dates"""
 	today = getdate(nowdate())
 	one_week_later = add_days(today, 7)
+	two_weeks_ago = add_days(today, -14)
 
 	# Get all submitted Installment Applications
 	applications = frappe.get_all(
 		"Installment Application",
 		filters={"docstatus": 1},
-		fields=["name", "customer", "custom_grand_total_with_interest", "sales_order"]
+		fields=["name", "customer", "custom_grand_total_with_interest", "sales_order", "notes"]
 	)
 
 	# Group data by categories
 	groups = {
-		"overdue": [],  # O'tib ketganlar
-		"today": [],    # Bugun beradiganlar
-		"week": [],     # Bir hafta ichida
-		"later": []     # Keyin beradiganlar
+		"overdue_2weeks": [],  # 2 hafta o'tib ketganlar (0-14 kun)
+		"overdue_more": [],    # 2 haftadan ko'p o'tib ketganlar (14+ kun)
+		"today": [],           # Bugun beradiganlar
+		"week": [],            # Bir hafta ichida
+		"later": []            # Keyin beradiganlar
 	}
 
 	for app in applications:
@@ -176,18 +178,28 @@ def get_data(filters):
 		current_payment = next_unpaid_item["schedule_amount"]
 		due_amount = next_unpaid_item["amount"]
 
+		# Get notes directly from database to avoid cache issues
+		notes_value = frappe.db.get_value("Installment Application", app.name, "notes") or ""
+
 		row = {
 			"contract_link": app.name,
 			"customer_link": app.customer,
 			"current_month_payment": current_payment,
 			"due_amount": due_amount,
 			"total_contract_amount": contract_total,
-			"remaining_debt": remaining_debt
+			"remaining_debt": remaining_debt,
+			"note": notes_value
 		}
 
 		# Categorize by due date
 		if due_date < today:
-			groups["overdue"].append(row)
+			# Calculate how many days overdue
+			if due_date >= two_weeks_ago:
+				# 14 kun yoki undan kam o'tib ketgan
+				groups["overdue_2weeks"].append(row)
+			else:
+				# 14 kundan ko'p o'tib ketgan
+				groups["overdue_more"].append(row)
 		elif due_date == today:
 			groups["today"].append(row)
 		elif due_date <= one_week_later:
@@ -198,10 +210,10 @@ def get_data(filters):
 	# Build final data with group headers and subtotals
 	data = []
 
-	# 1. O'tib ketganlar (Overdue)
-	if groups["overdue"]:
+	# 1. 2 haftadan ko'p o'tib ketganlar (More than 2 weeks overdue)
+	if groups["overdue_more"]:
 		data.append({
-			"group_header": "1. O'TIB KETGANLAR (To'lov muddati o'tgan)",
+			"group_header": "1. 2 HAFTADAN KO'P O'TIB KETGANLAR (14+ kun)",
 			"contract_link": "",
 			"customer_link": "",
 			"current_month_payment": None,
@@ -211,7 +223,7 @@ def get_data(filters):
 			"indent": 0,
 			"bold": 1
 		})
-		for row in groups["overdue"]:
+		for row in groups["overdue_more"]:
 			row["group_header"] = ""
 			row["indent"] = 1
 			data.append(row)
@@ -221,18 +233,49 @@ def get_data(filters):
 			"group_header": "",
 			"contract_link": "",
 			"customer_link": "JAMI:",
-			"current_month_payment": sum([flt(r.get("current_month_payment", 0)) for r in groups["overdue"]]),
-			"due_amount": sum([flt(r.get("due_amount", 0)) for r in groups["overdue"]]),
-			"total_contract_amount": sum([flt(r.get("total_contract_amount", 0)) for r in groups["overdue"]]),
-			"remaining_debt": sum([flt(r.get("remaining_debt", 0)) for r in groups["overdue"]]),
+			"current_month_payment": sum([flt(r.get("current_month_payment", 0)) for r in groups["overdue_more"]]),
+			"due_amount": sum([flt(r.get("due_amount", 0)) for r in groups["overdue_more"]]),
+			"total_contract_amount": sum([flt(r.get("total_contract_amount", 0)) for r in groups["overdue_more"]]),
+			"remaining_debt": sum([flt(r.get("remaining_debt", 0)) for r in groups["overdue_more"]]),
 			"indent": 1,
 			"bold": 1
 		})
 
-	# 2. Bugun beradiganlar (Today)
+	# 2. 2 hafta o'tib ketganlar (2 weeks or less overdue)
+	if groups["overdue_2weeks"]:
+		data.append({
+			"group_header": "2. 2 HAFTA O'TIB KETGANLAR (0-14 kun)",
+			"contract_link": "",
+			"customer_link": "",
+			"current_month_payment": None,
+			"due_amount": None,
+			"total_contract_amount": None,
+			"remaining_debt": None,
+			"indent": 0,
+			"bold": 1
+		})
+		for row in groups["overdue_2weeks"]:
+			row["group_header"] = ""
+			row["indent"] = 1
+			data.append(row)
+
+		# Subtotal
+		data.append({
+			"group_header": "",
+			"contract_link": "",
+			"customer_link": "JAMI:",
+			"current_month_payment": sum([flt(r.get("current_month_payment", 0)) for r in groups["overdue_2weeks"]]),
+			"due_amount": sum([flt(r.get("due_amount", 0)) for r in groups["overdue_2weeks"]]),
+			"total_contract_amount": sum([flt(r.get("total_contract_amount", 0)) for r in groups["overdue_2weeks"]]),
+			"remaining_debt": sum([flt(r.get("remaining_debt", 0)) for r in groups["overdue_2weeks"]]),
+			"indent": 1,
+			"bold": 1
+		})
+
+	# 3. Bugun beradiganlar (Today)
 	if groups["today"]:
 		data.append({
-			"group_header": "2. BUGUN BERADIGANLAR",
+			"group_header": "3. BUGUN BERADIGANLAR",
 			"contract_link": "",
 			"customer_link": "",
 			"current_month_payment": None,
@@ -260,10 +303,10 @@ def get_data(filters):
 			"bold": 1
 		})
 
-	# 3. Bir hafta ichida beradiganlar (This Week)
+	# 4. Bir hafta ichida beradiganlar (This Week)
 	if groups["week"]:
 		data.append({
-			"group_header": "3. BIR HAFTA ICHIDA BERADIGANLAR",
+			"group_header": "4. BIR HAFTA ICHIDA BERADIGANLAR",
 			"contract_link": "",
 			"customer_link": "",
 			"current_month_payment": None,
@@ -291,10 +334,10 @@ def get_data(filters):
 			"bold": 1
 		})
 
-	# 4. Keyin beradiganlar (Later)
+	# 5. Keyin beradiganlar (Later)
 	if groups["later"]:
 		data.append({
-			"group_header": "4. KEYIN BERADIGANLAR (1 haftadan keyin)",
+			"group_header": "5. KEYIN BERADIGANLAR (1 haftadan keyin)",
 			"contract_link": "",
 			"customer_link": "",
 			"current_month_payment": None,
