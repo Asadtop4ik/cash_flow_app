@@ -7,9 +7,7 @@ from frappe.utils import flt, getdate, nowdate, add_days
 
 
 def execute(filters=None):
-	"""
-	Qarzdorlik Guruhlari - Klientlarni to'lov sanalariga qarab guruhlarga ajratish
-	"""
+	"""Eslatmalar - Qarzdorlik guruhlari va izohlar"""
 	if not filters:
 		filters = {}
 
@@ -33,75 +31,75 @@ def get_columns():
 			"label": _("Shartnoma"),
 			"fieldtype": "Link",
 			"options": "Installment Application",
-			"width": 150
+			"width": 120
 		},
 		{
 			"fieldname": "customer_link",
 			"label": _("Klient"),
 			"fieldtype": "Link",
 			"options": "Customer",
-			"width": 180
+			"width": 150
 		},
 		{
 			"fieldname": "current_month_payment",
 			"label": _("Shu Oy To'lovi"),
 			"fieldtype": "Currency",
-			"width": 140
+			"width": 120
 		},
 		{
 			"fieldname": "due_amount",
 			"label": _("Yana To'lashi Kerak"),
 			"fieldtype": "Currency",
-			"width": 150
-		},
-		{
-			"fieldname": "total_contract_amount",
-			"label": _("Shartnoma Summasi"),
-			"fieldtype": "Currency",
-			"width": 150
+			"width": 130
 		},
 		{
 			"fieldname": "remaining_debt",
 			"label": _("Qolgan Qarz"),
 			"fieldtype": "Currency",
-			"width": 130
+			"width": 120
 		},
 		{
-			"fieldname": "note",
-			"label": _("Izoh"),
-			"fieldtype": "Small Text",
-			"width": 200,
-			"editable": 1
+			"fieldname": "note_text",
+			"label": _("So'nggi Izoh"),
+			"fieldtype": "Data",
+			"width": 250
+		},
+		{
+			"fieldname": "note_category",
+			"label": _("Kategoriya"),
+			"fieldtype": "Data",
+			"width": 100
+		},
+		{
+			"fieldname": "note_date",
+			"label": _("Izoh Sanasi"),
+			"fieldtype": "Date",
+			"width": 100
 		}
 	]
 
 
 def get_data(filters):
-	"""Get report data with grouped customers by payment due dates"""
+	"""Get report data with notes"""
 	today = getdate(nowdate())
 	one_week_later = add_days(today, 7)
 	two_weeks_ago = add_days(today, -14)
 
-	# Get all submitted Installment Applications
 	applications = frappe.get_all(
 		"Installment Application",
 		filters={"docstatus": 1},
-		fields=["name", "customer", "custom_grand_total_with_interest", "sales_order", "notes"]
+		fields=["name", "customer", "custom_grand_total_with_interest", "sales_order"]
 	)
 
-	# Group data by categories
 	groups = {
-		"overdue_2weeks": [],  # 2 hafta o'tib ketganlar (0-14 kun)
-		"overdue_more": [],    # 2 haftadan ko'p o'tib ketganlar (14+ kun)
-		"today": [],           # Bugun beradiganlar
-		"week": [],            # Bir hafta ichida
-		"later": []            # Keyin beradiganlar
+		"overdue_2weeks": [],
+		"overdue_more": [],
+		"today": [],
+		"week": [],
+		"later": []
 	}
 
 	for app in applications:
-		print(f"Processing contract: {app.name}, Sales Order: {app.sales_order}")
-
-		# Get payment schedule for this application
 		payment_schedule = frappe.get_all(
 			"Payment Schedule",
 			filters={
@@ -115,21 +113,13 @@ def get_data(filters):
 		if not payment_schedule:
 			continue
 
-		# Calculate total payments made for this contract
 		total_paid = get_total_payments(app.sales_order) if app.sales_order else 0
-		print(f"  Total paid: {total_paid}")
-
-		# Calculate contract total and remaining debt
 		contract_total = flt(app.custom_grand_total_with_interest)
 		remaining_debt = contract_total - total_paid
-		print(f"  Contract total: {contract_total}, Remaining debt: {remaining_debt}")
 
-		# If fully paid, skip this contract
 		if remaining_debt <= 0:
-			print(f"  Skipping - fully paid")
 			continue
 
-		# Find the next unpaid installment
 		cumulative_paid = total_paid
 		next_unpaid_item = None
 		overdue_amount = 0
@@ -139,21 +129,16 @@ def get_data(filters):
 			payment_amount = flt(schedule_item.payment_amount)
 
 			if cumulative_paid >= payment_amount:
-				# This installment is fully paid
 				cumulative_paid -= payment_amount
 				continue
 			else:
-				# This is the next unpaid installment
 				unpaid_amount = payment_amount - cumulative_paid
 				cumulative_paid = 0
 
-				# Check if there are overdue amounts from previous installments
 				if due_date < today:
 					overdue_amount = unpaid_amount
-					# Continue to find if there are more overdue items
 					continue
 				else:
-					# This is the current/next due installment
 					next_unpaid_item = {
 						"due_date": due_date,
 						"amount": unpaid_amount,
@@ -161,44 +146,37 @@ def get_data(filters):
 					}
 					break
 
-		# If no unpaid item found but there are overdue amounts, use the last overdue
 		if not next_unpaid_item and overdue_amount > 0:
 			next_unpaid_item = {
-				"due_date": getdate(payment_schedule[-1].due_date),  # Last schedule item
+				"due_date": getdate(payment_schedule[-1].due_date),
 				"amount": overdue_amount,
 				"schedule_amount": flt(payment_schedule[-1].payment_amount)
 			}
 
-		# If still no unpaid item, skip (shouldn't happen)
 		if not next_unpaid_item:
 			continue
 
-		# Now categorize based on the next unpaid item's due date
+		latest_note = get_latest_note(app.name)
+
 		due_date = next_unpaid_item["due_date"]
 		current_payment = next_unpaid_item["schedule_amount"]
 		due_amount = next_unpaid_item["amount"]
-
-		# Get notes directly from database to avoid cache issues
-		notes_value = frappe.db.get_value("Installment Application", app.name, "notes") or ""
 
 		row = {
 			"contract_link": app.name,
 			"customer_link": app.customer,
 			"current_month_payment": current_payment,
 			"due_amount": due_amount,
-			"total_contract_amount": contract_total,
 			"remaining_debt": remaining_debt,
-			"note": notes_value
+			"note_text": latest_note.get("note_text", "") if latest_note else "",
+			"note_category": latest_note.get("note_category", "") if latest_note else "",
+			"note_date": latest_note.get("note_date", "") if latest_note else ""
 		}
 
-		# Categorize by due date
 		if due_date < today:
-			# Calculate how many days overdue
 			if due_date >= two_weeks_ago:
-				# 14 kun yoki undan kam o'tib ketgan
 				groups["overdue_2weeks"].append(row)
 			else:
-				# 14 kundan ko'p o'tib ketgan
 				groups["overdue_more"].append(row)
 		elif due_date == today:
 			groups["today"].append(row)
@@ -207,176 +185,61 @@ def get_data(filters):
 		else:
 			groups["later"].append(row)
 
-	# Build final data with group headers and subtotals
 	data = []
 
-	# 1. 2 haftadan ko'p o'tib ketganlar (More than 2 weeks overdue)
-	if groups["overdue_more"]:
-		data.append({
-			"group_header": "1. 2 HAFTADAN KO'P O'TIB KETGANLAR (14+ kun)",
-			"contract_link": "",
-			"customer_link": "",
-			"current_month_payment": None,
-			"due_amount": None,
-			"total_contract_amount": None,
-			"remaining_debt": None,
-			"indent": 0,
-			"bold": 1
-		})
-		for row in groups["overdue_more"]:
-			row["group_header"] = ""
-			row["indent"] = 1
-			data.append(row)
+	group_configs = [
+		("overdue_more", "1. 2 HAFTADAN KO'P O'TIB KETGANLAR (14+ kun)"),
+		("overdue_2weeks", "2. 2 HAFTA O'TIB KETGANLAR (0-14 kun)"),
+		("today", "3. BUGUN BERADIGANLAR"),
+		("week", "4. BIR HAFTA ICHIDA BERADIGANLAR"),
+		("later", "5. KEYIN BERADIGANLAR (1 haftadan keyin)")
+	]
 
-		# Subtotal
-		data.append({
-			"group_header": "",
-			"contract_link": "",
-			"customer_link": "JAMI:",
-			"current_month_payment": sum([flt(r.get("current_month_payment", 0)) for r in groups["overdue_more"]]),
-			"due_amount": sum([flt(r.get("due_amount", 0)) for r in groups["overdue_more"]]),
-			"total_contract_amount": sum([flt(r.get("total_contract_amount", 0)) for r in groups["overdue_more"]]),
-			"remaining_debt": sum([flt(r.get("remaining_debt", 0)) for r in groups["overdue_more"]]),
-			"indent": 1,
-			"bold": 1
-		})
+	for group_key, group_title in group_configs:
+		if groups[group_key]:
+			data.append({
+				"group_header": group_title,
+				"contract_link": "",
+				"customer_link": "",
+				"current_month_payment": None,
+				"due_amount": None,
+				"remaining_debt": None,
+				"note_text": "",
+				"note_category": "",
+				"note_date": "",
+				"indent": 0,
+				"bold": 1
+			})
 
-	# 2. 2 hafta o'tib ketganlar (2 weeks or less overdue)
-	if groups["overdue_2weeks"]:
-		data.append({
-			"group_header": "2. 2 HAFTA O'TIB KETGANLAR (0-14 kun)",
-			"contract_link": "",
-			"customer_link": "",
-			"current_month_payment": None,
-			"due_amount": None,
-			"total_contract_amount": None,
-			"remaining_debt": None,
-			"indent": 0,
-			"bold": 1
-		})
-		for row in groups["overdue_2weeks"]:
-			row["group_header"] = ""
-			row["indent"] = 1
-			data.append(row)
+			for row in groups[group_key]:
+				row["group_header"] = ""
+				row["indent"] = 1
+				data.append(row)
 
-		# Subtotal
-		data.append({
-			"group_header": "",
-			"contract_link": "",
-			"customer_link": "JAMI:",
-			"current_month_payment": sum([flt(r.get("current_month_payment", 0)) for r in groups["overdue_2weeks"]]),
-			"due_amount": sum([flt(r.get("due_amount", 0)) for r in groups["overdue_2weeks"]]),
-			"total_contract_amount": sum([flt(r.get("total_contract_amount", 0)) for r in groups["overdue_2weeks"]]),
-			"remaining_debt": sum([flt(r.get("remaining_debt", 0)) for r in groups["overdue_2weeks"]]),
-			"indent": 1,
-			"bold": 1
-		})
-
-	# 3. Bugun beradiganlar (Today)
-	if groups["today"]:
-		data.append({
-			"group_header": "3. BUGUN BERADIGANLAR",
-			"contract_link": "",
-			"customer_link": "",
-			"current_month_payment": None,
-			"due_amount": None,
-			"total_contract_amount": None,
-			"remaining_debt": None,
-			"indent": 0,
-			"bold": 1
-		})
-		for row in groups["today"]:
-			row["group_header"] = ""
-			row["indent"] = 1
-			data.append(row)
-
-		# Subtotal
-		data.append({
-			"group_header": "",
-			"contract_link": "",
-			"customer_link": "JAMI:",
-			"current_month_payment": sum([flt(r.get("current_month_payment", 0)) for r in groups["today"]]),
-			"due_amount": sum([flt(r.get("due_amount", 0)) for r in groups["today"]]),
-			"total_contract_amount": sum([flt(r.get("total_contract_amount", 0)) for r in groups["today"]]),
-			"remaining_debt": sum([flt(r.get("remaining_debt", 0)) for r in groups["today"]]),
-			"indent": 1,
-			"bold": 1
-		})
-
-	# 4. Bir hafta ichida beradiganlar (This Week)
-	if groups["week"]:
-		data.append({
-			"group_header": "4. BIR HAFTA ICHIDA BERADIGANLAR",
-			"contract_link": "",
-			"customer_link": "",
-			"current_month_payment": None,
-			"due_amount": None,
-			"total_contract_amount": None,
-			"remaining_debt": None,
-			"indent": 0,
-			"bold": 1
-		})
-		for row in groups["week"]:
-			row["group_header"] = ""
-			row["indent"] = 1
-			data.append(row)
-
-		# Subtotal
-		data.append({
-			"group_header": "",
-			"contract_link": "",
-			"customer_link": "JAMI:",
-			"current_month_payment": sum([flt(r.get("current_month_payment", 0)) for r in groups["week"]]),
-			"due_amount": sum([flt(r.get("due_amount", 0)) for r in groups["week"]]),
-			"total_contract_amount": sum([flt(r.get("total_contract_amount", 0)) for r in groups["week"]]),
-			"remaining_debt": sum([flt(r.get("remaining_debt", 0)) for r in groups["week"]]),
-			"indent": 1,
-			"bold": 1
-		})
-
-	# 5. Keyin beradiganlar (Later)
-	if groups["later"]:
-		data.append({
-			"group_header": "5. KEYIN BERADIGANLAR (1 haftadan keyin)",
-			"contract_link": "",
-			"customer_link": "",
-			"current_month_payment": None,
-			"due_amount": None,
-			"total_contract_amount": None,
-			"remaining_debt": None,
-			"indent": 0,
-			"bold": 1
-		})
-		for row in groups["later"]:
-			row["group_header"] = ""
-			row["indent"] = 1
-			data.append(row)
-
-		# Subtotal
-		data.append({
-			"group_header": "",
-			"contract_link": "",
-			"customer_link": "JAMI:",
-			"current_month_payment": sum([flt(r.get("current_month_payment", 0)) for r in groups["later"]]),
-			"due_amount": sum([flt(r.get("due_amount", 0)) for r in groups["later"]]),
-			"total_contract_amount": sum([flt(r.get("total_contract_amount", 0)) for r in groups["later"]]),
-			"remaining_debt": sum([flt(r.get("remaining_debt", 0)) for r in groups["later"]]),
-			"indent": 1,
-			"bold": 1
-		})
+			data.append({
+				"group_header": "",
+				"contract_link": "",
+				"customer_link": "JAMI:",
+				"current_month_payment": sum(
+					[flt(r.get("current_month_payment", 0)) for r in groups[group_key]]),
+				"due_amount": sum([flt(r.get("due_amount", 0)) for r in groups[group_key]]),
+				"remaining_debt": sum(
+					[flt(r.get("remaining_debt", 0)) for r in groups[group_key]]),
+				"note_text": "",
+				"note_category": "",
+				"note_date": "",
+				"indent": 1,
+				"bold": 1
+			})
 
 	return data
 
 
 def get_total_payments(sales_order):
-	"""
-	Get total payments made for a Sales Order via Payment Entry custom_contract_reference
-	FAQAT Receive tipidagi to'lovlarni hisoblaydi (qarzdorlik kamayadi)
-	"""
+	"""Get total payments"""
 	if not sales_order:
 		return 0
 
-	# Get total paid_amount from Payment Entries with matching custom_contract_reference
 	payments = frappe.db.sql("""
 		SELECT SUM(paid_amount) as total_paid
 		FROM `tabPayment Entry`
@@ -386,3 +249,71 @@ def get_total_payments(sales_order):
 	""", (sales_order,), as_dict=1)
 
 	return flt(payments[0].total_paid) if payments and payments[0].total_paid else 0
+
+
+def get_latest_note(contract_reference):
+	"""Get latest note for contract"""
+	try:
+		notes = frappe.get_all(
+			"Contract Notes",
+			filters={"contract_reference": contract_reference},
+			fields=["name", "note_text", "note_category", "note_date"],
+			order_by="creation desc",
+			limit=1
+		)
+
+		return notes[0] if notes else None
+	except Exception as e:
+		frappe.log_error(f"Get note error: {str(e)}")
+		return None
+
+
+@frappe.whitelist()
+def save_note(contract_reference, note_text, note_category="Eslatma"):
+	"""Save a new contract note"""
+	try:
+		if not contract_reference:
+			return {"success": False, "message": "Shartnoma ko'rsatilmagan"}
+
+		if not note_text or not note_text.strip():
+			return {"success": False, "message": "Izoh matni bo'sh"}
+
+		if not frappe.db.exists("Installment Application", contract_reference):
+			return {"success": False, "message": f"Shartnoma topilmadi: {contract_reference}"}
+
+		doc = frappe.new_doc("Contract Notes")
+		doc.contract_reference = contract_reference
+		doc.note_text = note_text.strip()
+		doc.note_category = note_category or "Eslatma"
+		doc.note_date = nowdate()
+
+		doc.save(ignore_permissions=True)
+		frappe.db.commit()
+
+		return {
+			"success": True,
+			"message": "Izoh saqlandi",
+			"note_id": doc.name
+		}
+
+	except Exception as e:
+		frappe.log_error(f"Note save error: {str(e)}", "Save Note Error")
+		return {"success": False, "message": f"Xatolik: {str(e)}"}
+
+
+@frappe.whitelist()
+def get_contract_notes(contract_reference):
+	"""Get all notes for a contract"""
+	try:
+		notes = frappe.get_all(
+			"Contract Notes",
+			filters={"contract_reference": contract_reference},
+			fields=["name", "note_text", "note_category", "note_date", "created_by_user"],
+			order_by="creation desc"
+		)
+
+		return {"success": True, "notes": notes}
+
+	except Exception as e:
+		frappe.log_error(f"Get notes error: {str(e)}")
+		return {"success": False, "message": str(e), "notes": []}

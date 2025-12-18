@@ -1,0 +1,116 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:",
+ "creation": "2025-12-18 00:12:42.999323",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "contract_reference",
+  "customer",
+  "note_date",
+  "note_category",
+  "note_text",
+  "is_important",
+  "created_by_user",
+  "modified_by_user"
+ ],
+ "fields": [
+  {
+   "fieldname": "contract_reference",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Contract Reference",
+   "options": "Installment Application",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "default": "Today",
+   "fieldname": "note_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Sana",
+   "reqd": 1
+  },
+  {
+   "fieldname": "note_category",
+   "fieldtype": "Select",
+   "label": "Kategoriya",
+   "options": "Eslatma\nOgohlantirish\nQo'ng'iroq Qilindi\nTo'lov Kutilmoqda\nBoshqa"
+  },
+  {
+   "fieldname": "note_text",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Izoh Matni",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_important",
+   "fieldtype": "Check",
+   "label": "Muhim"
+  },
+  {
+   "fieldname": "created_by_user",
+   "fieldtype": "Link",
+   "label": "Yaratgan",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "modified_by_user",
+   "fieldtype": "Link",
+   "label": "O'zgartirgan",
+   "options": "User",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-12-18 00:27:26.706889",
+ "modified_by": "Administrator",
+ "module": "Cash Flow Management",
+ "name": "Contract Notes",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Operator",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
