@@ -1590,7 +1590,230 @@ def get_all_active_due_payments():
 
 
 # ============================================================
-# 13. SUPPORT CONTACTS - Operator telefon raqamini olish
+# 13. YANGI MIJOZ NOTIFICATION (Customer after_insert)
+# ============================================================
+
+def send_customer_notification(doc, method):
+	"""
+	Yangi Customer yaratilganda Telegram NOTIFICATION BOT orqali admin'ga xabar yuborish.
+
+	Hook: Customer - after_insert
+	Bot: Notification Bot (Admin uchun)
+	"""
+	try:
+		import requests
+
+		# NOTIFICATION BOT tokenni olish (admin uchun)
+		bot_token = frappe.db.get_single_value("Cash Settings", "telegram_notification_bot_token")
+		if not bot_token:
+			frappe.logger().warning("⚠️ [CUSTOMER-NOTIF] Notification bot token topilmadi")
+			return
+
+		# Admin chat ID ni olish
+		admin_chat_id = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
+		if not admin_chat_id:
+			frappe.logger().warning("⚠️ [CUSTOMER-NOTIF] Admin chat ID topilmadi")
+			return
+
+		# Xabar tayyorlash
+		customer_name = doc.customer_name or doc.name
+		phone = doc.custom_phone_1 or doc.custom_phone or "—"
+
+		message = f"""🆕 <b>Yangi Mijoz!</b>
+
+👤 Ism: <b>{customer_name}</b>
+📞 Tel: <code>{phone}</code>
+🆔 ID: <code>{doc.name}</code>"""
+
+		# Telegram ga yuborish
+		url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+		data = {
+			"chat_id": admin_chat_id,
+			"text": message,
+			"parse_mode": "HTML"
+		}
+
+		response = requests.post(url, json=data, timeout=5)
+
+		if response.status_code == 200:
+			frappe.logger().info(f"✅ [TELEGRAM] Customer notification sent: {doc.name}")
+		else:
+			frappe.log_error(f"Telegram API Error: {response.text}", "Customer Notification Failed")
+
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), f"Customer Notification Error - {doc.name}")
+
+
+# ============================================================
+# 14. SHARTNOMA NOTIFICATION (Installment Application on_submit)
+# ============================================================
+
+def send_installment_notification(doc, method):
+	"""
+	Yangi Installment Application submit bo'lganda Telegram NOTIFICATION BOT orqali admin'ga xabar yuborish.
+
+	Hook: Installment Application - on_submit
+	Bot: Notification Bot (Admin uchun)
+	"""
+	try:
+		import requests
+
+		# NOTIFICATION BOT tokenni olish (admin uchun)
+		bot_token = frappe.db.get_single_value("Cash Settings", "telegram_notification_bot_token")
+		if not bot_token:
+			frappe.logger().warning("⚠️ [INSTALL-NOTIF] Notification bot token topilmadi")
+			return
+
+		# Admin chat ID ni olish
+		admin_chat_id = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
+		if not admin_chat_id:
+			frappe.logger().warning("⚠️ [INSTALL-NOTIF] Admin chat ID topilmadi")
+			return
+
+		# Asosiy ma'lumotlar
+		customer_name = doc.customer_name or doc.customer
+		transaction_date = formatdate(doc.transaction_date, "dd.MM.yyyy") if doc.transaction_date else "—"
+		total_amount = frappe.utils.fmt_money(doc.total_amount or 0, currency="USD")
+		downpayment = frappe.utils.fmt_money(doc.downpayment_amount or 0, currency="USD")
+		monthly_payment = frappe.utils.fmt_money(doc.monthly_payment or 0, currency="USD")
+		months = doc.installment_months or 0
+		grand_total = frappe.utils.fmt_money(doc.custom_grand_total_with_interest or 0, currency="USD")
+
+		# Mahsulotlar ro'yxati (child table)
+		items_text = ""
+		if doc.items:
+			for idx, item in enumerate(doc.items, 1):
+				item_name = item.item_name or "—"
+				imei = item.imei or "—"
+				supplier = item.get("custom_supplier") or "—"
+				rate = frappe.utils.fmt_money(item.rate or 0, currency="USD")
+
+				items_text += f"\n<b>{idx}.</b> {item_name}"
+				items_text += f"\n   🔢 IMEI: <code>{imei}</code>"
+				items_text += f"\n   🏪 Postavchik: {supplier}"
+				items_text += f"\n   💵 Tannarx: ${rate}"
+		else:
+			items_text = "\n—"
+
+		# Xabar tayyorlash
+		message = f"""✅ <b>Yangi Shartnoma!</b>
+
+📄 ID: <code>{doc.name}</code>
+👤 Mijoz: <b>{customer_name}</b>
+📅 Sana: {transaction_date}
+
+<b>📱 Tovarlar:</b>{items_text}
+
+<b>💰 To'lov ma'lumotlari:</b>
+💵 Tannarx: ${total_amount}
+💸 Boshlang'ich to'lov: ${downpayment}
+📅 Muddat: {months} oy
+💳 Oylik to'lov: ${monthly_payment}
+💎 Jami Summa: <b>${grand_total}</b>"""
+
+		# Telegram ga yuborish
+		url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+		data = {
+			"chat_id": admin_chat_id,
+			"text": message,
+			"parse_mode": "HTML"
+		}
+
+		response = requests.post(url, json=data, timeout=5)
+
+		if response.status_code == 200:
+			frappe.logger().info(f"✅ [TELEGRAM] Installment notification sent: {doc.name}")
+		else:
+			frappe.log_error(f"Telegram API Error: {response.text}", "Installment Notification Failed")
+
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), f"Installment Notification Error - {doc.name}")
+
+
+# ============================================================
+# 15. KASSA NOTIFICATION (Payment Entry on_submit) - YANGILANGAN
+# ============================================================
+
+def send_payment_notification_v2(doc, method):
+	"""
+	Payment Entry submit bo'lganda Telegram NOTIFICATION BOT orqali admin'ga xabar yuborish.
+
+	Bu funksiya barcha to'lovlar uchun ishlaydi:
+	- Receive: Pul kirimi (Customer to'lovi, Supplier qaytargan pul)
+	- Pay: Pul chiqimi (Supplier to'lovi, Customer ga qaytarish)
+
+	Hook: Payment Entry - on_submit
+	Bot: Notification Bot (Admin uchun)
+	"""
+	try:
+		import requests
+
+		# NOTIFICATION BOT tokenni olish (admin uchun)
+		bot_token = frappe.db.get_single_value("Cash Settings", "telegram_notification_bot_token")
+		if not bot_token:
+			frappe.logger().warning("⚠️ [PAYMENT-NOTIF] Notification bot token topilmadi")
+			return
+
+		# Admin chat ID ni olish
+		admin_chat_id = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
+		if not admin_chat_id:
+			frappe.logger().warning("⚠️ [PAYMENT-NOTIF] Admin chat ID topilmadi")
+			return
+
+		# Asosiy ma'lumotlar
+		payment_type = doc.payment_type
+		posting_date = formatdate(doc.posting_date, "dd.MM.yyyy") if doc.posting_date else "—"
+		party_name = doc.party or "—"
+		party_type = doc.party_type or "—"
+		paid_amount = frappe.utils.fmt_money(doc.paid_amount or 0, currency="USD")
+		mode_of_payment = doc.mode_of_payment or "Naqd"
+
+		# Account ma'lumotlari
+		account = doc.paid_to if payment_type == "Receive" else doc.paid_from
+		account_name = account or "—"
+
+		# Emoji va rang tanlash
+		if payment_type == "Receive":
+			emoji = "🟢"
+			type_text = "PUL KIRIMI"
+		elif payment_type == "Pay":
+			emoji = "🔴"
+			type_text = "PUL CHIQIMI"
+		else:
+			emoji = "⚪"
+			type_text = "TRANSFER"
+
+		# Xabar tayyorlash
+		message = f"""{emoji} <b>{type_text}</b>
+
+📅 Sana: {posting_date}
+👤 {party_type}: <b>{party_name}</b>
+🏦 Kassa/Hisob: <code>{account_name}</code>
+💵 Summa: <b>${paid_amount}</b>
+💳 Turi: {mode_of_payment}
+🆔 ID: <code>{doc.name}</code>"""
+
+		# Telegram ga yuborish
+		url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+		data = {
+			"chat_id": admin_chat_id,
+			"text": message,
+			"parse_mode": "HTML"
+		}
+
+		response = requests.post(url, json=data, timeout=5)
+
+		if response.status_code == 200:
+			frappe.logger().info(f"✅ [TELEGRAM] Payment notification sent: {doc.name}")
+		else:
+			frappe.log_error(f"Telegram API Error: {response.text}", "Payment Notification V2 Failed")
+
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), f"Payment Notification V2 Error - {doc.name}")
+
+
+# ============================================================
+# 16. SUPPORT CONTACTS - Operator telefon raqamini olish
 # ============================================================
 
 @frappe.whitelist(allow_guest=True)

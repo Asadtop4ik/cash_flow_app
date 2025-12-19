@@ -30,10 +30,14 @@ doc_events = {
         "validate": "cash_flow_app.cash_flow_management.overrides.item_hooks.validate_item",
         "on_update": "cash_flow_app.cash_flow_management.overrides.item_update_sync.on_update_item"
     },
+    "Customer": {
+        "after_insert": "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_customer_notification"
+    },
     "Installment Application": {
         "on_submit": [
             "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_submit",
-            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_installment_application"
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_installment_application",
+            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_installment_notification"
         ],
         "on_cancel": "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_installment"
     },
@@ -51,7 +55,8 @@ doc_events = {
             "cash_flow_app.cash_flow_management.api.payment_entry.on_payment_submit",
             "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.publish_customer_dashboard_refresh",
             "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_payment",
-            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification"
+            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification",
+            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification_v2"
         ],
         "on_cancel": [
             "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry",
