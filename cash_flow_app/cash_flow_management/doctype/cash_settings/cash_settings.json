@@ -16,7 +16,11 @@
   "cin_series",
   "cout_series",
   "section_break_telegram",
-  "telegram_bot_token"
+  "telegram_bot_token",
+  "telegram_bot_webhook_url",
+  "section_break_admin_bot",
+  "telegram_notification_bot_token",
+  "telegram_admin_chat_id"
  ],
  "fields": [
   {
@@ -84,22 +88,39 @@
    "label": "Telegram Bot Settings"
   },
   {
-   "description": "Telegram bot token (@BotFather dan olinadi)",
+   "description": "Telegram bot token (@BotFather dan olinadi) - Mijozlar uchun",
    "fieldname": "telegram_bot_token",
    "fieldtype": "Password",
-   "label": "Telegram Bot Token"
+   "label": "Customer Bot Token"
   },
   {
    "description": "Bot webhook URL (masalan: https://your-bot.com)",
    "fieldname": "telegram_bot_webhook_url",
    "fieldtype": "Data",
    "label": "Telegram Bot Webhook URL"
+  },
+  {
+   "fieldname": "section_break_admin_bot",
+   "fieldtype": "Section Break",
+   "label": "Admin Notification Bot"
+  },
+  {
+   "description": "Admin notification bot token (@BotFather dan olinadi)",
+   "fieldname": "telegram_notification_bot_token",
+   "fieldtype": "Password",
+   "label": "Admin Bot Token"
+  },
+  {
+   "description": "Admin Telegram ID lari (bir nechta bo'lsa vergul bilan ajrating: 123456789, 987654321)",
+   "fieldname": "telegram_admin_chat_id",
+   "fieldtype": "Data",
+   "label": "Admin Chat ID"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-11-27 05:00:00.000000",
+ "modified": "2025-12-19 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Flow Management",
  "name": "Cash Settings",
