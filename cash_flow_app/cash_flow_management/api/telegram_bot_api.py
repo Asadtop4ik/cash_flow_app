@@ -1497,6 +1497,109 @@ def get_customers_needing_reminders(days: int = 3):
             "message": "Server xatosi"
         }
 
+@frappe.whitelist()
+def send_test_admin_notification():
+	"""
+	Test funksiya - Admin notification ishlaydimi yo'qmi tekshirish uchun.
+
+	Cash Settings sahifasidan "Test Admin Notification" button orqali chaqiriladi.
+	"""
+	try:
+		import requests
+
+		# 1. Bot token va admin chat ID ni olish
+		bot_token = frappe.db.get_single_value("Cash Settings", "telegram_notification_bot_token")
+		admin_chat_ids_str = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
+
+		if not bot_token:
+			return {
+				"success": False,
+				"message": "Admin Bot Token topilmadi. Iltimos, Cash Settings'da to'ldiring."
+			}
+
+		if not admin_chat_ids_str:
+			return {
+				"success": False,
+				"message": "Admin Chat ID topilmadi. Iltimos, Cash Settings'da to'ldiring."
+			}
+
+		# 2. Vergul bilan ajratilgan ID larni list ga aylantirish
+		admin_chat_ids = [chat_id.strip() for chat_id in admin_chat_ids_str.split(",") if chat_id.strip()]
+
+		if not admin_chat_ids:
+			return {
+				"success": False,
+				"message": "Admin Chat ID formati noto'g'ri."
+			}
+
+		# 3. Test xabarni tayyorlash
+		message = f"""🧪 <b>TEST NOTIFICATION</b>
+
+✅ Admin notification sistema ishlayapti!
+
+📅 Test vaqti: {frappe.utils.now_datetime().strftime('%d.%m.%Y %H:%M')}
+👤 Test qilgan: {frappe.session.user}
+
+ℹ️ Bu test xabar. Agar siz buni ko'ryapsiz, demak notification sistema to'g'ri sozlangan!"""
+
+		# 4. Har bir admin'ga yuborish
+		url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+		success_count = 0
+		failed_ids = []
+
+		for admin_chat_id in admin_chat_ids:
+			data = {
+				"chat_id": admin_chat_id,
+				"text": message,
+				"parse_mode": "HTML"
+			}
+
+			try:
+				response = requests.post(url, json=data, timeout=5)
+
+				if response.status_code == 200:
+					success_count += 1
+					frappe.logger().info(f"✅ Test notification sent to {admin_chat_id}")
+				else:
+					failed_ids.append(admin_chat_id)
+					frappe.log_error(
+						f"Telegram API Error to {admin_chat_id}: {response.text}",
+						"Test Notification Failed"
+					)
+			except Exception as send_error:
+				failed_ids.append(admin_chat_id)
+				frappe.log_error(
+					f"Error sending to {admin_chat_id}: {str(send_error)}",
+					"Test Notification Exception"
+				)
+
+		# 5. Natijani qaytarish
+		if success_count == len(admin_chat_ids):
+			return {
+				"success": True,
+				"message": f"Test notification muvaffaqiyatli yuborildi! ({success_count} admin)"
+			}
+		elif success_count > 0:
+			return {
+				"success": True,
+				"message": f"Qisman muvaffaqiyatli: {success_count}/{len(admin_chat_ids)} admin",
+				"failed_ids": failed_ids
+			}
+		else:
+			return {
+				"success": False,
+				"message": "Hech bir admin'ga yuborib bo'lmadi. Error Log'ni tekshiring.",
+				"failed_ids": failed_ids
+			}
+
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Send Test Admin Notification Error")
+		return {
+			"success": False,
+			"message": f"Xato: {str(e)}"
+		}
+
+
 @frappe.whitelist(allow_guest=True)
 def get_all_active_due_payments():
 	"""
@@ -1609,11 +1712,14 @@ def send_customer_notification(doc, method):
 			frappe.logger().warning("⚠️ [CUSTOMER-NOTIF] Notification bot token topilmadi")
 			return
 
-		# Admin chat ID ni olish
-		admin_chat_id = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
-		if not admin_chat_id:
+		# Admin chat ID ni olish (bir nechta bo'lishi mumkin, vergul bilan ajratilgan)
+		admin_chat_ids_str = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
+		if not admin_chat_ids_str:
 			frappe.logger().warning("⚠️ [CUSTOMER-NOTIF] Admin chat ID topilmadi")
 			return
+
+		# Vergul bilan ajratilgan ID larni list ga aylantirish
+		admin_chat_ids = [chat_id.strip() for chat_id in admin_chat_ids_str.split(",") if chat_id.strip()]
 
 		# Xabar tayyorlash
 		customer_name = doc.customer_name or doc.name
@@ -1625,20 +1731,21 @@ def send_customer_notification(doc, method):
 📞 Tel: <code>{phone}</code>
 🆔 ID: <code>{doc.name}</code>"""
 
-		# Telegram ga yuborish
+		# Har bir admin'ga yuborish
 		url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-		data = {
-			"chat_id": admin_chat_id,
-			"text": message,
-			"parse_mode": "HTML"
-		}
+		for admin_chat_id in admin_chat_ids:
+			data = {
+				"chat_id": admin_chat_id,
+				"text": message,
+				"parse_mode": "HTML"
+			}
 
-		response = requests.post(url, json=data, timeout=5)
+			response = requests.post(url, json=data, timeout=5)
 
-		if response.status_code == 200:
-			frappe.logger().info(f"✅ [TELEGRAM] Customer notification sent: {doc.name}")
-		else:
-			frappe.log_error(f"Telegram API Error: {response.text}", "Customer Notification Failed")
+			if response.status_code == 200:
+				frappe.logger().info(f"✅ [TELEGRAM] Customer notification sent to {admin_chat_id}: {doc.name}")
+			else:
+				frappe.log_error(f"Telegram API Error to {admin_chat_id}: {response.text}", "Customer Notification Failed")
 
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), f"Customer Notification Error - {doc.name}")
@@ -1664,11 +1771,14 @@ def send_installment_notification(doc, method):
 			frappe.logger().warning("⚠️ [INSTALL-NOTIF] Notification bot token topilmadi")
 			return
 
-		# Admin chat ID ni olish
-		admin_chat_id = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
-		if not admin_chat_id:
+		# Admin chat ID ni olish (bir nechta bo'lishi mumkin, vergul bilan ajratilgan)
+		admin_chat_ids_str = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
+		if not admin_chat_ids_str:
 			frappe.logger().warning("⚠️ [INSTALL-NOTIF] Admin chat ID topilmadi")
 			return
+
+		# Vergul bilan ajratilgan ID larni list ga aylantirish
+		admin_chat_ids = [chat_id.strip() for chat_id in admin_chat_ids_str.split(",") if chat_id.strip()]
 
 		# Asosiy ma'lumotlar
 		customer_name = doc.customer_name or doc.customer
@@ -1678,6 +1788,9 @@ def send_installment_notification(doc, method):
 		monthly_payment = frappe.utils.fmt_money(doc.monthly_payment or 0, currency="USD")
 		months = doc.installment_months or 0
 		grand_total = frappe.utils.fmt_money(doc.custom_grand_total_with_interest or 0, currency="USD")
+
+		# Mijozning telefon raqamini olish
+		customer_phone = frappe.db.get_value("Customer", doc.customer, "custom_phone_1") or "—"
 
 		# Mahsulotlar ro'yxati (child table)
 		items_text = ""
@@ -1700,6 +1813,7 @@ def send_installment_notification(doc, method):
 
 📄 ID: <code>{doc.name}</code>
 👤 Mijoz: <b>{customer_name}</b>
+📞 Telefon: <code>{customer_phone}</code>
 📅 Sana: {transaction_date}
 
 <b>📱 Tovarlar:</b>{items_text}
@@ -1711,20 +1825,21 @@ def send_installment_notification(doc, method):
 💳 Oylik to'lov: ${monthly_payment}
 💎 Jami Summa: <b>${grand_total}</b>"""
 
-		# Telegram ga yuborish
+		# Har bir admin'ga yuborish
 		url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-		data = {
-			"chat_id": admin_chat_id,
-			"text": message,
-			"parse_mode": "HTML"
-		}
+		for admin_chat_id in admin_chat_ids:
+			data = {
+				"chat_id": admin_chat_id,
+				"text": message,
+				"parse_mode": "HTML"
+			}
 
-		response = requests.post(url, json=data, timeout=5)
+			response = requests.post(url, json=data, timeout=5)
 
-		if response.status_code == 200:
-			frappe.logger().info(f"✅ [TELEGRAM] Installment notification sent: {doc.name}")
-		else:
-			frappe.log_error(f"Telegram API Error: {response.text}", "Installment Notification Failed")
+			if response.status_code == 200:
+				frappe.logger().info(f"✅ [TELEGRAM] Installment notification sent to {admin_chat_id}: {doc.name}")
+			else:
+				frappe.log_error(f"Telegram API Error to {admin_chat_id}: {response.text}", "Installment Notification Failed")
 
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), f"Installment Notification Error - {doc.name}")
@@ -1754,11 +1869,14 @@ def send_payment_notification_v2(doc, method):
 			frappe.logger().warning("⚠️ [PAYMENT-NOTIF] Notification bot token topilmadi")
 			return
 
-		# Admin chat ID ni olish
-		admin_chat_id = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
-		if not admin_chat_id:
+		# Admin chat ID ni olish (bir nechta bo'lishi mumkin, vergul bilan ajratilgan)
+		admin_chat_ids_str = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
+		if not admin_chat_ids_str:
 			frappe.logger().warning("⚠️ [PAYMENT-NOTIF] Admin chat ID topilmadi")
 			return
+
+		# Vergul bilan ajratilgan ID larni list ga aylantirish
+		admin_chat_ids = [chat_id.strip() for chat_id in admin_chat_ids_str.split(",") if chat_id.strip()]
 
 		# Asosiy ma'lumotlar
 		payment_type = doc.payment_type
@@ -1771,6 +1889,14 @@ def send_payment_notification_v2(doc, method):
 		# Account ma'lumotlari
 		account = doc.paid_to if payment_type == "Receive" else doc.paid_from
 		account_name = account or "—"
+
+		# Shartnoma ma'lumotlari (agar bor bo'lsa)
+		contract_id = doc.get("custom_contract_reference") or ""
+		contract_date = "—"
+		if contract_id:
+			contract_date_raw = frappe.db.get_value("Sales Order", contract_id, "transaction_date")
+			if contract_date_raw:
+				contract_date = formatdate(contract_date_raw, "dd.MM.yyyy")
 
 		# Emoji va rang tanlash
 		if payment_type == "Receive":
@@ -1786,27 +1912,34 @@ def send_payment_notification_v2(doc, method):
 		# Xabar tayyorlash
 		message = f"""{emoji} <b>{type_text}</b>
 
-📅 Sana: {posting_date}
+📅 To'lov sanasi: {posting_date}
 👤 {party_type}: <b>{party_name}</b>
 🏦 Kassa/Hisob: <code>{account_name}</code>
 💵 Summa: <b>${paid_amount}</b>
-💳 Turi: {mode_of_payment}
-🆔 ID: <code>{doc.name}</code>"""
+💳 Turi: {mode_of_payment}"""
 
-		# Telegram ga yuborish
+		# Agar shartnoma bo'lsa, qo'shimcha ma'lumot
+		if contract_id:
+			message += f"\n📄 Shartnoma: <code>{contract_id}</code>"
+			message += f"\n📆 Shartnoma sanasi: {contract_date}"
+
+		message += f"\n🆔 To'lov ID: <code>{doc.name}</code>"
+
+		# Har bir admin'ga yuborish
 		url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-		data = {
-			"chat_id": admin_chat_id,
-			"text": message,
-			"parse_mode": "HTML"
-		}
+		for admin_chat_id in admin_chat_ids:
+			data = {
+				"chat_id": admin_chat_id,
+				"text": message,
+				"parse_mode": "HTML"
+			}
 
-		response = requests.post(url, json=data, timeout=5)
+			response = requests.post(url, json=data, timeout=5)
 
-		if response.status_code == 200:
-			frappe.logger().info(f"✅ [TELEGRAM] Payment notification sent: {doc.name}")
-		else:
-			frappe.log_error(f"Telegram API Error: {response.text}", "Payment Notification V2 Failed")
+			if response.status_code == 200:
+				frappe.logger().info(f"✅ [TELEGRAM] Payment notification sent to {admin_chat_id}: {doc.name}")
+			else:
+				frappe.log_error(f"Telegram API Error to {admin_chat_id}: {response.text}", "Payment Notification V2 Failed")
 
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), f"Payment Notification V2 Error - {doc.name}")
