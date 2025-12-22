@@ -1,6 +1,6 @@
 import frappe
 from frappe.utils import flt, formatdate, today, add_days, nowdate, cstr
-
+from frappe.utils.password import get_decrypted_password
 
 # ============================================================
 # 1. TELEGRAM ID ORQALI KIRISH (birinchi safar emas)
@@ -109,6 +109,10 @@ def get_customer_by_passport(passport_series: str, telegram_chat_id: str = None)
 
     return get_customer_by_id(customer_id, telegram_chat_id or customer.custom_telegram_id)
 
+
+def get_admin_token():
+    # Admin bot tokenini shifrdan yechib olish
+    return get_decrypted_password("Cash Settings", "Cash Settings", "telegram_notification_bot_token")
 
 # ============================================================
 # 3. ASOSIY MA'LUMOTLAR – TO'LIQ
@@ -1040,7 +1044,6 @@ def _send_via_telegram_api(bot_token, telegram_id, doc, payment_type, action):
 	import requests
 
 	try:
-		# Summani chiroyli formatlash ($1,200.00)
 		formatted_amount = frappe.utils.fmt_money(doc.paid_amount, currency="USD")
 		date_str = formatdate(doc.posting_date, "dd.MM.yyyy")
 		contract = doc.get("custom_contract_reference") or "—"
@@ -1058,7 +1061,7 @@ def _send_via_telegram_api(bot_token, telegram_id, doc, payment_type, action):
 ⚠️ Siz amalga oshirgan to'lov tizimdan o'chirildi yoki bekor qilindi.
 
 📄 Shartnoma: <code>{contract}</code>
-💵 Summa: <b>${formatted_amount}</b>
+💵 Summa: <b>{formatted_amount}</b>
 📅 Sana: {date_str}
 🧾 ID: <code>{doc.name}</code>
 
@@ -1509,7 +1512,6 @@ def send_test_admin_notification():
 
 		# 1. Bot token va admin chat ID ni olish
 		bot_token = frappe.db.get_single_value("Cash Settings", "telegram_notification_bot_token")
-		admin_chat_ids_str = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
 
 		if not bot_token:
 			return {
@@ -1517,19 +1519,16 @@ def send_test_admin_notification():
 				"message": "Admin Bot Token topilmadi. Iltimos, Cash Settings'da to'ldiring."
 			}
 
-		if not admin_chat_ids_str:
-			return {
-				"success": False,
-				"message": "Admin Chat ID topilmadi. Iltimos, Cash Settings'da to'ldiring."
-			}
-
-		# 2. Vergul bilan ajratilgan ID larni list ga aylantirish
-		admin_chat_ids = [chat_id.strip() for chat_id in admin_chat_ids_str.split(",") if chat_id.strip()]
+		# 2. ✅ Validatsiya qilingan admin chat ID larni olish
+		admin_chat_ids, invalid_chat_ids = _get_validated_admin_chat_ids()
 
 		if not admin_chat_ids:
+			error_msg = "Hech qanday to'g'ri admin chat ID topilmadi."
+			if invalid_chat_ids:
+				error_msg += f" Noto'g'ri ID lar: {', '.join(invalid_chat_ids)}"
 			return {
 				"success": False,
-				"message": "Admin Chat ID formati noto'g'ri."
+				"message": error_msg
 			}
 
 		# 3. Test xabarni tayyorlash
@@ -1693,123 +1692,146 @@ def get_all_active_due_payments():
 
 
 # ============================================================
-# 13. YANGI MIJOZ NOTIFICATION (Customer after_insert)
+# HELPER FUNCTION - Admin Chat ID Validation
+# ============================================================
+
+def _get_validated_admin_chat_ids():
+	"""
+	Admin chat ID larni Cash Settings dan olib, validatsiya qiladi.
+
+	Returns:
+		tuple: (valid_chat_ids: list, invalid_chat_ids: list)
+		Agar hech qanday to'g'ri chat ID bo'lmasa, ([], invalid_list) qaytaradi
+	"""
+	admin_chat_ids_str = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
+
+	if not admin_chat_ids_str:
+		frappe.logger().warning("⚠️ [ADMIN-CHAT-ID] Admin chat ID topilmadi")
+		return ([], [])
+
+	# Vergul bilan ajratilgan ID larni list ga aylantirish
+	# ✅ VALIDATION: Faqat to'g'ri integer chat ID larni qabul qilish
+	raw_chat_ids = [chat_id.strip() for chat_id in admin_chat_ids_str.split(",") if chat_id.strip()]
+	valid_chat_ids = []
+	invalid_chat_ids = []
+
+	for chat_id in raw_chat_ids:
+		# Newline, tab va boshqa whitespace larni tozalash
+		chat_id = chat_id.replace("\n", "").replace("\r", "").replace("\t", "").strip()
+
+		# Bo'sh string tekshirish
+		if not chat_id:
+			continue
+
+		# Integer tekshirish (musbat yoki manfiy - Telegram group IDs manfiy bo'lishi mumkin)
+		try:
+			# Chat ID ni integer ga aylantirib ko'ramiz
+			int(chat_id)
+			# Agar xato bo'lmasa, bu to'g'ri chat ID
+			valid_chat_ids.append(chat_id)
+		except ValueError:
+			# Noto'g'ri format - log qilamiz
+			invalid_chat_ids.append(chat_id)
+			frappe.logger().warning(f"⚠️ [ADMIN-CHAT-ID] Noto'g'ri chat ID formati: '{chat_id}'")
+
+	# Agar noto'g'ri ID lar bo'lsa, log qilamiz
+	if invalid_chat_ids:
+		frappe.logger().warning(
+			f"⚠️ [ADMIN-CHAT-ID] {len(invalid_chat_ids)} ta noto'g'ri chat ID o'tkazib yuborildi: {', '.join(invalid_chat_ids)}"
+		)
+
+	return (valid_chat_ids, invalid_chat_ids)
+
+
+import frappe
+import requests
+from frappe.utils import formatdate, flt, get_url_to_form
+from frappe.utils.password import get_decrypted_password
+
+
+# ============================================================
+# YORDAMCHI FUNKSIYA: TOKEN VA LINK UCHUN
+# ============================================================
+
+def get_admin_bot_token():
+	"""Admin bot tokenini shifrdan yechib oladi"""
+	return get_decrypted_password("Cash Settings", "Cash Settings",
+								  "telegram_notification_bot_token")
+
+
+def get_doc_link(doctype, name):
+	"""Hujjatga frappe ichidagi linkni generatsiya qiladi"""
+	# Masalan: http://site.com/app/customer/CUST-001
+	base_url = get_url_to_form(doctype, name)
+	return f'<a href="{base_url}">🔗 Hujjatni ko\'rish</a>'
+
+
+# ============================================================
+# 13. YANGI MIJOZ NOTIFICATION
 # ============================================================
 
 def send_customer_notification(doc, method):
-	"""
-	Yangi Customer yaratilganda Telegram NOTIFICATION BOT orqali admin'ga xabar yuborish.
-
-	Hook: Customer - after_insert
-	Bot: Notification Bot (Admin uchun)
-	"""
 	try:
-		import requests
+		bot_token = get_admin_bot_token()
+		if not bot_token: return
 
-		# NOTIFICATION BOT tokenni olish (admin uchun)
-		bot_token = frappe.db.get_single_value("Cash Settings", "telegram_notification_bot_token")
-		if not bot_token:
-			frappe.logger().warning("⚠️ [CUSTOMER-NOTIF] Notification bot token topilmadi")
-			return
+		admin_chat_ids, _ = _get_validated_admin_chat_ids()
+		if not admin_chat_ids: return
 
-		# Admin chat ID ni olish (bir nechta bo'lishi mumkin, vergul bilan ajratilgan)
-		admin_chat_ids_str = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
-		if not admin_chat_ids_str:
-			frappe.logger().warning("⚠️ [CUSTOMER-NOTIF] Admin chat ID topilmadi")
-			return
-
-		# Vergul bilan ajratilgan ID larni list ga aylantirish
-		admin_chat_ids = [chat_id.strip() for chat_id in admin_chat_ids_str.split(",") if chat_id.strip()]
-
-		# Xabar tayyorlash
 		customer_name = doc.customer_name or doc.name
 		phone = doc.custom_phone_1 or doc.custom_phone or "—"
+		doc_link = get_doc_link("Customer", doc.name)
 
 		message = f"""🆕 <b>Yangi Mijoz!</b>
 
 👤 Ism: <b>{customer_name}</b>
 📞 Tel: <code>{phone}</code>
-🆔 ID: <code>{doc.name}</code>"""
+🆔 ID: <code>{doc.name}</code>
 
-		# Har bir admin'ga yuborish
+{doc_link}"""
+
 		url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-		for admin_chat_id in admin_chat_ids:
-			data = {
-				"chat_id": admin_chat_id,
-				"text": message,
-				"parse_mode": "HTML"
-			}
-
-			response = requests.post(url, json=data, timeout=5)
-
-			if response.status_code == 200:
-				frappe.logger().info(f"✅ [TELEGRAM] Customer notification sent to {admin_chat_id}: {doc.name}")
-			else:
-				frappe.log_error(f"Telegram API Error to {admin_chat_id}: {response.text}", "Customer Notification Failed")
+		for chat_id in admin_chat_ids:
+			requests.post(url, json={"chat_id": chat_id, "text": message, "parse_mode": "HTML"},
+						  timeout=5)
 
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), f"Customer Notification Error - {doc.name}")
 
 
 # ============================================================
-# 14. SHARTNOMA NOTIFICATION (Installment Application on_submit)
+# 14. SHARTNOMA NOTIFICATION (on_update va on_submit uchun)
 # ============================================================
 
 def send_installment_notification(doc, method):
-	"""
-	Yangi Installment Application submit bo'lganda Telegram NOTIFICATION BOT orqali admin'ga xabar yuborish.
-
-	Hook: Installment Application - on_submit
-	Bot: Notification Bot (Admin uchun)
-	"""
 	try:
-		import requests
+		bot_token = get_admin_bot_token()  # TUZATILDI
+		if not bot_token: return
 
-		# NOTIFICATION BOT tokenni olish (admin uchun)
-		bot_token = frappe.db.get_single_value("Cash Settings", "telegram_notification_bot_token")
-		if not bot_token:
-			frappe.logger().warning("⚠️ [INSTALL-NOTIF] Notification bot token topilmadi")
-			return
+		admin_chat_ids, _ = _get_validated_admin_chat_ids()
+		if not admin_chat_ids: return
 
-		# Admin chat ID ni olish (bir nechta bo'lishi mumkin, vergul bilan ajratilgan)
-		admin_chat_ids_str = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
-		if not admin_chat_ids_str:
-			frappe.logger().warning("⚠️ [INSTALL-NOTIF] Admin chat ID topilmadi")
-			return
-
-		# Vergul bilan ajratilgan ID larni list ga aylantirish
-		admin_chat_ids = [chat_id.strip() for chat_id in admin_chat_ids_str.split(",") if chat_id.strip()]
-
-		# Asosiy ma'lumotlar
 		customer_name = doc.customer_name or doc.customer
-		transaction_date = formatdate(doc.transaction_date, "dd.MM.yyyy") if doc.transaction_date else "—"
+		transaction_date = formatdate(doc.transaction_date,
+									  "dd.MM.yyyy") if doc.transaction_date else "—"
 		total_amount = frappe.utils.fmt_money(doc.total_amount or 0, currency="USD")
 		downpayment = frappe.utils.fmt_money(doc.downpayment_amount or 0, currency="USD")
 		monthly_payment = frappe.utils.fmt_money(doc.monthly_payment or 0, currency="USD")
 		months = doc.installment_months or 0
-		grand_total = frappe.utils.fmt_money(doc.custom_grand_total_with_interest or 0, currency="USD")
-
-		# Mijozning telefon raqamini olish
+		grand_total = frappe.utils.fmt_money(doc.custom_grand_total_with_interest or 0,
+											 currency="USD")
 		customer_phone = frappe.db.get_value("Customer", doc.customer, "custom_phone_1") or "—"
+		doc_link = get_doc_link("Installment Application", doc.name)
 
-		# Mahsulotlar ro'yxati (child table)
+		# Statusga qarab sarlavha
+		header = "📝 <b>Shartnoma saqlandi (Draft)</b>" if doc.docstatus == 0 else "✅ <b>Yangi Shartnoma tasdiqlandi!</b>"
+
 		items_text = ""
 		if doc.items:
 			for idx, item in enumerate(doc.items, 1):
-				item_name = item.item_name or "—"
-				imei = item.imei or "—"
-				supplier = item.get("custom_supplier") or "—"
-				rate = frappe.utils.fmt_money(item.rate or 0, currency="USD")
+				items_text += f"\n<b>{idx}.</b> {item.item_name}\n   🔢 IMEI: <code>{item.custom_imei or '—'}</code>\n   💵 Tannarx: {item.rate or 0}"
 
-				items_text += f"\n<b>{idx}.</b> {item_name}"
-				items_text += f"\n   🔢 IMEI: <code>{imei}</code>"
-				items_text += f"\n   🏪 Postavchik: {supplier}"
-				items_text += f"\n   💵 Tannarx: ${rate}"
-		else:
-			items_text = "\n—"
-
-		# Xabar tayyorlash
-		message = f"""✅ <b>Yangi Shartnoma!</b>
+		message = f"""{header}
 
 📄 ID: <code>{doc.name}</code>
 👤 Mijoz: <b>{customer_name}</b>
@@ -1819,177 +1841,74 @@ def send_installment_notification(doc, method):
 <b>📱 Tovarlar:</b>{items_text}
 
 <b>💰 To'lov ma'lumotlari:</b>
-💵 Tannarx: ${total_amount}
-💸 Boshlang'ich to'lov: ${downpayment}
+💵 Tannarx: {total_amount}
+💸 Boshlang'ich: {downpayment}
 📅 Muddat: {months} oy
-💳 Oylik to'lov: ${monthly_payment}
-💎 Jami Summa: <b>${grand_total}</b>"""
+💳 Oylik: {monthly_payment}
+💎 Jami: <b>{grand_total}</b>
 
-		# Har bir admin'ga yuborish
+{doc_link}"""
+
 		url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-		for admin_chat_id in admin_chat_ids:
-			data = {
-				"chat_id": admin_chat_id,
-				"text": message,
-				"parse_mode": "HTML"
-			}
-
-			response = requests.post(url, json=data, timeout=5)
-
-			if response.status_code == 200:
-				frappe.logger().info(f"✅ [TELEGRAM] Installment notification sent to {admin_chat_id}: {doc.name}")
-			else:
-				frappe.log_error(f"Telegram API Error to {admin_chat_id}: {response.text}", "Installment Notification Failed")
+		for chat_id in admin_chat_ids:
+			requests.post(url, json={"chat_id": chat_id, "text": message, "parse_mode": "HTML"},
+						  timeout=5)
 
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), f"Installment Notification Error - {doc.name}")
 
 
 # ============================================================
-# 15. KASSA NOTIFICATION (Payment Entry on_submit) - YANGILANGAN
+# 15. KASSA NOTIFICATION (on_update va on_submit uchun)
 # ============================================================
 
 def send_payment_notification_v2(doc, method):
-	"""
-	Payment Entry submit bo'lganda Telegram NOTIFICATION BOT orqali admin'ga xabar yuborish.
-
-	Bu funksiya barcha to'lovlar uchun ishlaydi:
-	- Receive: Pul kirimi (Customer to'lovi, Supplier qaytargan pul)
-	- Pay: Pul chiqimi (Supplier to'lovi, Customer ga qaytarish)
-
-	Hook: Payment Entry - on_submit
-	Bot: Notification Bot (Admin uchun)
-	"""
 	try:
-		import requests
+		bot_token = get_admin_bot_token()  # TUZATILDI
+		if not bot_token: return
 
-		# NOTIFICATION BOT tokenni olish (admin uchun)
-		bot_token = frappe.db.get_single_value("Cash Settings", "telegram_notification_bot_token")
-		if not bot_token:
-			frappe.logger().warning("⚠️ [PAYMENT-NOTIF] Notification bot token topilmadi")
-			return
+		admin_chat_ids, _ = _get_validated_admin_chat_ids()
+		if not admin_chat_ids: return
 
-		# Admin chat ID ni olish (bir nechta bo'lishi mumkin, vergul bilan ajratilgan)
-		admin_chat_ids_str = frappe.db.get_single_value("Cash Settings", "telegram_admin_chat_id")
-		if not admin_chat_ids_str:
-			frappe.logger().warning("⚠️ [PAYMENT-NOTIF] Admin chat ID topilmadi")
-			return
-
-		# Vergul bilan ajratilgan ID larni list ga aylantirish
-		admin_chat_ids = [chat_id.strip() for chat_id in admin_chat_ids_str.split(",") if chat_id.strip()]
-
-		# Asosiy ma'lumotlar
-		payment_type = doc.payment_type
-		posting_date = formatdate(doc.posting_date, "dd.MM.yyyy") if doc.posting_date else "—"
-		party_name = doc.party or "—"
-		party_type = doc.party_type or "—"
+		posting_date = formatdate(doc.posting_date, "dd.MM.yyyy")
 		paid_amount = frappe.utils.fmt_money(doc.paid_amount or 0, currency="USD")
-		mode_of_payment = doc.mode_of_payment or "Naqd"
+		doc_link = get_doc_link("Payment Entry", doc.name)
 
-		# Account ma'lumotlari
-		account = doc.paid_to if payment_type == "Receive" else doc.paid_from
-		account_name = account or "—"
-
-		# Shartnoma ma'lumotlari (agar bor bo'lsa)
-		contract_id = doc.get("custom_contract_reference") or ""
-		contract_date = "—"
-		if contract_id:
-			contract_date_raw = frappe.db.get_value("Sales Order", contract_id, "transaction_date")
-			if contract_date_raw:
-				contract_date = formatdate(contract_date_raw, "dd.MM.yyyy")
-
-		# Emoji va rang tanlash
-		if payment_type == "Receive":
-			emoji = "🟢"
-			type_text = "PUL KIRIMI"
-		elif payment_type == "Pay":
-			emoji = "🔴"
-			type_text = "PUL CHIQIMI"
+		# Emoji va Sarlavha
+		if doc.payment_type == "Receive":
+			emoji, type_text = "🟢", "PUL KIRIMI"
+		elif doc.payment_type == "Pay":
+			emoji, type_text = "🔴", "PUL CHIQIMI"
 		else:
-			emoji = "⚪"
-			type_text = "TRANSFER"
+			emoji, type_text = "⚪", "TRANSFER"
 
-		# Xabar tayyorlash
-		message = f"""{emoji} <b>{type_text}</b>
+		status_text = " (Tasdiqlandi)" if doc.docstatus == 1 else " (Draft/Saqlandi)"
 
-📅 To'lov sanasi: {posting_date}
-👤 {party_type}: <b>{party_name}</b>
-🏦 Kassa/Hisob: <code>{account_name}</code>
-💵 Summa: <b>${paid_amount}</b>
-💳 Turi: {mode_of_payment}"""
+		message = f"""{emoji} <b>{type_text}{status_text}</b>
 
-		# Agar shartnoma bo'lsa, qo'shimcha ma'lumot
-		if contract_id:
-			message += f"\n📄 Shartnoma: <code>{contract_id}</code>"
-			message += f"\n📆 Shartnoma sanasi: {contract_date}"
+📅 Sana: {posting_date}
+👤 {doc.party_type}: <b>{doc.party or '—'}</b>
+🏦 Kassa: <code>{doc.paid_to if doc.payment_type == "Receive" else doc.paid_from}</code>
+💵 Summa: <b>{paid_amount}</b>
+💳 Turi: {doc.mode_of_payment}
+📄 Shartnoma: <code>{doc.custom_contract_reference or '—'}</code>
+🆔 ID: <code>{doc.name}</code>
 
-		message += f"\n🆔 To'lov ID: <code>{doc.name}</code>"
+{doc_link}"""
 
-		# Har bir admin'ga yuborish
 		url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-		for admin_chat_id in admin_chat_ids:
-			data = {
-				"chat_id": admin_chat_id,
-				"text": message,
-				"parse_mode": "HTML"
-			}
-
-			response = requests.post(url, json=data, timeout=5)
-
-			if response.status_code == 200:
-				frappe.logger().info(f"✅ [TELEGRAM] Payment notification sent to {admin_chat_id}: {doc.name}")
-			else:
-				frappe.log_error(f"Telegram API Error to {admin_chat_id}: {response.text}", "Payment Notification V2 Failed")
+		for chat_id in admin_chat_ids:
+			requests.post(url, json={"chat_id": chat_id, "text": message, "parse_mode": "HTML"},
+						  timeout=5)
 
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), f"Payment Notification V2 Error - {doc.name}")
-
-
 # ============================================================
 # 16. SUPPORT CONTACTS - Operator telefon raqamini olish
 # ============================================================
 
 @frappe.whitelist(allow_guest=True)
 def get_support_contacts():
-	"""
-	ERPNext'dan operator/administrator telefon raqamini olish.
-
-	Bu funksiya xato xabarlarida operator telefon raqamini ko'rsatish uchun
-	ishlatiladi. Frappe User doctype'dan "Operator" yoki "System Manager"
-	role'iga ega foydalanuvchilarning telefon raqamlarini oladi.
-
-	Qidiruv Tartibi:
-	----------------
-	1. "Operator" role'li userlar (birinchi prioritet)
-	2. "System Manager" role'li userlar (ikkinchi prioritet)
-	3. Cash Settings'dagi support_phone (fallback)
-	4. Default telefon raqami (oxirgi fallback)
-
-	Frappe User Requirements:
-	-------------------------
-	User doctype'da quyidagi fieldlar to'ldirilishi kerak:
-	- Full Name: Operator ismi
-	- Phone yoki Mobile No: Telefon raqami (+998 XX XXX XX XX)
-	- Roles: "Operator" yoki "System Manager" role
-
-	Returns:
-		{
-			"success": True,
-			"contact": {
-				"name": "Operator Ismi",
-				"phone": "+998 90 123 45 67",
-				"email": "operator@example.com",
-				"role": "Operator",
-				"source": "user_doctype"
-			}
-		}
-
-	Example:
-		>>> data = get_support_contacts()
-		>>> if data.get("success"):
-		>>>     phone = data["contact"]["phone"]
-		>>>     await msg.answer(f"Yordam: {phone}")
-	"""
 	try:
 		# 1. "Operator" role'iga ega userlarni topish
 		# Has Role doctypidan Operator role'li userlarni olamiz
