@@ -249,7 +249,9 @@ fixtures = [
 	# ============================================
 	{
 		"dt": "Custom Field",
-		"filters": [["module", "=", "Cash Flow Management"]]
+		"filters": [
+			["dt", "in", ["Counterparty Category"]]
+		]
 	},
 
 	# ============================================
@@ -263,6 +265,7 @@ fixtures = [
 			"Item",
 			"Payment Entry",
 			"Sales Order",
+			"Counterparty Category",
 			"Supplier"
 		]]]
 	},
