@@ -22,15 +22,7 @@ def format_money(amount):
 
 
 def execute(filters=None):
-	"""
-	Asosiy funksiya - Custom Profit and Loss reportni bajaradi
-
-	Filterlar:
-	  - from_date: Boshlanish sanasi
-	  - to_date: Tugash sanasi
-	  - periodicity: "Monthly" yoki "Yearly"
-	"""
-	# Default qiymatlar
+	"""Asosiy funksiya - Custom Profit and Loss reportni bajaradi"""
 	if not filters:
 		filters = {}
 
@@ -41,14 +33,12 @@ def execute(filters=None):
 	if not filters.get("periodicity"):
 		filters["periodicity"] = "Monthly"
 
-	# Sanalarni tekshirish
 	from_date = getdate(filters["from_date"])
 	to_date = getdate(filters["to_date"])
 
 	if from_date > to_date:
 		frappe.throw(_("'From Date' sanasi 'To Date' sanasidan katta bo'lmasligi kerak"))
 
-	# Ma'lumotlarni olish
 	columns = get_columns(filters)
 	data = get_data(filters)
 
@@ -85,17 +75,7 @@ def get_columns(filters):
 
 
 def get_period_list(filters):
-	"""
-	Period ro'yxatini yaratadi
-
-	Agar periodicity=Yearly bo'lsa:
-	  - from_date dan to_date gacha bo'lgan har bir yilni alohida ustun qiladi
-	  - Misol: 12.05.2024 dan 07.07.2025 gacha => [2024, 2025]
-
-	Agar periodicity=Monthly bo'lsa:
-	  - from_date dan to_date gacha bo'lgan har bir oyni alohida ustun qiladi
-	  - Misol: 12.05.2024 dan 07.07.2025 gacha => [May 2024, Iyun 2024, ..., Iyul 2025]
-	"""
+	"""Period ro'yxatini yaratadi"""
 	from_date = getdate(filters["from_date"])
 	to_date = getdate(filters["to_date"])
 	periodicity = filters.get("periodicity", "Monthly")
@@ -103,16 +83,13 @@ def get_period_list(filters):
 	period_list = []
 
 	if periodicity == "Yearly":
-		# Yillik hisobot - har bir yil alohida ustunda
 		current_year = from_date.year
 		end_year = to_date.year
 
 		while current_year <= end_year:
-			# Yilning boshlanishi va tugashi
 			year_start = datetime(current_year, 1, 1).date()
 			year_end = datetime(current_year, 12, 31).date()
 
-			# Faqat tanlangan oraliqda bo'lgan qismini olish
 			actual_start = max(year_start, from_date)
 			actual_end = min(year_end, to_date)
 
@@ -124,14 +101,12 @@ def get_period_list(filters):
 			})
 			current_year += 1
 	else:
-		# Oylik hisobot - har bir oy alohida ustunda
 		current = get_first_day(from_date)
 		end = get_first_day(to_date)
 
 		while current <= end:
 			month_end = get_last_day(current)
 
-			# Faqat tanlangan oraliqda bo'lgan qismini olish
 			actual_start = max(current, from_date)
 			actual_end = min(month_end, to_date)
 
@@ -169,8 +144,12 @@ def get_data(filters):
 	quantity_row["total"] = int(total_qty)
 	data.append(quantity_row)
 
-	# ===== 2. SHARTNOMALAR SUMMASI =====
-	revenue_row = {"account": "Savdo", "indent": 0}
+	# ===== 2. SAVDO (BOLD + RANGLI) =====
+	revenue_row = {
+		"account": "Savdo",
+		"indent": 0,
+		"_style": "font-weight: bold; background-color: #4CAF50; color: white;"
+	}
 	revenue_row_raw = {}
 	total_revenue = 0
 	for period in period_list:
@@ -187,8 +166,12 @@ def get_data(filters):
 	revenue_row["total"] = format_money(total_revenue)
 	data.append(revenue_row)
 
-	# ===== 3. MAHSULOTLAR TANNARXI =====
-	cost_row = {"account": "Tannarx", "indent": 0}
+	# ===== 3. TANNARX (BOLD + RANGLI) =====
+	cost_row = {
+		"account": "Tannarx",
+		"indent": 0,
+		"_style": "font-weight: bold; background-color: #FF9800; color: white;"
+	}
 	total_cost = 0
 	for period in period_list:
 		result = frappe.db.sql("""
@@ -203,8 +186,12 @@ def get_data(filters):
 	cost_row["total"] = format_money(total_cost)
 	data.append(cost_row)
 
-	# ===== 4. FOIZ DAROMADI =====
-	margin_row = {"account": "Yalpi foyda ", "indent": 0}
+	# ===== 4. YALPI FOYDA (BOLD + RANGLI) =====
+	margin_row = {
+		"account": "Yalpi foyda",
+		"indent": 0,
+		"_style": "font-weight: bold; background-color: #2196F3; color: white;"
+	}
 	margin_row_raw = {}
 	total_margin = 0
 	for period in period_list:
@@ -221,8 +208,12 @@ def get_data(filters):
 	margin_row["total"] = format_money(total_margin)
 	data.append(margin_row)
 
-	# ===== 5. FOYDALILIK % =====
-	margin_percent_row = {"account": "Rentabillik", "indent": 0}
+	# ===== 5. RENTABILLIK (ITALIC) =====
+	margin_percent_row = {
+		"account": "Rentabillik",
+		"indent": 0,
+		"_style": "font-style: italic; color: #666;"
+	}
 	for period in period_list:
 		margin_val = margin_row_raw[period["key"]]
 		revenue_val = revenue_row_raw[period["key"]]
@@ -240,9 +231,13 @@ def get_data(filters):
 		margin_percent_row["total"] = "0%"
 	data.append(margin_percent_row)
 
-	# ===== 6. JAMI HARAJATLAR =====
+	# ===== 6. JAMI HARAJATLAR (BOLD + RANGLI) =====
 	expense_categories = {}
-	operational_row = {"account": "Jami harajatlar", "indent": 0}
+	operational_row = {
+		"account": "Jami harajatlar",
+		"indent": 0,
+		"_style": "font-weight: bold; background-color: #f44336; color: white;"
+	}
 	operational_row_raw = {}
 	total_expense = 0
 
@@ -258,8 +253,7 @@ def get_data(filters):
 			INNER JOIN `tabCounterparty Category` cc
 				ON pe.custom_counterparty_category = cc.name
 			WHERE pe.docstatus = 1
-			AND cc.category_name != 'Клиент'
-			AND pe.party_type != 'Customer'
+			AND cc.custom_expense_type = 'Xarajat'
 			AND DATE(pe.posting_date) BETWEEN %s AND %s
 			GROUP BY cc.category_name, cc.category_type
 		""", (period["from_date"], period["to_date"]), as_dict=1)
@@ -288,13 +282,11 @@ def get_data(filters):
 			operational_row_raw[period["key"]] += amount
 			total_expense += amount
 
-	# Format operational row
 	for period in period_list:
 		operational_row[period["key"]] = format_money(operational_row_raw[period["key"]])
 	operational_row["total"] = format_money(total_expense)
 	data.append(operational_row)
 
-	# Format expense categories
 	for cat_name in sorted(expense_categories.keys()):
 		cat = expense_categories[cat_name]
 		for period in period_list:
@@ -304,8 +296,12 @@ def get_data(filters):
 		del cat["_raw_total"]
 		data.append(cat)
 
-	# ===== 7. YAKUNIY FOYDA =====
-	net_profit_row = {"account": "Sof foyda", "indent": 0}
+	# ===== 7. SOF FOYDA (BOLD + RANGLI) =====
+	net_profit_row = {
+		"account": "Sof foyda",
+		"indent": 0,
+		"_style": "font-weight: bold; background-color: #9C27B0; color: white;"
+	}
 	net_profit_row_raw = {}
 	total_net_profit = 0
 	for period in period_list:
@@ -318,8 +314,12 @@ def get_data(filters):
 	net_profit_row["total"] = format_money(total_net_profit)
 	data.append(net_profit_row)
 
-	# ===== 8. YAKUNIY FOYDALILIK % =====
-	net_percent_row = {"account": "Sof Rentabillik", "indent": 0}
+	# ===== 8. SOF RENTABILLIK (ITALIC) =====
+	net_percent_row = {
+		"account": "Sof Rentabillik",
+		"indent": 0,
+		"_style": "font-style: italic; color: #666;"
+	}
 	for period in period_list:
 		profit_val = net_profit_row_raw[period["key"]]
 		revenue_val = revenue_row_raw[period["key"]]
