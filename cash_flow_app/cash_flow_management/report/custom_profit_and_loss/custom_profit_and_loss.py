@@ -170,7 +170,7 @@ def get_data(filters):
 	data.append(quantity_row)
 
 	# ===== 2. SHARTNOMALAR SUMMASI =====
-	revenue_row = {"account": "Shartnomalar summasi", "indent": 0}
+	revenue_row = {"account": "Savdo", "indent": 0}
 	revenue_row_raw = {}
 	total_revenue = 0
 	for period in period_list:
@@ -188,7 +188,7 @@ def get_data(filters):
 	data.append(revenue_row)
 
 	# ===== 3. MAHSULOTLAR TANNARXI =====
-	cost_row = {"account": "Mahsulotlar tannarxi", "indent": 0}
+	cost_row = {"account": "Tannarx", "indent": 0}
 	total_cost = 0
 	for period in period_list:
 		result = frappe.db.sql("""
@@ -204,7 +204,7 @@ def get_data(filters):
 	data.append(cost_row)
 
 	# ===== 4. FOIZ DAROMADI =====
-	margin_row = {"account": "Foiz daromadi", "indent": 0}
+	margin_row = {"account": "Yalpi foyda ", "indent": 0}
 	margin_row_raw = {}
 	total_margin = 0
 	for period in period_list:
@@ -222,7 +222,7 @@ def get_data(filters):
 	data.append(margin_row)
 
 	# ===== 5. FOYDALILIK % =====
-	margin_percent_row = {"account": "Foydalilik", "indent": 0}
+	margin_percent_row = {"account": "Rentabillik", "indent": 0}
 	for period in period_list:
 		margin_val = margin_row_raw[period["key"]]
 		revenue_val = revenue_row_raw[period["key"]]
@@ -305,7 +305,7 @@ def get_data(filters):
 		data.append(cat)
 
 	# ===== 7. YAKUNIY FOYDA =====
-	net_profit_row = {"account": "Yakuniy foyda", "indent": 0}
+	net_profit_row = {"account": "Sof foyda", "indent": 0}
 	net_profit_row_raw = {}
 	total_net_profit = 0
 	for period in period_list:
@@ -319,7 +319,7 @@ def get_data(filters):
 	data.append(net_profit_row)
 
 	# ===== 8. YAKUNIY FOYDALILIK % =====
-	net_percent_row = {"account": "Yakuniy foydalilik", "indent": 0}
+	net_percent_row = {"account": "Sof Rentabillik", "indent": 0}
 	for period in period_list:
 		profit_val = net_profit_row_raw[period["key"]]
 		revenue_val = revenue_row_raw[period["key"]]
