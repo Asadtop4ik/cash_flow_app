@@ -7,6 +7,44 @@
   "docstatus": 0,
   "doctype": "Report",
   "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2025-12-21 23:07:32.230548",
+  "module": "Cash Flow Management",
+  "name": "Custom Profit and Loss",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Installment Application",
+  "reference_report": null,
+  "report_name": "Custom Profit and Loss",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Custom Profit and Loss",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Operator"
+   },
+   {
+    "parent": "Custom Profit and Loss",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
   "is_standard": "No",
   "javascript": null,
   "json": "{\"columns\":[{\"fieldname\":\"group_header\",\"label\":\"Guruh\",\"fieldtype\":\"Data\",\"width\":200,\"id\":\"group_header\",\"name\":\"Guruh\",\"editable\":false,\"compareValue\":null},{\"fieldname\":\"contract_link\",\"label\":\"Shartnoma\",\"fieldtype\":\"Link\",\"options\":\"Installment Application\",\"width\":150,\"id\":\"contract_link\",\"name\":\"Shartnoma\",\"editable\":false,\"compareValue\":null},{\"fieldname\":\"customer_link\",\"label\":\"Klient\",\"fieldtype\":\"Link\",\"options\":\"Customer\",\"width\":180,\"id\":\"customer_link\",\"name\":\"Klient\",\"editable\":false,\"compareValue\":null},{\"fieldname\":\"current_month_payment\",\"label\":\"Shu Oy To'lovi\",\"fieldtype\":\"Currency\",\"width\":140,\"id\":\"current_month_payment\",\"name\":\"Shu Oy To'lovi\",\"editable\":false,\"compareValue\":null},{\"fieldname\":\"due_amount\",\"label\":\"Yana To'lashi Kerak\",\"fieldtype\":\"Currency\",\"width\":150,\"id\":\"due_amount\",\"name\":\"Yana To'lashi Kerak\",\"editable\":false,\"compareValue\":null},{\"fieldname\":\"total_contract_amount\",\"label\":\"Shartnoma Summasi\",\"fieldtype\":\"Currency\",\"width\":150,\"id\":\"total_contract_amount\",\"name\":\"Shartnoma Summasi\",\"editable\":false,\"compareValue\":null},{\"fieldname\":\"remaining_debt\",\"label\":\"Qolgan Qarz\",\"fieldtype\":\"Currency\",\"width\":130,\"id\":\"remaining_debt\",\"name\":\"Qolgan Qarz\",\"editable\":false,\"compareValue\":null},{\"fieldname\":\"note\",\"label\":\"Izoh\",\"fieldtype\":\"Small Text\",\"width\":200,\"editable\":1,\"id\":\"note\",\"name\":\"Izoh\",\"compareValue\":null}],\"filters\":{}}",
