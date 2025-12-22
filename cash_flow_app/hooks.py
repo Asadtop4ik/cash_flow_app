@@ -33,43 +33,42 @@ doc_events = {
         "after_insert": "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_customer_notification"
     },
     "Installment Application": {
-        # 🟢 YANGI: Saqlaganda (Save) xabar
+        # 🟢 Shartnoma saqlanganda (Save) xabar boradi
         "on_update": "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_installment_notification",
         "on_submit": [
-            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_submit", # ESKI
-            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_installment_application", # ESKI
-            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_installment_notification" # YANGI: Submitda xabar
+            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_submit",
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_installment_application",
+            # 🔵 Shartnoma tasdiqlanganda (Submit) xabar boradi
+            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_installment_notification"
         ],
-        "on_cancel": "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_installment" # ESKI
+        "on_cancel": "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_installment"
     },
     "Payment Entry": {
-        "autoname": "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.autoname_payment_entry", # ESKI
-        "onload": "cash_flow_app.cash_flow_management.overrides.payment_entry_defaults.onload_payment_entry", # ESKI
+        "autoname": "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.autoname_payment_entry",
+        "onload": "cash_flow_app.cash_flow_management.overrides.payment_entry_defaults.onload_payment_entry",
         "validate": [
-            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.ensure_fiscal_year_for_payment", # ESKI
-            "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.validate_payment_entry", # ESKI
-            "cash_flow_app.cash_flow_management.custom.payment_validations.validate_negative_balance", # ESKI
-            "cash_flow_app.cash_flow_management.custom.payment_validations.warn_on_overdue_payments" # ESKI
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.ensure_fiscal_year_for_payment",
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_hooks.validate_payment_entry",
+            "cash_flow_app.cash_flow_management.custom.payment_validations.validate_negative_balance",
+            "cash_flow_app.cash_flow_management.custom.payment_validations.warn_on_overdue_payments"
         ],
-        # 🟢 YANGI: Saqlaganda (Save) xabar
-        "on_update": "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification_v2",
         "on_submit": [
-            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_payment_entry", # ESKI
-            "cash_flow_app.cash_flow_management.api.payment_entry.on_payment_submit", # ESKI
-            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.publish_customer_dashboard_refresh", # ESKI
-            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_payment", # ESKI
-            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification", # ESKI (Mijozga xabar)
-            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification_v2" # YANGI (Adminga xabar)
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_payment_entry",
+            "cash_flow_app.cash_flow_management.api.payment_entry.on_payment_submit",
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.publish_customer_dashboard_refresh",
+            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_payment",
+            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification",
+            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification_v2"
         ],
         "on_cancel": [
-            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry", # ESKI
-            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_payment", # ESKI
-            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_cancel_notification" # ESKI
+            "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry",
+            "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_payment",
+            "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_cancel_notification"
         ]
     },
     "Sales Order": {
-        "validate": "cash_flow_app.cash_flow_management.custom.payment_validations.validate_payment_schedule_paid_amount", # ESKI
-        "before_cancel": "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_sales_order" # ESKI
+        "validate": "cash_flow_app.cash_flow_management.custom.payment_validations.validate_payment_schedule_paid_amount",
+        "before_cancel": "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_sales_order"
     }
 }
 
