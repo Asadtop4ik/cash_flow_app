@@ -154,7 +154,7 @@ def get_data(filters):
 	total_revenue = 0
 	for period in period_list:
 		result = frappe.db.sql("""
-			SELECT IFNULL(SUM(custom_grand_total_with_interest), 0) as total
+			SELECT IFNULL(SUM(custom_grand_total_with_interest - downpayment_amount), 0) as total
 			FROM `tabInstallment Application`
 			WHERE docstatus = 1
 			AND DATE(transaction_date) BETWEEN %s AND %s
@@ -175,7 +175,7 @@ def get_data(filters):
 	total_cost = 0
 	for period in period_list:
 		result = frappe.db.sql("""
-			SELECT IFNULL(SUM(total_amount), 0) as total
+			SELECT IFNULL(SUM(finance_amount), 0) as total
 			FROM `tabInstallment Application`
 			WHERE docstatus = 1
 			AND DATE(transaction_date) BETWEEN %s AND %s
@@ -246,6 +246,7 @@ def get_data(filters):
 
 		expenses = frappe.db.sql("""
 			SELECT
+				cc.name as category_id,
 				cc.category_name,
 				cc.category_type,
 				SUM(pe.paid_amount) as amount
@@ -255,11 +256,12 @@ def get_data(filters):
 			WHERE pe.docstatus = 1
 			AND cc.custom_expense_type = 'Xarajat'
 			AND DATE(pe.posting_date) BETWEEN %s AND %s
-			GROUP BY cc.category_name, cc.category_type
+			GROUP BY cc.name, cc.category_name, cc.category_type
 		""", (period["from_date"], period["to_date"]), as_dict=1)
 
 		for exp in expenses:
 			cat_name = exp.category_name
+			cat_id = exp.category_id
 			amount = flt(exp.amount)
 
 			if exp.category_type == "Income":
@@ -268,7 +270,8 @@ def get_data(filters):
 			if cat_name not in expense_categories:
 				expense_categories[cat_name] = {
 					"account": f"  {cat_name}",
-					"indent": 1
+					"indent": 1,
+					"category_id": cat_id
 				}
 				for p in period_list:
 					expense_categories[cat_name][p["key"]] = "$0.00"
