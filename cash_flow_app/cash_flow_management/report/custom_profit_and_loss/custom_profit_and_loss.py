@@ -15,10 +15,10 @@ UZBEK_MONTHS = {
 
 
 def format_money(amount):
-	"""Pul summani $1,234.56 formatida qaytarish"""
+	"""Pul summani $1,234 formatida qaytarish (yaxlitlangan)"""
 	if amount == 0:
-		return "$0.00"
-	return "${:,.2f}".format(flt(amount))
+		return "$0"
+	return "${:,.0f}".format(round(flt(amount)))
 
 
 def execute(filters=None):
