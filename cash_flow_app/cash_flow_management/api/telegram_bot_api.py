@@ -1778,12 +1778,19 @@ def send_customer_notification(doc, method):
 		admin_chat_ids, _ = _get_validated_admin_chat_ids()
 		if not admin_chat_ids: return
 
+		# Kim qo'shdi ma'lumotini olish
+		creator_email = doc.owner
+		creator_name = frappe.db.get_value("User", creator_email, "full_name")
+		if not creator_name:
+			creator_name = creator_email
+
 		customer_name = doc.customer_name or doc.name
 		phone = doc.custom_phone_1 or doc.custom_phone or "—"
 		doc_link = get_doc_link("Customer", doc.name)
 
 		message = f"""🆕 <b>Yangi Mijoz!</b>
 
+👨‍💻 Qo'shdi: <b>{creator_name}</b>
 👤 Ism: <b>{customer_name}</b>
 📞 Tel: <code>{phone}</code>
 🆔 ID: <code>{doc.name}</code>
@@ -1877,6 +1884,12 @@ def send_payment_notification_v2(doc, method):
 		admin_chat_ids, _ = _get_validated_admin_chat_ids()
 		if not admin_chat_ids: return
 
+		# Kim saqladi/tasdiqladi ma'lumotini olish
+		creator_email = doc.owner
+		creator_name = frappe.db.get_value("User", creator_email, "full_name")
+		if not creator_name:
+			creator_name = creator_email
+
 		posting_date = formatdate(doc.posting_date, "dd.MM.yyyy")
 		paid_amount = frappe.utils.fmt_money(doc.paid_amount or 0, currency="USD")
 		doc_link = get_doc_link("Payment Entry", doc.name)
@@ -1893,6 +1906,7 @@ def send_payment_notification_v2(doc, method):
 
 		message = f"""{emoji} <b>{type_text}{status_text}</b>
 
+👨‍💻 Operator: <b>{creator_name}</b>
 📅 Sana: {posting_date}
 👤 {doc.party_type}: <b>{doc.party or '—'}</b>
 🏦 Kassa: <code>{doc.paid_to if doc.payment_type == "Receive" else doc.paid_from}</code>
