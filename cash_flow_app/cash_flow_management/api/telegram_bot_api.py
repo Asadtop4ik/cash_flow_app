@@ -1811,6 +1811,12 @@ def send_installment_notification(doc, method):
 		admin_chat_ids, _ = _get_validated_admin_chat_ids()
 		if not admin_chat_ids: return
 
+		# Operator ismini olish
+		creator_email = doc.owner
+		creator_name = frappe.db.get_value("User", creator_email, "full_name")
+		if not creator_name:
+			creator_name = creator_email
+
 		customer_name = doc.customer_name or doc.customer
 		transaction_date = formatdate(doc.transaction_date,
 									  "dd.MM.yyyy") if doc.transaction_date else "—"
@@ -1833,6 +1839,7 @@ def send_installment_notification(doc, method):
 
 		message = f"""{header}
 
+👨‍💻 Operator: <b>{creator_name}</b>
 📄 ID: <code>{doc.name}</code>
 👤 Mijoz: <b>{customer_name}</b>
 📞 Telefon: <code>{customer_phone}</code>
