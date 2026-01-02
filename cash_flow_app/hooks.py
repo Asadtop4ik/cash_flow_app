@@ -257,7 +257,7 @@ fixtures = [
 	{
 		"dt": "Custom Field",
 		"filters": [
-			["dt", "in", ["Counterparty Category"]]
+			["dt", "in", ["Customer", "Counterparty Category"]]
 		]
 	},
 

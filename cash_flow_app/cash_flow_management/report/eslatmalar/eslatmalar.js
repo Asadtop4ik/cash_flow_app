@@ -4,6 +4,19 @@
 frappe.query_reports["Eslatmalar"] = {
 	"filters": [],
 
+	"formatter": function(value, row, column, data, default_formatter) {
+		value = default_formatter(value, row, column, data);
+
+		if (!data) return value;
+
+		// JAMI va guruh headerlar uchun bold
+		if (data.bold === 1) {
+			value = `<span style="font-weight: bold;">${value}</span>`;
+		}
+
+		return value;
+	},
+
 	"onload": function(report) {
 		console.log("Eslatmalar report loaded");
 

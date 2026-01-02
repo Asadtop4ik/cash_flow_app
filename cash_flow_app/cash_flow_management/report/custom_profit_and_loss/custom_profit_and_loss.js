@@ -7,8 +7,22 @@ frappe.query_reports["Custom Profit and Loss"] = {
 
         if (!data) return value;
 
-        // Savdo - bold
-        if (data.account === "Savdo") {
+        // Savdo - bold va link
+        if (data.account === "Savdo" && column.fieldname === "account") {
+            // Get current filter values
+            const from_date = frappe.query_report.get_filter_value('from_date');
+            const to_date = frappe.query_report.get_filter_value('to_date');
+
+            value = `<a href="#" onclick="
+                frappe.set_route('query-report', 'Savdo va Foyda', {
+                    'from_date': '${from_date}',
+                    'to_date': '${to_date}'
+                });
+                return false;
+            " style="font-weight: 700; color: #2490ef; text-decoration: underline; cursor: pointer;">
+                ${data.account}
+            </a>`;
+        } else if (data.account === "Savdo") {
             value = `<span style="font-weight: 700;">${value}</span>`;
         }
 
