@@ -77,11 +77,11 @@ def get_data(filters):
 
 	# Date range filter
 	if filters.get("from_date"):
-		conditions.append("ia.transaction_date >= %(from_date)s")
+		conditions.append("DATE(ia.transaction_date) >= %(from_date)s")
 		values["from_date"] = filters.get("from_date")
 
 	if filters.get("to_date"):
-		conditions.append("ia.transaction_date <= %(to_date)s")
+		conditions.append("DATE(ia.transaction_date) <= %(to_date)s")
 		values["to_date"] = filters.get("to_date")
 
 	# Shartnoma ID filter
