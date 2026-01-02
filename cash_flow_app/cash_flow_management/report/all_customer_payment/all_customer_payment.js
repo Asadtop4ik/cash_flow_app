@@ -71,6 +71,15 @@ frappe.query_reports["All Customer Payment"] = {
     ],
 
    "formatter": function(value, row, column, data, default_formatter) {
+      // Avval 0 ni "To'landi" ga almashtirish (faqat oylik/kunlik ustunlar uchun)
+      if (column && (column.fieldname.startsWith('month_') || column.fieldname.startsWith('day_'))) {
+         // 0 yoki 0.00 ni "To'landi" ga almashtirish
+         if (parseFloat(value) === 0 || value === 0 || value === '0' || value === '0.00') {
+            return 'To\'landi';
+         }
+      }
+
+      // Keyin default formatter ishlatish
       value = default_formatter(value, row, column, data);
 
       // classification fieldida 'Jami' borligini aniqlash (HTML taglarni olib tashlash)
@@ -88,6 +97,7 @@ frappe.query_reports["All Customer Payment"] = {
       if (isJamiRow && value) {
          value = `<span style="font-weight: bold;">${value}</span>`;
       }
+
       return value;
    }
 };

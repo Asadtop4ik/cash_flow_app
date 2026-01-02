@@ -110,7 +110,7 @@ def get_columns(filters):
 			columns.append({
 				"fieldname": f"month_{current_date.strftime('%Y_%m')}",
 				"label": month_year,
-				"fieldtype": "Data",
+				"fieldtype": "Currency",
 				"width": 120
 			})
 			current_date += relativedelta(months=1)
@@ -121,7 +121,7 @@ def get_columns(filters):
 			columns.append({
 				"fieldname": f"day_{current_date.strftime('%Y_%m_%d')}",
 				"label": day_str,
-				"fieldtype": "Data",
+				"fieldtype": "Currency",
 				"width": 100
 			})
 			current_date += timedelta(days=1)
@@ -271,8 +271,8 @@ def get_data(filters):
 			for key, val in period_data.items():
 				if key not in period_totals:
 					period_totals[key] = 0
-				# Only add numeric values
-				if val and val != "To'landi" and val != "":
+				# Only add numeric values (skip None and 0)
+				if val is not None and val != 0:
 					try:
 						period_totals[key] += flt(val)
 					except:
@@ -285,14 +285,10 @@ def get_data(filters):
 			for key, val in period_data.items():
 				if key not in period_totals:
 					period_totals[key] = 0
-				# Only add numeric values
-				if val and val != "To'landi" and val != "":
+				# Only add numeric values (skip None and 0)
+				if val is not None and val != 0:
 					try:
-						if "/" in str(val):  # Format: "100/150"
-							paid = flt(str(val).split("/")[0])
-							period_totals[key] += paid
-						else:
-							period_totals[key] += flt(val)
+						period_totals[key] += flt(val)
 					except:
 						pass
 
@@ -316,9 +312,9 @@ def get_data(filters):
 		# Add period totals to grand total row
 		for key, val in period_totals.items():
 			if val > 0:
-				grand_total_row[key] = f"{val:.0f}"
+				grand_total_row[key] = val  # Son formatida qoldirish
 			else:
-				grand_total_row[key] = ""
+				grand_total_row[key] = None
 
 		data.append(grand_total_row)
 
@@ -487,16 +483,16 @@ def get_monthly_payment_status(schedule, payments, from_date, to_date):
 		expected = month_data["expected"]
 
 		if remaining_payment >= expected and expected > 0:
-			allocation[month_key] = "To'landi"
+			allocation[month_key] = 0  # To'liq to'langan - 0 ko'rsatamiz
 			remaining_payment -= expected
 		elif remaining_payment > 0 and expected > 0:
-			# Partially paid - show remaining amount
+			# Partially paid - show remaining amount as number
 			remaining_amount = expected - remaining_payment
-			allocation[month_key] = f"{remaining_amount:.0f}"
+			allocation[month_key] = remaining_amount
 			remaining_payment = 0
 		else:
 			# Not paid or no expected amount
-			allocation[month_key] = f"{expected:.0f}" if expected > 0 else ""
+			allocation[month_key] = expected if expected > 0 else None
 
 	# Filter allocation to requested from_date/to_date window
 	start_filter = getdate(from_date).replace(day=1)
@@ -505,7 +501,7 @@ def get_monthly_payment_status(schedule, payments, from_date, to_date):
 	for month_data in months_full:
 		if month_data["date"] >= start_filter and month_data["date"] <= end_filter:
 			key = month_data["month_key"]
-			data[key] = allocation.get(key, "")
+			data[key] = allocation.get(key, None)
 
 	return data
 
@@ -558,13 +554,15 @@ def get_daily_payment_status(schedule, payments, from_date, to_date):
 		expected = day_data["expected"]
 
 		if remaining_payment >= expected and expected > 0:
-			allocation[key] = "To'landi"
+			allocation[key] = 0  # To'liq to'langan - 0 ko'rsatamiz
 			remaining_payment -= expected
 		elif remaining_payment > 0 and expected > 0:
-			allocation[key] = f"{remaining_payment:.0f}/{expected:.0f}"
+			# Partially paid - show remaining amount as number
+			remaining_amount = expected - remaining_payment
+			allocation[key] = remaining_amount
 			remaining_payment = 0
 		else:
-			allocation[key] = f"{expected:.0f}" if expected > 0 else ""
+			allocation[key] = expected if expected > 0 else None
 
 	# Filter allocation to requested from_date/to_date window
 	start_filter = getdate(from_date)
@@ -572,6 +570,6 @@ def get_daily_payment_status(schedule, payments, from_date, to_date):
 
 	for day_data in days_full:
 		if day_data["date"] >= start_filter and day_data["date"] <= end_filter:
-			data[day_data["day_key"]] = allocation.get(day_data["day_key"], "")
+			data[day_data["day_key"]] = allocation.get(day_data["day_key"], None)
 
 	return data
