@@ -72,6 +72,9 @@ def get_data(filters):
 	conditions = []
 	values = {}
 
+	# Faqat submit bo'lgan shartnomalarni ko'rsatish (draft va cancelled emas)
+	conditions.append("ia.docstatus = 1")
+
 	# Date range filter
 	if filters.get("from_date"):
 		conditions.append("ia.transaction_date >= %(from_date)s")
@@ -92,9 +95,7 @@ def get_data(filters):
 		values["customer"] = filters.get("customer")
 
 	# WHERE clause yaratish
-	where_clause = ""
-	if conditions:
-		where_clause = "WHERE " + " AND ".join(conditions)
+	where_clause = "WHERE " + " AND ".join(conditions)
 
 	# SQL query
 	query = """
