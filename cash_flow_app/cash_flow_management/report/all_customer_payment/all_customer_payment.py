@@ -1,5 +1,6 @@
 # cash_flow_app/reports/customer_payment_report.py
-# ✅ CLEANED - Finance Amount va Status columns o'chirilgan
+# ✅ PROFESSIONAL FIX - Excel va Report uchun optimal yechim
+# To'lov kuni kelmaganlar uchun bo'sh, to'langanlar uchun "To'landi", qarzlar uchun son
 
 import frappe
 from frappe.utils import getdate, add_months, flt
@@ -23,7 +24,6 @@ def execute(filters=None):
 
 	columns = get_columns(filters)
 	data = get_data(filters)
-	# ✅ CSS qo'shish
 	chart = None
 	report_summary = None
 	skip_total_row = False
@@ -32,7 +32,7 @@ def execute(filters=None):
 
 
 def get_columns(filters):
-	"""Column definition - Finance Amount va Status o'chirilgan"""
+	"""Column definition with proper field types"""
 	columns = [
 		{
 			"fieldname": "classification",
@@ -98,7 +98,7 @@ def get_columns(filters):
 		}
 	]
 
-	# Add period columns
+	# Add period columns - Data type for mixed content (text + numbers)
 	from_date = getdate(filters.get("from_date"))
 	to_date = getdate(filters.get("to_date"))
 	report_type = filters.get("report_type", "Monthly")
@@ -110,7 +110,7 @@ def get_columns(filters):
 			columns.append({
 				"fieldname": f"month_{current_date.strftime('%Y_%m')}",
 				"label": month_year,
-				"fieldtype": "Currency",
+				"fieldtype": "Data",  # Mixed content: "To'landi" (text) and numbers
 				"width": 120
 			})
 			current_date += relativedelta(months=1)
@@ -121,7 +121,7 @@ def get_columns(filters):
 			columns.append({
 				"fieldname": f"day_{current_date.strftime('%Y_%m_%d')}",
 				"label": day_str,
-				"fieldtype": "Currency",
+				"fieldtype": "Data",  # Mixed content: "To'landi" (text) and numbers
 				"width": 100
 			})
 			current_date += timedelta(days=1)
@@ -144,16 +144,6 @@ def get_data(filters):
 	if customers and isinstance(customers, str):
 		customers = [c.strip() for c in customers.split(",")]
 
-	# Build contract filters
-	contract_filters = {
-		"docstatus": 1,  # Submitted
-		"status": ["!=", "Closed"]
-	}
-
-	if customers:
-		contract_filters["customer"] = ["in", customers]
-
-	# ✅ Get contracts (Installment Application)
 	# Build customer group join and filter
 	customer_group_join = ""
 	customer_group_condition = ""
@@ -193,15 +183,14 @@ def get_data(filters):
 	customer_classifications = get_customer_classifications(customer_names)
 
 	# Bulk fetch all payment schedules
-	contract_names = [c.name for c in contracts]
 	payment_schedules = get_all_payment_schedules(contracts)
 
-	# ✅ FIXED: Get payments using Sales Order mapping
+	# Get payments using Sales Order mapping
 	all_contract_payments = get_all_contract_payments(contracts)
 
 	data = []
 
-	# ✅ TOTALS FOR GRAND TOTAL ROW
+	# TOTALS FOR GRAND TOTAL ROW
 	grand_total_amount = 0
 	grand_down_payment = 0
 	grand_total_finance = 0
@@ -209,7 +198,7 @@ def get_data(filters):
 	grand_total_paid = 0
 	grand_remaining = 0
 
-	# For period totals
+	# For period totals (only numeric values)
 	period_totals = {}
 
 	for contract in contracts:
@@ -222,7 +211,7 @@ def get_data(filters):
 		if classifications and customer_classification not in classifications:
 			continue
 
-		# ✅ FIXED: Get payments for THIS CONTRACT using the mapping
+		# Get payments for THIS CONTRACT using the mapping
 		contract_payments = all_contract_payments.get(contract.name, [])
 		total_paid = sum(flt(p.get("paid_amount", 0)) for p in contract_payments)
 
@@ -250,7 +239,7 @@ def get_data(filters):
 			"remaining": remaining
 		}
 
-		# ✅ ACCUMULATE GRAND TOTALS
+		# ACCUMULATE GRAND TOTALS
 		grand_total_amount += flt(contract_amount)
 		grand_down_payment += flt(contract.downpayment_amount)
 		grand_total_finance += flt(total_finance_amount)
@@ -267,34 +256,33 @@ def get_data(filters):
 													 to_date)
 			row.update(period_data)
 
-			# ✅ ACCUMULATE PERIOD TOTALS
+			# ACCUMULATE PERIOD TOTALS - only numeric values (skip "To'landi" and empty)
 			for key, val in period_data.items():
 				if key not in period_totals:
 					period_totals[key] = 0
-				# Only add numeric values (skip None and 0)
-				if val is not None and val != 0:
+				# Only add if it's a number (not "To'landi" or empty)
+				if val and val != "To'landi":
 					try:
 						period_totals[key] += flt(val)
 					except:
-						pass
+						pass  # Skip non-numeric values
 		else:
 			period_data = get_daily_payment_status(schedule, contract_payments, from_date, to_date)
 			row.update(period_data)
 
-			# ✅ ACCUMULATE PERIOD TOTALS
+			# ACCUMULATE PERIOD TOTALS - only numeric values
 			for key, val in period_data.items():
 				if key not in period_totals:
 					period_totals[key] = 0
-				# Only add numeric values (skip None and 0)
-				if val is not None and val != 0:
+				if val and val != "To'landi":
 					try:
 						period_totals[key] += flt(val)
 					except:
-						pass
+						pass  # Skip non-numeric values
 
 		data.append(row)
 
-	# ✅ ADD GRAND TOTAL ROW
+	# ADD GRAND TOTAL ROW
 	if data:
 		grand_total_row = {
 			"classification": "<b>Jami</b>",
@@ -309,12 +297,12 @@ def get_data(filters):
 			"remaining": grand_remaining
 		}
 
-		# Add period totals to grand total row
+		# Add period totals - format as string for consistency
 		for key, val in period_totals.items():
 			if val > 0:
-				grand_total_row[key] = val  # Son formatida qoldirish
+				grand_total_row[key] = f"{val:.0f}"
 			else:
-				grand_total_row[key] = None
+				grand_total_row[key] = ""
 
 		data.append(grand_total_row)
 
@@ -332,13 +320,13 @@ def get_customer_classifications(customer_names):
 		WHERE name IN ({})
 	""".format(','.join(['%s'] * len(customer_names))), tuple(customer_names), as_dict=1)
 
-	return {c.name: {"classification": c.customer_classification, "group": c.customer_group} for c in customers}
+	return {c.name: {"classification": c.customer_classification, "group": c.customer_group} for c
+			in customers}
 
 
 def get_all_payment_schedules(contracts):
 	"""
 	Bulk fetch all payment schedules
-
 	Maps from Installment Application → Sales Order → Payment Schedule
 	"""
 	if not contracts:
@@ -378,10 +366,8 @@ def get_all_payment_schedules(contracts):
 
 def get_all_contract_payments(contracts):
 	"""
-	✅ FIXED: Get payments for contracts
-
-	Handles mapping:
-	Installment Application → Sales Order → Payment Entry
+	Get payments for contracts
+	Handles mapping: Installment Application → Sales Order → Payment Entry
 	"""
 	if not contracts:
 		return {}
@@ -407,8 +393,7 @@ def get_all_contract_payments(contracts):
 			AND party_type = 'Customer'
 			AND custom_contract_reference IN ({})
 		ORDER BY posting_date ASC
-	""".format(','.join(['%s'] * len(so_names))),
-							 tuple(so_names), as_dict=1)
+	""".format(','.join(['%s'] * len(so_names))), tuple(so_names), as_dict=1)
 
 	# Step 3: Map payments back to Installment Application
 	payment_dict = {}
@@ -429,7 +414,13 @@ def get_all_contract_payments(contracts):
 
 
 def get_monthly_payment_status(schedule, payments, from_date, to_date):
-	"""Get monthly payment status with sequential payment allocation"""
+	"""
+	✅ PROFESSIONAL SOLUTION:
+	Returns:
+	- Empty string: to'lov muddati kelmagan (schedule yo'q)
+	- "To'landi": to'lov muddati kelgan va to'liq to'langan
+	- Numeric string: to'lov muddati kelgan, lekin to'lanmagan/qisman to'langan (qolgan qarz)
+	"""
 	data = {}
 
 	if not schedule:
@@ -441,7 +432,7 @@ def get_monthly_payment_status(schedule, payments, from_date, to_date):
 	if not sorted_schedule:
 		return data
 
-	# Determine full schedule range
+	# Determine ACTUAL schedule range (only months with scheduled payments)
 	all_due_dates = [getdate(s["due_date"]) for s in sorted_schedule]
 	min_due_date = min(all_due_dates)
 	max_due_date = max(all_due_dates)
@@ -450,14 +441,13 @@ def get_monthly_payment_status(schedule, payments, from_date, to_date):
 	sorted_payments = sorted(payments, key=lambda x: getdate(x["posting_date"]))
 	total_paid = sum(flt(p["paid_amount"]) for p in sorted_payments)
 
-	# Build full list of months from first scheduled month to last scheduled month
-	months_full = []
+	# Build list of months ONLY where schedule exists
+	months_with_schedule = []
 	current_date = min_due_date.replace(day=1)
-	end_full = max_due_date.replace(day=1)
+	end_schedule = max_due_date.replace(day=1)
 
-	while current_date <= end_full:
+	while current_date <= end_schedule:
 		month_start = current_date.replace(day=1)
-		# month_end: last day of this month
 		month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
 		# Expected amount for this month
@@ -467,47 +457,66 @@ def get_monthly_payment_status(schedule, payments, from_date, to_date):
 			if month_start <= getdate(s["due_date"]) <= month_end
 		)
 
-		months_full.append({
-			"date": month_start,
-			"month_key": f"month_{current_date.strftime('%Y_%m')}",
-			"expected": expected
-		})
+		# Only add months that have scheduled payments
+		if expected > 0:
+			months_with_schedule.append({
+				"date": month_start,
+				"month_key": f"month_{current_date.strftime('%Y_%m')}",
+				"expected": expected
+			})
 
 		current_date += relativedelta(months=1)
 
 	# Allocate payments sequentially from the earliest scheduled month
 	remaining_payment = total_paid
 	allocation = {}
-	for month_data in months_full:
+
+	for month_data in months_with_schedule:
 		month_key = month_data["month_key"]
 		expected = month_data["expected"]
 
-		if remaining_payment >= expected and expected > 0:
-			allocation[month_key] = 0  # To'liq to'langan - 0 ko'rsatamiz
+		if remaining_payment >= expected:
+			# Fully paid
+			allocation[month_key] = "To'landi"
 			remaining_payment -= expected
-		elif remaining_payment > 0 and expected > 0:
-			# Partially paid - show remaining amount as number
-			remaining_amount = expected - remaining_payment
-			allocation[month_key] = remaining_amount
+		elif remaining_payment > 0:
+			# Partially paid - show remaining debt
+			remaining_debt = expected - remaining_payment
+			allocation[month_key] = f"{remaining_debt:.0f}"
 			remaining_payment = 0
 		else:
-			# Not paid or no expected amount
-			allocation[month_key] = expected if expected > 0 else None
+			# Not paid - show expected amount as debt
+			allocation[month_key] = f"{expected:.0f}"
 
-	# Filter allocation to requested from_date/to_date window
+	# Now filter to report's from_date/to_date window
 	start_filter = getdate(from_date).replace(day=1)
 	end_filter = getdate(to_date).replace(day=1)
 
-	for month_data in months_full:
-		if month_data["date"] >= start_filter and month_data["date"] <= end_filter:
-			key = month_data["month_key"]
-			data[key] = allocation.get(key, None)
+	# Generate ALL months in report window
+	current_report_month = start_filter
+	while current_report_month <= end_filter:
+		month_key = f"month_{current_report_month.strftime('%Y_%m')}"
+
+		# If this month has allocation (schedule exists), use it
+		# Otherwise leave empty (no schedule for this month)
+		if month_key in allocation:
+			data[month_key] = allocation[month_key]
+		else:
+			data[month_key] = ""  # No schedule for this month
+
+		current_report_month += relativedelta(months=1)
 
 	return data
 
 
 def get_daily_payment_status(schedule, payments, from_date, to_date):
-	"""Get daily payment status with sequential payment allocation"""
+	"""
+	✅ PROFESSIONAL SOLUTION:
+	Returns:
+	- Empty string: to'lov muddati kelmagan (schedule yo'q)
+	- "To'landi": to'lov muddati kelgan va to'liq to'langan
+	- Numeric string: to'lov muddati kelgan, lekin to'lanmagan/qisman to'langan (qolgan qarz)
+	"""
 	data = {}
 
 	if not schedule:
@@ -520,17 +529,17 @@ def get_daily_payment_status(schedule, payments, from_date, to_date):
 	sorted_payments = sorted(payments, key=lambda x: getdate(x["posting_date"]))
 	total_paid = sum(flt(p["paid_amount"]) for p in sorted_payments)
 
-	# Determine full schedule date range
+	# Determine ACTUAL schedule date range (only days with scheduled payments)
 	all_due_dates = [getdate(s["due_date"]) for s in sorted_schedule]
 	min_due_date = min(all_due_dates)
 	max_due_date = max(all_due_dates)
 
-	# Build full list of days from min_due_date to max_due_date
-	days_full = []
+	# Build list of days ONLY where schedule exists
+	days_with_schedule = []
 	current_date = getdate(min_due_date)
-	end_full = getdate(max_due_date)
+	end_schedule = getdate(max_due_date)
 
-	while current_date <= end_full:
+	while current_date <= end_schedule:
 		# Expected amount for this day
 		expected = sum(
 			flt(s["payment_amount"])
@@ -538,38 +547,53 @@ def get_daily_payment_status(schedule, payments, from_date, to_date):
 			if getdate(s["due_date"]) == current_date
 		)
 
-		days_full.append({
-			"date": current_date,
-			"day_key": f"day_{current_date.strftime('%Y_%m_%d')}",
-			"expected": expected
-		})
+		# Only add days that have scheduled payments
+		if expected > 0:
+			days_with_schedule.append({
+				"date": current_date,
+				"day_key": f"day_{current_date.strftime('%Y_%m_%d')}",
+				"expected": expected
+			})
 
 		current_date += timedelta(days=1)
 
 	# Allocate payments sequentially from earliest scheduled day
 	remaining_payment = total_paid
 	allocation = {}
-	for day_data in days_full:
-		key = day_data["day_key"]
+
+	for day_data in days_with_schedule:
+		day_key = day_data["day_key"]
 		expected = day_data["expected"]
 
-		if remaining_payment >= expected and expected > 0:
-			allocation[key] = 0  # To'liq to'langan - 0 ko'rsatamiz
+		if remaining_payment >= expected:
+			# Fully paid
+			allocation[day_key] = "To'landi"
 			remaining_payment -= expected
-		elif remaining_payment > 0 and expected > 0:
-			# Partially paid - show remaining amount as number
-			remaining_amount = expected - remaining_payment
-			allocation[key] = remaining_amount
+		elif remaining_payment > 0:
+			# Partially paid - show remaining debt
+			remaining_debt = expected - remaining_payment
+			allocation[day_key] = f"{remaining_debt:.0f}"
 			remaining_payment = 0
 		else:
-			allocation[key] = expected if expected > 0 else None
+			# Not paid - show expected amount as debt
+			allocation[day_key] = f"{expected:.0f}"
 
-	# Filter allocation to requested from_date/to_date window
+	# Now filter to report's from_date/to_date window
 	start_filter = getdate(from_date)
 	end_filter = getdate(to_date)
 
-	for day_data in days_full:
-		if day_data["date"] >= start_filter and day_data["date"] <= end_filter:
-			data[day_data["day_key"]] = allocation.get(day_data["day_key"], None)
+	# Generate ALL days in report window
+	current_report_day = start_filter
+	while current_report_day <= end_filter:
+		day_key = f"day_{current_report_day.strftime('%Y_%m_%d')}"
+
+		# If this day has allocation (schedule exists), use it
+		# Otherwise leave empty (no schedule for this day)
+		if day_key in allocation:
+			data[day_key] = allocation[day_key]
+		else:
+			data[day_key] = ""  # No schedule for this day
+
+		current_report_day += timedelta(days=1)
 
 	return data
