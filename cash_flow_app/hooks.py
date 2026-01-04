@@ -273,7 +273,8 @@ fixtures = [
 			"Payment Entry",
 			"Sales Order",
 			"Counterparty Category",
-			"Supplier"
+			"Supplier",
+			"Contract Notes"
 		]]]
 	},
 
