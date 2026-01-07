@@ -161,6 +161,7 @@ class OperationalBalanceData:
 			"sales_orders": self.load_sales_orders(),
 			"payment_entries": self.load_payment_entries(),
 			"installment_applications": self.load_installment_applications(),
+			"installment_application_items": self.load_installment_application_items(),
 			"counterparty_categories": self.load_counterparty_categories()
 		}
 
@@ -257,10 +258,32 @@ class OperationalBalanceData:
             ORDER BY cg.customer_group_name, ia.customer, ia.transaction_date
         """, {"from_date": self.from_date, "to_date": self.to_date}, as_dict=1)
 
+	def load_installment_application_items(self):
+		"""Load installment application items with supplier info"""
+		return frappe.db.sql("""
+            SELECT
+                ia.name as parent_ia,
+                ia.transaction_date,
+                item.custom_supplier as supplier,
+                item.qty,
+                item.rate,
+                (item.qty * item.rate) as amount,
+                sg.supplier_group_name
+            FROM `tabInstallment Application` ia
+            INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
+            LEFT JOIN `tabSupplier` s ON s.name = item.custom_supplier
+            LEFT JOIN `tabSupplier Group` sg ON sg.name = s.supplier_group
+            WHERE ia.docstatus = 1
+                AND ia.transaction_date BETWEEN %(from_date)s AND %(to_date)s
+                AND item.custom_supplier IS NOT NULL
+                AND item.custom_supplier != ''
+            ORDER BY sg.supplier_group_name, item.custom_supplier, ia.transaction_date
+        """, {"from_date": self.from_date, "to_date": self.to_date}, as_dict=1)
+
 	def load_counterparty_categories(self):
 		"""Load counterparty categories"""
 		return frappe.db.sql("""
-            SELECT name, category_name, category_type
+            SELECT name, category_name, category_type, custom_expense_type
             FROM `tabCounterparty Category`
             WHERE is_active = 1
         """, as_dict=1)
@@ -433,25 +456,45 @@ def build_tree_structure(raw_data, filters):
 										  is_group=True)
 	data.append(kreditorka_suppliers_row)
 
-	supplier_payables = defaultdict(lambda: defaultdict(list))
+	# Kreditorka = IA Items (qty * rate) + PE Receive
+	supplier_kreditorka = defaultdict(lambda: defaultdict(list))
+
+	# Add IA Items
+	for ia_item in raw_data["installment_application_items"]:
+		group = ia_item.get("supplier_group_name") or "Boshqa"
+		supplier_kreditorka[group][ia_item["supplier"]].append(ia_item)
+
+	# Add PE Receive
 	for pe in raw_data["payment_entries"]:
 		if pe["party_type"] == "Supplier" and pe["payment_type"] == "Receive":
 			group = pe.get("group_name") or "Boshqa"
-			supplier_payables[group][pe["party"]].append(pe)
+			supplier_kreditorka[group][pe["party"]].append(pe)
 
-	for group_name in sorted(supplier_payables.keys()):
+	for group_name in sorted(supplier_kreditorka.keys()):
 		group_row = create_row(group_name, indent=3, is_group=True)
 		data.append(group_row)
 
-		for supplier in sorted(supplier_payables[group_name].keys()):
+		for supplier in sorted(supplier_kreditorka[group_name].keys()):
 			supplier_row = create_row(supplier, indent=4)
 
 			for period in periods:
-				balance = sum(
-					flt(pe["received_amount"]) for pe in supplier_payables[group_name][supplier]
-					if getdate(pe["posting_date"]) >= period["from_date"]
+				# IA Items amount
+				ia_amount = sum(
+					flt(item["amount"]) for item in supplier_kreditorka[group_name][supplier]
+					if isinstance(item, dict) and item.get("amount")
+					and getdate(item["transaction_date"]) >= period["from_date"]
+					and getdate(item["transaction_date"]) <= period["to_date"]
+				)
+
+				# PE Receive amount
+				pe_receive = sum(
+					flt(pe["received_amount"]) for pe in supplier_kreditorka[group_name][supplier]
+					if isinstance(pe, dict) and pe.get("payment_type") == "Receive"
+					and getdate(pe["posting_date"]) >= period["from_date"]
 					and getdate(pe["posting_date"]) <= period["to_date"]
 				)
+
+				balance = ia_amount + pe_receive
 				supplier_row[period["key"]] = balance
 				group_row[period["key"]] += balance
 				kreditorka_suppliers_row[period["key"]] += balance
@@ -483,11 +526,6 @@ def build_tree_structure(raw_data, filters):
 	# 2.3 SOF FOYDA
 	sof_foyda_row = create_row("Sof Foyda", indent=1, is_group=True)
 
-	expense_categories = {
-		cc["name"]: cc for cc in raw_data["counterparty_categories"]
-		if cc.get("category_type") == "Expense"
-	}
-
 	for period in periods:
 		interest = sum(
 			flt(ia["custom_total_interest"]) for ia in raw_data["installment_applications"]
@@ -495,12 +533,28 @@ def build_tree_structure(raw_data, filters):
 			and getdate(ia["transaction_date"]) <= period["to_date"]
 		)
 
-		expenses = sum(
-			flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
-			if pe.get("custom_counterparty_category") in expense_categories
-			and getdate(pe["posting_date"]) >= period["from_date"]
-			and getdate(pe["posting_date"]) <= period["to_date"]
-		)
+		# Harajatlarni to'g'ri hisoblash - Custom P&L bilan bir xil logika
+		expenses = 0
+		for pe in raw_data["payment_entries"]:
+			if (getdate(pe["posting_date"]) >= period["from_date"]
+				and getdate(pe["posting_date"]) <= period["to_date"]
+				and pe.get("custom_counterparty_category")):
+
+				# Counterparty Category ma'lumotlarini olish
+				category = next(
+					(cc for cc in raw_data["counterparty_categories"]
+					 if cc["name"] == pe["custom_counterparty_category"]),
+					None
+				)
+
+				if category and category.get("custom_expense_type") == "Xarajat":
+					amount = flt(pe["paid_amount"])
+
+					# Agar category_type Income bo'lsa, manfiy qilamiz
+					if category.get("category_type") == "Income":
+						amount = -amount
+
+					expenses += amount
 
 		profit = interest - expenses
 		sof_foyda_row[period["key"]] = profit
