@@ -21,6 +21,62 @@ def format_money(amount):
 	return "${:,.0f}".format(round(flt(amount)))
 
 
+def get_balance_sheet_net_profit(from_date, to_date):
+	"""
+	Balance Sheet reportidagi Sof Foyda ni hisoblash
+	Bu funksiya operational_balance_sheet.py dagi logikani takrorlaydi
+	"""
+	# 1. Interest (Yalpi foyda) ni hisoblash
+	interest_result = frappe.db.sql("""
+		SELECT IFNULL(SUM(custom_total_interest), 0) as total
+		FROM `tabInstallment Application`
+		WHERE docstatus = 1
+		AND DATE(transaction_date) BETWEEN %s AND %s
+	""", (from_date, to_date), as_dict=1)
+
+	interest = flt(interest_result[0].total if interest_result else 0)
+
+	# 2. Harajatlarni hisoblash (Balance Sheet logikasi bilan bir xil)
+	expenses = 0
+
+	# Counterparty categories ni olish
+	categories = frappe.db.sql("""
+		SELECT name, category_name, category_type, custom_expense_type
+		FROM `tabCounterparty Category`
+		WHERE is_active = 1
+	""", as_dict=1)
+
+	category_map = {c["name"]: c for c in categories}
+
+	# Payment entries ni olish
+	payment_entries = frappe.db.sql("""
+		SELECT
+			custom_counterparty_category,
+			paid_amount
+		FROM `tabPayment Entry`
+		WHERE docstatus = 1
+		AND DATE(posting_date) BETWEEN %s AND %s
+		AND custom_counterparty_category IS NOT NULL
+	""", (from_date, to_date), as_dict=1)
+
+	for pe in payment_entries:
+		category = category_map.get(pe.get("custom_counterparty_category"))
+
+		if category and category.get("custom_expense_type") == "Xarajat":
+			amount = flt(pe["paid_amount"])
+
+			# Agar category_type Income bo'lsa, manfiy qilamiz
+			if category.get("category_type") == "Income":
+				amount = -amount
+
+			expenses += amount
+
+	# 3. Sof foyda = Interest - Expenses
+	net_profit = interest - expenses
+
+	return net_profit
+
+
 def execute(filters=None):
 	"""Asosiy funksiya - Custom Profit and Loss reportni bajaradi"""
 	if not filters:
@@ -340,11 +396,30 @@ def get_data(filters):
 		net_percent_row["total"] = "0%"
 	data.append(net_percent_row)
 
-	# ===== 9. CHECK =====
-	check_row = {"account": "Check", "indent": 0}
+	# ===== 9. CHECK (Reconciliation with Balance Sheet) =====
+	check_row = {
+		"account": "Check (P&L vs Balance Sheet)",
+		"indent": 0,
+		"_style": "font-weight: bold; background-color: #FF5722; color: white;"
+	}
+	check_row_raw = {}
+	total_check_difference = 0
+
 	for period in period_list:
-		check_row[period["key"]] = "$0.00"
-	check_row["total"] = "$0.00"
+		# Get net profit from Balance Sheet for the same period
+		bs_net_profit = get_balance_sheet_net_profit(period["from_date"], period["to_date"])
+
+		# Get net profit from P&L (already calculated)
+		pl_net_profit = net_profit_row_raw[period["key"]]
+
+		# Calculate difference
+		difference = pl_net_profit - bs_net_profit
+
+		check_row_raw[period["key"]] = difference
+		check_row[period["key"]] = format_money(difference)
+		total_check_difference += difference
+
+	check_row["total"] = format_money(total_check_difference)
 	data.append(check_row)
 
 	return data
