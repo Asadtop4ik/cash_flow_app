@@ -622,31 +622,40 @@ def build_tree_structure(raw_data, filters):
 	# 2.2 USTAV KAPITALI (Share Capital) - CUMULATIVE
 	# Filter by Shareholder.custom_category = "Ustav Kapitali"
 	ustav_row = create_row("Ustav Kapitali", indent=1, is_group=True)
-
-	for period in periods:
-		# CUMULATIVE: From beginning to period end
-		# Only Shareholder payments where Shareholder.custom_category = "Ustav Kapitali"
-		receive = sum(
-			flt(pe["received_amount"]) for pe in raw_data["payment_entries"]
-			if pe["party_type"] == "Shareholder"
-			and pe["payment_type"] == "Receive"
-			and pe.get("party") in shareholder_dict
-			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Ustav Kapitali"
-			and getdate(pe["posting_date"]) <= period["to_date"]
-		)
-		pay = sum(
-			flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
-			if pe["party_type"] == "Shareholder"
-			and pe["payment_type"] == "Pay"
-			and pe.get("party") in shareholder_dict
-			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Ustav Kapitali"
-			and getdate(pe["posting_date"]) <= period["to_date"]
-		)
-		# Receive adds to capital, Pay reduces capital
-		balance = receive - pay
-		ustav_row[period["key"]] = balance
-
 	data.append(ustav_row)
+
+	# Group by shareholder
+	ustav_shareholders = defaultdict(list)
+	for pe in raw_data["payment_entries"]:
+		if (pe["party_type"] == "Shareholder"
+			and pe.get("party") in shareholder_dict
+			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Ustav Kapitali"):
+			ustav_shareholders[pe["party"]].append(pe)
+
+	# Display each shareholder
+	for shareholder in sorted(ustav_shareholders.keys()):
+		shareholder_name = shareholder_dict.get(shareholder, {}).get("title") or shareholder
+		shareholder_row = create_row(shareholder_name, indent=2)
+		payments = ustav_shareholders[shareholder]
+
+		for period in periods:
+			# CUMULATIVE: From beginning to period end
+			receive = sum(
+				flt(pe["received_amount"]) for pe in payments
+				if pe["payment_type"] == "Receive"
+				and getdate(pe["posting_date"]) <= period["to_date"]
+			)
+			pay = sum(
+				flt(pe["paid_amount"]) for pe in payments
+				if pe["payment_type"] == "Pay"
+				and getdate(pe["posting_date"]) <= period["to_date"]
+			)
+			# Receive adds to capital, Pay reduces capital
+			balance = receive - pay
+			shareholder_row[period["key"]] = balance
+			ustav_row[period["key"]] += balance
+
+		data.append(shareholder_row)
 
 	# ============================================================
 	# 2.3 SOF FOYDA (NET PROFIT) - PROFESSIONAL STRUCTURE
