@@ -4,7 +4,7 @@
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate, add_days, get_last_day, get_first_day
-from datetime import datetime, timedelta
+from datetime import datetime
 from collections import defaultdict
 
 
@@ -50,7 +50,6 @@ def get_columns(filters):
 	]
 
 	periods = get_periods(filters)
-
 	for period in periods:
 		columns.append({
 			"label": period["label"],
@@ -146,7 +145,7 @@ def get_quarter_end(quarter_start):
 
 
 class OperationalBalanceData:
-	"""Data loader class"""
+	"""Optimized data loader - single query per entity type"""
 
 	def __init__(self, filters):
 		self.filters = filters
@@ -155,7 +154,7 @@ class OperationalBalanceData:
 		self.periods = get_periods(filters)
 
 	def load_all_data(self):
-		"""Load all data at once"""
+		"""Load ALL historical data up to to_date in single queries"""
 		return {
 			"cash_accounts": self.load_cash_accounts(),
 			"sales_orders": self.load_sales_orders(),
@@ -166,186 +165,230 @@ class OperationalBalanceData:
 		}
 
 	def load_cash_accounts(self):
-		"""Load cash and bank account balances"""
+		"""Load ALL cash transactions from beginning of time up to to_date"""
 		query = """
-            SELECT
-                acc.name as account_name,
-                pe.posting_date,
-                CASE
-                    WHEN pe.payment_type = 'Receive' AND pe.paid_to = acc.name THEN pe.received_amount
-                    WHEN pe.payment_type = 'Pay' AND pe.paid_from = acc.name THEN -pe.paid_amount
-                    WHEN pe.payment_type = 'Internal Transfer' AND pe.paid_to = acc.name THEN pe.received_amount
-                    WHEN pe.payment_type = 'Internal Transfer' AND pe.paid_from = acc.name THEN -pe.paid_amount
-                    ELSE 0
-                END as amount
-            FROM `tabAccount` acc
-            LEFT JOIN `tabPayment Entry` pe ON (
-                (pe.paid_to = acc.name OR pe.paid_from = acc.name)
-                AND pe.docstatus = 1
-                AND pe.posting_date BETWEEN %(from_date)s AND %(to_date)s
-            )
-            WHERE acc.account_type = 'Cash'
-                AND acc.is_group = 0
-            ORDER BY acc.name, pe.posting_date
-        """
-		return frappe.db.sql(query, {
-			"from_date": self.from_date,
-			"to_date": self.to_date
-		}, as_dict=1)
+			SELECT
+				acc.name as account_name,
+				pe.posting_date,
+				CASE
+					WHEN pe.payment_type = 'Receive' AND pe.paid_to = acc.name THEN pe.received_amount
+					WHEN pe.payment_type = 'Pay' AND pe.paid_from = acc.name THEN -pe.paid_amount
+					WHEN pe.payment_type = 'Internal Transfer' AND pe.paid_to = acc.name THEN pe.received_amount
+					WHEN pe.payment_type = 'Internal Transfer' AND pe.paid_from = acc.name THEN -pe.paid_amount
+					ELSE 0
+				END as amount
+			FROM `tabAccount` acc
+			LEFT JOIN `tabPayment Entry` pe ON (
+				(pe.paid_to = acc.name OR pe.paid_from = acc.name)
+				AND pe.docstatus = 1
+				AND pe.posting_date <= %(to_date)s
+			)
+			WHERE acc.account_type = 'Cash'
+				AND acc.is_group = 0
+			ORDER BY acc.name, pe.posting_date
+		"""
+		return frappe.db.sql(query, {"to_date": self.to_date}, as_dict=1)
 
 	def load_sales_orders(self):
-		"""Load sales orders"""
+		"""Load ALL sales orders from beginning up to to_date"""
 		return frappe.db.sql("""
-            SELECT
-                so.name,
-                so.customer,
-                so.customer_name,
-                so.transaction_date,
-                so.grand_total,
-                cg.customer_group_name
-            FROM `tabSales Order` so
-            LEFT JOIN `tabCustomer` c ON c.name = so.customer
-            LEFT JOIN `tabCustomer Group` cg ON cg.name = c.customer_group
-            WHERE so.docstatus = 1
-                AND so.transaction_date BETWEEN %(from_date)s AND %(to_date)s
-            ORDER BY cg.customer_group_name, so.customer, so.transaction_date
-        """, {"from_date": self.from_date, "to_date": self.to_date}, as_dict=1)
+			SELECT
+				so.name,
+				so.customer,
+				so.customer_name,
+				so.transaction_date,
+				so.grand_total,
+				cg.customer_group_name
+			FROM `tabSales Order` so
+			LEFT JOIN `tabCustomer` c ON c.name = so.customer
+			LEFT JOIN `tabCustomer Group` cg ON cg.name = c.customer_group
+			WHERE so.docstatus = 1
+				AND so.transaction_date <= %(to_date)s
+			ORDER BY cg.customer_group_name, so.customer, so.transaction_date
+		""", {"to_date": self.to_date}, as_dict=1)
 
 	def load_payment_entries(self):
-		"""Load all payment entries"""
+		"""Load ALL payment entries from beginning up to to_date"""
 		return frappe.db.sql("""
-            SELECT
-                pe.name,
-                pe.posting_date,
-                pe.party_type,
-                pe.party,
-                pe.party_name,
-                pe.payment_type,
-                pe.paid_amount,
-                pe.received_amount,
-                pe.custom_counterparty_category,
-                CASE
-                    WHEN pe.party_type = 'Customer' THEN cg.customer_group_name
-                    WHEN pe.party_type = 'Supplier' THEN sg.supplier_group_name
-                    ELSE NULL
-                END as group_name
-            FROM `tabPayment Entry` pe
-            LEFT JOIN `tabCustomer` c ON c.name = pe.party AND pe.party_type = 'Customer'
-            LEFT JOIN `tabCustomer Group` cg ON cg.name = c.customer_group
-            LEFT JOIN `tabSupplier` s ON s.name = pe.party AND pe.party_type = 'Supplier'
-            LEFT JOIN `tabSupplier Group` sg ON sg.name = s.supplier_group
-            WHERE pe.docstatus = 1
-                AND pe.posting_date BETWEEN %(from_date)s AND %(to_date)s
-            ORDER BY pe.party_type, pe.party, pe.posting_date
-        """, {"from_date": self.from_date, "to_date": self.to_date}, as_dict=1)
+			SELECT
+				pe.name,
+				pe.posting_date,
+				pe.party_type,
+				pe.party,
+				pe.party_name,
+				pe.payment_type,
+				pe.paid_amount,
+				pe.received_amount,
+				pe.custom_counterparty_category,
+				CASE
+					WHEN pe.party_type = 'Customer' THEN cg.customer_group_name
+					WHEN pe.party_type = 'Supplier' THEN sg.supplier_group_name
+					ELSE NULL
+				END as group_name
+			FROM `tabPayment Entry` pe
+			LEFT JOIN `tabCustomer` c ON c.name = pe.party AND pe.party_type = 'Customer'
+			LEFT JOIN `tabCustomer Group` cg ON cg.name = c.customer_group
+			LEFT JOIN `tabSupplier` s ON s.name = pe.party AND pe.party_type = 'Supplier'
+			LEFT JOIN `tabSupplier Group` sg ON sg.name = s.supplier_group
+			WHERE pe.docstatus = 1
+				AND pe.posting_date <= %(to_date)s
+			ORDER BY pe.party_type, pe.party, pe.posting_date
+		""", {"to_date": self.to_date}, as_dict=1)
 
 	def load_installment_applications(self):
-		"""Load installment applications"""
+		"""Load ALL installment applications from beginning up to to_date"""
 		return frappe.db.sql("""
-            SELECT
-                ia.name,
-                ia.customer,
-                ia.customer_name,
-                ia.transaction_date,
-                ia.custom_total_interest,
-                ia.finance_amount,
-                cg.customer_group_name
-            FROM `tabInstallment Application` ia
-            LEFT JOIN `tabCustomer` c ON c.name = ia.customer
-            LEFT JOIN `tabCustomer Group` cg ON cg.name = c.customer_group
-            WHERE ia.docstatus = 1
-                AND ia.transaction_date BETWEEN %(from_date)s AND %(to_date)s
-            ORDER BY cg.customer_group_name, ia.customer, ia.transaction_date
-        """, {"from_date": self.from_date, "to_date": self.to_date}, as_dict=1)
+			SELECT
+				ia.name,
+				ia.customer,
+				ia.customer_name,
+				ia.transaction_date,
+				ia.custom_total_interest,
+				ia.finance_amount,
+				cg.customer_group_name
+			FROM `tabInstallment Application` ia
+			LEFT JOIN `tabCustomer` c ON c.name = ia.customer
+			LEFT JOIN `tabCustomer Group` cg ON cg.name = c.customer_group
+			WHERE ia.docstatus = 1
+				AND ia.transaction_date <= %(to_date)s
+			ORDER BY cg.customer_group_name, ia.customer, ia.transaction_date
+		""", {"to_date": self.to_date}, as_dict=1)
 
 	def load_installment_application_items(self):
-		"""Load installment application items with supplier info"""
+		"""Load ALL installment application items from beginning up to to_date"""
 		return frappe.db.sql("""
-            SELECT
-                ia.name as parent_ia,
-                ia.transaction_date,
-                item.custom_supplier as supplier,
-                item.qty,
-                item.rate,
-                (item.qty * item.rate) as amount,
-                sg.supplier_group_name
-            FROM `tabInstallment Application` ia
-            INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
-            LEFT JOIN `tabSupplier` s ON s.name = item.custom_supplier
-            LEFT JOIN `tabSupplier Group` sg ON sg.name = s.supplier_group
-            WHERE ia.docstatus = 1
-                AND ia.transaction_date BETWEEN %(from_date)s AND %(to_date)s
-                AND item.custom_supplier IS NOT NULL
-                AND item.custom_supplier != ''
-            ORDER BY sg.supplier_group_name, item.custom_supplier, ia.transaction_date
-        """, {"from_date": self.from_date, "to_date": self.to_date}, as_dict=1)
+			SELECT
+				ia.name as parent_ia,
+				ia.transaction_date,
+				item.custom_supplier as supplier,
+				item.qty,
+				item.rate,
+				(item.qty * item.rate) as amount,
+				sg.supplier_group_name
+			FROM `tabInstallment Application` ia
+			INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
+			LEFT JOIN `tabSupplier` s ON s.name = item.custom_supplier
+			LEFT JOIN `tabSupplier Group` sg ON sg.name = s.supplier_group
+			WHERE ia.docstatus = 1
+				AND ia.transaction_date <= %(to_date)s
+				AND item.custom_supplier IS NOT NULL
+				AND item.custom_supplier != ''
+			ORDER BY sg.supplier_group_name, item.custom_supplier, ia.transaction_date
+		""", {"to_date": self.to_date}, as_dict=1)
 
 	def load_counterparty_categories(self):
-		"""Load counterparty categories"""
+		"""Load active counterparty categories"""
 		return frappe.db.sql("""
-            SELECT name, category_name, category_type, custom_expense_type
-            FROM `tabCounterparty Category`
-            WHERE is_active = 1
-        """, as_dict=1)
+			SELECT name, category_name, category_type, custom_expense_type
+			FROM `tabCounterparty Category`
+			WHERE is_active = 1
+		""", as_dict=1)
+
+
+def calculate_period_profit(raw_data, period_start, period_end, category_dict):
+	"""Calculate profit for a specific period (Income - Expenses)"""
+
+	# Calculate interest income for the period
+	interest = sum(
+		flt(ia["custom_total_interest"]) for ia in raw_data["installment_applications"]
+		if getdate(ia["transaction_date"]) >= period_start
+		and getdate(ia["transaction_date"]) <= period_end
+	)
+
+	# Calculate expenses for the period
+	expenses = 0
+	for pe in raw_data["payment_entries"]:
+		if (getdate(pe["posting_date"]) >= period_start
+			and getdate(pe["posting_date"]) <= period_end
+			and pe.get("custom_counterparty_category")):
+
+			category = category_dict.get(pe["custom_counterparty_category"])
+
+			if category and category.get("custom_expense_type") == "Xarajat":
+				amount = flt(pe["paid_amount"])
+
+				if category.get("category_type") == "Income":
+					amount = -amount
+
+				expenses += amount
+
+	return interest - expenses
 
 
 def build_tree_structure(raw_data, filters):
-	"""Build hierarchical tree structure in CORRECT ORDER"""
+	"""Build hierarchical tree with CUMULATIVE balances"""
 	periods = get_periods(filters)
 	data = []
 
 	def create_row(account, indent=0, is_group=False, **kwargs):
+		"""Helper to create row with all period columns initialized"""
 		row = {"account": account, "indent": indent, "is_group": is_group}
 		for period in periods:
 			row[period["key"]] = 0
 		row.update(kwargs)
 		return row
 
+	# Create category lookup dictionary
+	category_dict = {cc["name"]: cc for cc in raw_data["counterparty_categories"]}
+
 	# ============================================================
-	# SECTION 1: AKTIVLAR
+	# SECTION 1: AKTIVLAR (ASSETS)
 	# ============================================================
 
-	# Create AKTIVLAR parent row (will be added FIRST)
 	aktivlar_row = create_row("AKTIVLAR", indent=0, is_group=True)
-	data.append(aktivlar_row)  # ADD IMMEDIATELY!
+	data.append(aktivlar_row)
 
-	# 1.1 PUL
+	# 1.1 PUL (Cash) - CUMULATIVE CLOSING BALANCE
 	pul_row = create_row("Pul", indent=1, is_group=True)
-	data.append(pul_row)  # ADD IMMEDIATELY after AKTIVLAR!
+	data.append(pul_row)
 
-	# 1.1.1 Cash Accounts (children of Pul)
-	cash_accounts = group_by_account(raw_data["cash_accounts"])
+	# Group cash transactions by account
+	cash_accounts = defaultdict(list)
+	for t in raw_data["cash_accounts"]:
+		if t.get("account_name"):
+			cash_accounts[t["account_name"]].append(t)
 
-	for account_name, transactions in sorted(cash_accounts.items()):
+	for account_name in sorted(cash_accounts.keys()):
 		account_row = create_row(account_name, indent=2)
+		transactions = cash_accounts[account_name]
+
 		for period in periods:
 			balance = sum(
 				flt(t["amount"]) for t in transactions
-				if t.get("posting_date") and getdate(t["posting_date"]) >= period["from_date"]
-				and getdate(t["posting_date"]) <= period["to_date"]
+				if t.get("posting_date") and getdate(t["posting_date"]) <= period["to_date"]
 			)
 			account_row[period["key"]] = balance
 			pul_row[period["key"]] += balance
 			aktivlar_row[period["key"]] += balance
-		data.append(account_row)  # ADD each cash account
 
-	# 1.2 DEBITORKA
+		data.append(account_row)
+
+	# 1.2 DEBITORKA (Receivables)
 	debitorka_row = create_row("Debitorka", indent=1, is_group=True)
 	data.append(debitorka_row)
 
-	# 1.2.1 Mijozlar (bizning mijozlardan oladigan pulimiz)
+	# 1.2.1 Mijozlar (Customer Receivables) - CUMULATIVE
 	debitorka_mijozlar_row = create_row("Mijozlar", indent=2, is_group=True)
 	data.append(debitorka_mijozlar_row)
 
 	customer_groups = defaultdict(lambda: defaultdict(list))
+
 	for so in raw_data["sales_orders"]:
 		group = so.get("customer_group_name") or "Boshqa"
-		customer_groups[group][so["customer"]].append(so)
+		customer_groups[group][so["customer"]].append({
+			"type": "sales_order",
+			"date": so["transaction_date"],
+			"amount": flt(so["grand_total"])
+		})
 
 	for pe in raw_data["payment_entries"]:
 		if pe["party_type"] == "Customer" and pe["payment_type"] == "Pay":
 			group = pe.get("group_name") or "Boshqa"
-			customer_groups[group][pe["party"]].append(pe)
+			customer_groups[group][pe["party"]].append({
+				"type": "payment_pay",
+				"date": pe["posting_date"],
+				"amount": flt(pe["paid_amount"])
+			})
 
 	for group_name in sorted(customer_groups.keys()):
 		group_row = create_row(group_name, indent=3, is_group=True)
@@ -353,20 +396,17 @@ def build_tree_structure(raw_data, filters):
 
 		for customer in sorted(customer_groups[group_name].keys()):
 			customer_row = create_row(customer, indent=4)
+			transactions = customer_groups[group_name][customer]
 
 			for period in periods:
 				so_total = sum(
-					flt(so["grand_total"]) for so in customer_groups[group_name][customer]
-					if isinstance(so, dict) and so.get("grand_total")
-					and getdate(so["transaction_date"]) >= period["from_date"]
-					and getdate(so["transaction_date"]) <= period["to_date"]
+					t["amount"] for t in transactions
+					if t["type"] == "sales_order" and getdate(t["date"]) <= period["to_date"]
 				)
 
 				pe_pay = sum(
-					flt(pe["paid_amount"]) for pe in customer_groups[group_name][customer]
-					if isinstance(pe, dict) and pe.get("payment_type") == "Pay"
-					and getdate(pe["posting_date"]) >= period["from_date"]
-					and getdate(pe["posting_date"]) <= period["to_date"]
+					t["amount"] for t in transactions
+					if t["type"] == "payment_pay" and getdate(t["date"]) <= period["to_date"]
 				)
 
 				balance = so_total - pe_pay
@@ -378,29 +418,30 @@ def build_tree_structure(raw_data, filters):
 
 			data.append(customer_row)
 
-	# 1.2.2 Yetkazib beruvchilar (Avanslar)
+	# 1.2.2 Yetkazib beruvchilar (Supplier Advances) - CUMULATIVE
 	debitorka_suppliers_row = create_row("Yetkazib beruvchilar (Avanslar)", indent=2,
 										 is_group=True)
 	data.append(debitorka_suppliers_row)
 
-	supplier_groups = defaultdict(lambda: defaultdict(list))
+	supplier_advances = defaultdict(lambda: defaultdict(list))
+
 	for pe in raw_data["payment_entries"]:
 		if pe["party_type"] == "Supplier" and pe["payment_type"] == "Pay":
 			group = pe.get("group_name") or "Boshqa"
-			supplier_groups[group][pe["party"]].append(pe)
+			supplier_advances[group][pe["party"]].append(pe)
 
-	for group_name in sorted(supplier_groups.keys()):
+	for group_name in sorted(supplier_advances.keys()):
 		group_row = create_row(group_name, indent=3, is_group=True)
 		data.append(group_row)
 
-		for supplier in sorted(supplier_groups[group_name].keys()):
+		for supplier in sorted(supplier_advances[group_name].keys()):
 			supplier_row = create_row(supplier, indent=4)
+			payments = supplier_advances[group_name][supplier]
 
 			for period in periods:
 				balance = sum(
-					flt(pe["paid_amount"]) for pe in supplier_groups[group_name][supplier]
-					if getdate(pe["posting_date"]) >= period["from_date"]
-					and getdate(pe["posting_date"]) <= period["to_date"]
+					flt(pe["paid_amount"]) for pe in payments
+					if getdate(pe["posting_date"]) <= period["to_date"]
 				)
 				supplier_row[period["key"]] = balance
 				group_row[period["key"]] += balance
@@ -411,21 +452,22 @@ def build_tree_structure(raw_data, filters):
 			data.append(supplier_row)
 
 	# ============================================================
-	# SECTION 2: JAMI KREDITORKA
+	# SECTION 2: JAMI KREDITORKA (TOTAL LIABILITIES & EQUITY)
 	# ============================================================
 
 	jami_kreditorka_row = create_row("JAMI KREDITORKA", indent=0, is_group=True)
 	data.append(jami_kreditorka_row)
 
-	# 2.1 KREDITORKA (sub-section)
+	# 2.1 KREDITORKA (Payables)
 	kreditorka_subsection_row = create_row("Kreditorka", indent=1, is_group=True)
 	data.append(kreditorka_subsection_row)
 
-	# 2.1.1 Mijozlar (Avanslar)
+	# 2.1.1 Mijozlar (Customer Advances) - CUMULATIVE
 	kreditorka_mijozlar_row = create_row("Mijozlar (Avanslar)", indent=2, is_group=True)
 	data.append(kreditorka_mijozlar_row)
 
 	customer_payables = defaultdict(lambda: defaultdict(list))
+
 	for pe in raw_data["payment_entries"]:
 		if pe["party_type"] == "Customer" and pe["payment_type"] == "Receive":
 			group = pe.get("group_name") or "Boshqa"
@@ -437,12 +479,12 @@ def build_tree_structure(raw_data, filters):
 
 		for customer in sorted(customer_payables[group_name].keys()):
 			customer_row = create_row(customer, indent=4)
+			payments = customer_payables[group_name][customer]
 
 			for period in periods:
 				balance = sum(
-					flt(pe["received_amount"]) for pe in customer_payables[group_name][customer]
-					if getdate(pe["posting_date"]) >= period["from_date"]
-					and getdate(pe["posting_date"]) <= period["to_date"]
+					flt(pe["received_amount"]) for pe in payments
+					if getdate(pe["posting_date"]) <= period["to_date"]
 				)
 				customer_row[period["key"]] = balance
 				group_row[period["key"]] += balance
@@ -451,50 +493,44 @@ def build_tree_structure(raw_data, filters):
 
 			data.append(customer_row)
 
-	# 2.1.2 Yetkazib beruvchilar (Qarzlar)
+	# 2.1.2 Yetkazib beruvchilar (Supplier Payables) - CUMULATIVE
 	kreditorka_suppliers_row = create_row("Yetkazib beruvchilar (Qarzlar)", indent=2,
 										  is_group=True)
 	data.append(kreditorka_suppliers_row)
 
-	# Kreditorka = IA Items (qty * rate) + PE Receive
-	supplier_kreditorka = defaultdict(lambda: defaultdict(list))
+	supplier_payables = defaultdict(lambda: defaultdict(list))
 
-	# Add IA Items
 	for ia_item in raw_data["installment_application_items"]:
 		group = ia_item.get("supplier_group_name") or "Boshqa"
-		supplier_kreditorka[group][ia_item["supplier"]].append(ia_item)
+		supplier_payables[group][ia_item["supplier"]].append({
+			"type": "ia_item",
+			"date": ia_item["transaction_date"],
+			"amount": flt(ia_item["amount"])
+		})
 
-	# Add PE Receive
 	for pe in raw_data["payment_entries"]:
 		if pe["party_type"] == "Supplier" and pe["payment_type"] == "Receive":
 			group = pe.get("group_name") or "Boshqa"
-			supplier_kreditorka[group][pe["party"]].append(pe)
+			supplier_payables[group][pe["party"]].append({
+				"type": "payment_receive",
+				"date": pe["posting_date"],
+				"amount": flt(pe["received_amount"])
+			})
 
-	for group_name in sorted(supplier_kreditorka.keys()):
+	for group_name in sorted(supplier_payables.keys()):
 		group_row = create_row(group_name, indent=3, is_group=True)
 		data.append(group_row)
 
-		for supplier in sorted(supplier_kreditorka[group_name].keys()):
+		for supplier in sorted(supplier_payables[group_name].keys()):
 			supplier_row = create_row(supplier, indent=4)
+			transactions = supplier_payables[group_name][supplier]
 
 			for period in periods:
-				# IA Items amount
-				ia_amount = sum(
-					flt(item["amount"]) for item in supplier_kreditorka[group_name][supplier]
-					if isinstance(item, dict) and item.get("amount")
-					and getdate(item["transaction_date"]) >= period["from_date"]
-					and getdate(item["transaction_date"]) <= period["to_date"]
+				balance = sum(
+					t["amount"] for t in transactions
+					if getdate(t["date"]) <= period["to_date"]
 				)
 
-				# PE Receive amount
-				pe_receive = sum(
-					flt(pe["received_amount"]) for pe in supplier_kreditorka[group_name][supplier]
-					if isinstance(pe, dict) and pe.get("payment_type") == "Receive"
-					and getdate(pe["posting_date"]) >= period["from_date"]
-					and getdate(pe["posting_date"]) <= period["to_date"]
-				)
-
-				balance = ia_amount + pe_receive
 				supplier_row[period["key"]] = balance
 				group_row[period["key"]] += balance
 				kreditorka_suppliers_row[period["key"]] += balance
@@ -502,20 +538,18 @@ def build_tree_structure(raw_data, filters):
 
 			data.append(supplier_row)
 
-	# 2.2 USTAV KAPITALI
+	# 2.2 USTAV KAPITALI (Share Capital) - CUMULATIVE
 	ustav_row = create_row("Ustav Kapitali", indent=1, is_group=True)
 
 	for period in periods:
 		receive = sum(
 			flt(pe["received_amount"]) for pe in raw_data["payment_entries"]
 			if pe["party_type"] == "Shareholder" and pe["payment_type"] == "Receive"
-			and getdate(pe["posting_date"]) >= period["from_date"]
 			and getdate(pe["posting_date"]) <= period["to_date"]
 		)
 		pay = sum(
 			flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
 			if pe["party_type"] == "Shareholder" and pe["payment_type"] == "Pay"
-			and getdate(pe["posting_date"]) >= period["from_date"]
 			and getdate(pe["posting_date"]) <= period["to_date"]
 		)
 		balance = receive - pay
@@ -523,54 +557,123 @@ def build_tree_structure(raw_data, filters):
 
 	data.append(ustav_row)
 
-	# 2.3 SOF FOYDA
-	sof_foyda_row = create_row("Sof Foyda", indent=1, is_group=True)
+	# ============================================================
+	# 2.3 NET PROFIT / ACCUMULATED PROFIT (NEW STRUCTURE)
+	# ============================================================
 
-	for period in periods:
-		interest = sum(
-			flt(ia["custom_total_interest"]) for ia in raw_data["installment_applications"]
-			if getdate(ia["transaction_date"]) >= period["from_date"]
-			and getdate(ia["transaction_date"]) <= period["to_date"]
+	# Parent row: Net Profit / Accumulated Profit
+	net_profit_row = create_row("Sof Foyda", indent=1, is_group=True)
+
+	# Child rows
+	retained_earnings_row = create_row("Taq Sof Foyda", indent=2)
+	current_profit_row = create_row("Jory Sof Foyda", indent=2)
+
+	# Calculate historical profit and dividends (before first period)
+	first_period = periods[0]
+	historical_end = add_days(first_period["from_date"], -1)
+
+	historical_profit = calculate_period_profit(
+		raw_data,
+		datetime(2000, 1, 1).date(),  # Beginning of time
+		historical_end,
+		category_dict
+	)
+
+	historical_dividends = sum(
+		flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
+		if pe["party_type"] == "Shareholder" and pe["payment_type"] == "Pay"
+		and getdate(pe["posting_date"]) <= historical_end
+	)
+
+	# Initialize retained earnings with historical balance
+	retained_balance = historical_profit - historical_dividends
+
+	# Calculate for each period using recursive logic
+	for i, period in enumerate(periods):
+		# Current period profit (Income - Expenses for THIS period only)
+		current_profit = calculate_period_profit(
+			raw_data,
+			period["from_date"],
+			period["to_date"],
+			category_dict
 		)
 
-		# Harajatlarni to'g'ri hisoblash - Custom P&L bilan bir xil logika
-		expenses = 0
-		for pe in raw_data["payment_entries"]:
-			if (getdate(pe["posting_date"]) >= period["from_date"]
+		# Current period dividends
+		period_dividends = sum(
+			flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
+			if pe["party_type"] == "Shareholder" and pe["payment_type"] == "Pay"
+			and getdate(pe["posting_date"]) >= period["from_date"]
+			and getdate(pe["posting_date"]) <= period["to_date"]
+		)
+
+		# Set values for current period
+		retained_earnings_row[period["key"]] = retained_balance
+		current_profit_row[period["key"]] = current_profit
+		net_profit_row[period["key"]] = retained_balance + current_profit
+
+		# Update retained balance for next period
+		# Next period's retained = Current retained + Current profit - Current dividends
+		retained_balance = retained_balance + current_profit - period_dividends
+
+	data.append(net_profit_row)
+	data.append(retained_earnings_row)
+	data.append(current_profit_row)
+
+	# ============================================================
+	# 2.4 DIVIDENDS (NEW STRUCTURE WITH SHAREHOLDER BREAKDOWN)
+	# ============================================================
+
+	dividends_parent_row = create_row("Dividends", indent=1, is_group=True)
+
+	# Group dividends by shareholder
+	shareholder_dividends = defaultdict(list)
+	for pe in raw_data["payment_entries"]:
+		if pe["party_type"] == "Shareholder" and pe["payment_type"] == "Pay":
+			shareholder_dividends[pe["party"]].append(pe)
+
+	# Calculate dividends for each period
+	for period in periods:
+		total_period_dividends = 0
+
+		for shareholder in sorted(shareholder_dividends.keys()):
+			shareholder_total = sum(
+				flt(pe["paid_amount"]) for pe in shareholder_dividends[shareholder]
+				if getdate(pe["posting_date"]) >= period["from_date"]
 				and getdate(pe["posting_date"]) <= period["to_date"]
-				and pe.get("custom_counterparty_category")):
+			)
+			total_period_dividends += shareholder_total
 
-				# Counterparty Category ma'lumotlarini olish
-				category = next(
-					(cc for cc in raw_data["counterparty_categories"]
-					 if cc["name"] == pe["custom_counterparty_category"]),
-					None
-				)
+		# Show dividends as negative (reducing equity)
+		dividends_parent_row[period["key"]] = -total_period_dividends
 
-				if category and category.get("custom_expense_type") == "Xarajat":
-					amount = flt(pe["paid_amount"])
+	data.append(dividends_parent_row)
 
-					# Agar category_type Income bo'lsa, manfiy qilamiz
-					if category.get("category_type") == "Income":
-						amount = -amount
+	# Add shareholder detail rows
+	for shareholder in sorted(shareholder_dividends.keys()):
+		shareholder_row = create_row(shareholder, indent=2)
 
-					expenses += amount
+		for period in periods:
+			amount = sum(
+				flt(pe["paid_amount"]) for pe in shareholder_dividends[shareholder]
+				if getdate(pe["posting_date"]) >= period["from_date"]
+				and getdate(pe["posting_date"]) <= period["to_date"]
+			)
+			# Show as negative
+			shareholder_row[period["key"]] = -amount
 
-		profit = interest - expenses
-		sof_foyda_row[period["key"]] = profit
+		data.append(shareholder_row)
 
-	data.append(sof_foyda_row)
-
-	# Calculate JAMI KREDITORKA total
+	# Calculate JAMI KREDITORKA totals
 	for period in periods:
 		jami_kreditorka_row[period["key"]] = (
 			kreditorka_subsection_row[period["key"]] +
 			ustav_row[period["key"]] +
-			sof_foyda_row[period["key"]]
+			net_profit_row[period["key"]] +
+			dividends_parent_row[period["key"]]
 		)
 
 	# ============================================================
-	# SECTION 3: BALANS
+	# SECTION 3: BALANS (Balance Check)
 	# ============================================================
 
 	balans_row = create_row("BALANS", indent=0, is_group=True)
@@ -582,12 +685,3 @@ def build_tree_structure(raw_data, filters):
 	data.append(balans_row)
 
 	return data
-
-
-def group_by_account(transactions):
-	"""Group transactions by account"""
-	grouped = defaultdict(list)
-	for t in transactions:
-		if t.get("account_name"):
-			grouped[t["account_name"]].append(t)
-	return grouped
