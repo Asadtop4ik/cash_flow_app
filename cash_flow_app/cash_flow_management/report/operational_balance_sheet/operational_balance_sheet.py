@@ -347,27 +347,70 @@ def build_tree_structure(raw_data, filters):
 	data.append(debitorka_row)
 
 	# 1.2.1 Mijozlar (Customer Receivables) - CUMULATIVE
+	# Logika: Kontragent reportdagi kabi
+	# Debit = Sales Order + Payment Pay (biz qaytargan)
+	# Credit = Payment Receive (klient to'lagan)
+	# Balance = Debit - Credit
 	debitorka_mijozlar_row = create_row("Mijozlar", indent=2, is_group=True)
 	data.append(debitorka_mijozlar_row)
 
-	customer_groups = defaultdict(lambda: defaultdict(list))
+	customer_groups = defaultdict(lambda: defaultdict(lambda: {"debit": [], "credit": []}))
 
+	# Sales Orders - DEBIT
 	for so in raw_data["sales_orders"]:
 		group = so.get("customer_group_name") or "Boshqa"
-		customer_groups[group][so["customer"]].append({
+		customer_groups[group][so["customer"]]["debit"].append({
 			"type": "sales_order",
 			"date": so["transaction_date"],
 			"amount": flt(so["grand_total"])
 		})
 
+	# Supplier Payables initialization (ishlatiladi Debitorka va Kreditorka'da)
+	supplier_payables = defaultdict(lambda: defaultdict(lambda: {"credit": [], "debit": []}))
+
+	# Installment Application Items - CREDIT
+	for ia_item in raw_data["installment_application_items"]:
+		group = ia_item.get("supplier_group_name") or "Boshqa"
+		supplier_payables[group][ia_item["supplier"]]["credit"].append({
+			"type": "ia_item",
+			"date": ia_item["transaction_date"],
+			"amount": flt(ia_item["amount"])
+		})
+
+	# Payment Entries - Customer va Supplier
 	for pe in raw_data["payment_entries"]:
-		if pe["party_type"] == "Customer" and pe["payment_type"] == "Pay":
+		if pe["party_type"] == "Customer":
 			group = pe.get("group_name") or "Boshqa"
-			customer_groups[group][pe["party"]].append({
-				"type": "payment_pay",
-				"date": pe["posting_date"],
-				"amount": flt(pe["paid_amount"])
-			})
+			if pe["payment_type"] == "Pay":
+				# Biz klientga qaytargan - DEBIT
+				customer_groups[group][pe["party"]]["debit"].append({
+					"type": "payment_pay",
+					"date": pe["posting_date"],
+					"amount": flt(pe["paid_amount"])
+				})
+			elif pe["payment_type"] == "Receive":
+				# Klient bizga to'lagan - CREDIT
+				customer_groups[group][pe["party"]]["credit"].append({
+					"type": "payment_receive",
+					"date": pe["posting_date"],
+					"amount": flt(pe["received_amount"])
+				})
+		elif pe["party_type"] == "Supplier":
+			group = pe.get("group_name") or "Boshqa"
+			if pe["payment_type"] == "Pay":
+				# Biz supplierga to'ladik - DEBIT
+				supplier_payables[group][pe["party"]]["debit"].append({
+					"type": "payment_pay",
+					"date": pe["posting_date"],
+					"amount": flt(pe["paid_amount"])
+				})
+			elif pe["payment_type"] == "Receive":
+				# Supplier bizga qaytardi - CREDIT
+				supplier_payables[group][pe["party"]]["credit"].append({
+					"type": "payment_receive",
+					"date": pe["posting_date"],
+					"amount": flt(pe["received_amount"])
+				})
 
 	for group_name in sorted(customer_groups.keys()):
 		group_row = create_row(group_name, indent=3, is_group=True)
@@ -375,62 +418,94 @@ def build_tree_structure(raw_data, filters):
 
 		for customer in sorted(customer_groups[group_name].keys()):
 			customer_row = create_row(customer, indent=4)
-			transactions = customer_groups[group_name][customer]
+			debit_transactions = customer_groups[group_name][customer]["debit"]
+			credit_transactions = customer_groups[group_name][customer]["credit"]
 
 			for period in periods:
-				# CUMULATIVE: From beginning to period end
-				so_total = sum(
-					t["amount"] for t in transactions
-					if t["type"] == "sales_order" and getdate(t["date"]) <= period["to_date"]
+				# CUMULATIVE: Biznes boshidan period oxirigacha
+				# Debit = Sales Order + Pay
+				total_debit = sum(
+					t["amount"] for t in debit_transactions
+					if getdate(t["date"]) <= period["to_date"]
 				)
 
-				pe_pay = sum(
-					t["amount"] for t in transactions
-					if t["type"] == "payment_pay" and getdate(t["date"]) <= period["to_date"]
+				# Credit = Receive
+				total_credit = sum(
+					t["amount"] for t in credit_transactions
+					if getdate(t["date"]) <= period["to_date"]
 				)
 
-				balance = so_total - pe_pay
-				customer_row[period["key"]] = balance
-				group_row[period["key"]] += balance
-				debitorka_mijozlar_row[period["key"]] += balance
-				debitorka_row[period["key"]] += balance
-				aktivlar_row[period["key"]] += balance
+				# Balance = Debit - Credit
+				# Agar musbat -> klient bizdan qarz (Debitorka)
+				# Agar manfiy -> biz klientdan qarz (bu kreditorka bo'ladi)
+				balance = total_debit - total_credit
+				
+				# Faqat musbat balanslar Debitorka'da ko'rsatiladi
+				if balance > 0:
+					customer_row[period["key"]] = balance
+					group_row[period["key"]] += balance
+					debitorka_mijozlar_row[period["key"]] += balance
+					debitorka_row[period["key"]] += balance
+					aktivlar_row[period["key"]] += balance
+				else:
+					customer_row[period["key"]] = 0
 
 			data.append(customer_row)
 
 	# 1.2.2 Yetkazib beruvchilar (Supplier Advances) - CUMULATIVE
+	# Manfiy balanslar (biz supplier'ga avans berdik)
+	# Bu yerda Credit - Debit < 0 bo'lgan supplierlar ko'rsatiladi
 	debitorka_suppliers_row = create_row("Yetkazib beruvchilar (Avanslar)", indent=2,
 										 is_group=True)
 	data.append(debitorka_suppliers_row)
 
-	supplier_advances = defaultdict(lambda: defaultdict(list))
-
-	for pe in raw_data["payment_entries"]:
-		if pe["party_type"] == "Supplier" and pe["payment_type"] == "Pay":
-			group = pe.get("group_name") or "Boshqa"
-			supplier_advances[group][pe["party"]].append(pe)
-
-	for group_name in sorted(supplier_advances.keys()):
+	# Yuqorida supplier_payables to'ldirilgan
+	# Endi faqat manfiy balanslarni (biz avans berdik) ko'rsatamiz
+	for group_name in sorted(supplier_payables.keys()):
 		group_row = create_row(group_name, indent=3, is_group=True)
-		data.append(group_row)
+		group_has_data = False
 
-		for supplier in sorted(supplier_advances[group_name].keys()):
+		temp_suppliers = []
+		for supplier in sorted(supplier_payables[group_name].keys()):
 			supplier_row = create_row(supplier, indent=4)
-			payments = supplier_advances[group_name][supplier]
+			credit_transactions = supplier_payables[group_name][supplier]["credit"]
+			debit_transactions = supplier_payables[group_name][supplier]["debit"]
+			has_negative = False
 
 			for period in periods:
-				# CUMULATIVE: From beginning to period end
-				balance = sum(
-					flt(pe["paid_amount"]) for pe in payments
-					if getdate(pe["posting_date"]) <= period["to_date"]
+				# CUMULATIVE: Biznes boshidan period oxirigacha
+				total_credit = sum(
+					t["amount"] for t in credit_transactions
+					if getdate(t["date"]) <= period["to_date"]
 				)
-				supplier_row[period["key"]] = balance
-				group_row[period["key"]] += balance
-				debitorka_suppliers_row[period["key"]] += balance
-				debitorka_row[period["key"]] += balance
-				aktivlar_row[period["key"]] += balance
 
-			data.append(supplier_row)
+				total_debit = sum(
+					t["amount"] for t in debit_transactions
+					if getdate(t["date"]) <= period["to_date"]
+				)
+
+				# Balance = Credit - Debit
+				# Agar manfiy -> biz supplierga avans berdik (Debitorka)
+				balance = total_credit - total_debit
+				
+				if balance < 0:
+					# Manfiy balans - avans (musbat qilib ko'rsatamiz)
+					supplier_row[period["key"]] = abs(balance)
+					group_row[period["key"]] += abs(balance)
+					debitorka_suppliers_row[period["key"]] += abs(balance)
+					debitorka_row[period["key"]] += abs(balance)
+					aktivlar_row[period["key"]] += abs(balance)
+					has_negative = True
+				else:
+					supplier_row[period["key"]] = 0
+
+			if has_negative:
+				temp_suppliers.append(supplier_row)
+				group_has_data = True
+
+		if group_has_data:
+			data.append(group_row)
+			data.extend(temp_suppliers)
 
 	# ============================================================
 	# SECTION 2: JAMI KREDITORKA - ALL CUMULATIVE
@@ -444,60 +519,68 @@ def build_tree_structure(raw_data, filters):
 	data.append(kreditorka_subsection_row)
 
 	# 2.1.1 Mijozlar (Customer Advances) - CUMULATIVE
+	# Manfiy balanslar (klient avans bergan)
+	# Bu yerda Debit - Credit < 0 bo'lgan mijozlar ko'rsatiladi
 	kreditorka_mijozlar_row = create_row("Mijozlar (Avanslar)", indent=2, is_group=True)
 	data.append(kreditorka_mijozlar_row)
 
-	customer_payables = defaultdict(lambda: defaultdict(list))
-
-	for pe in raw_data["payment_entries"]:
-		if pe["party_type"] == "Customer" and pe["payment_type"] == "Receive":
-			group = pe.get("group_name") or "Boshqa"
-			customer_payables[group][pe["party"]].append(pe)
-
-	for group_name in sorted(customer_payables.keys()):
+	# Yuqorida allaqachon customer_groups to'ldirilgan
+	# Endi faqat manfiy balanslarni ko'rsatamiz
+	for group_name in sorted(customer_groups.keys()):
 		group_row = create_row(group_name, indent=3, is_group=True)
-		data.append(group_row)
+		group_has_data = False
 
-		for customer in sorted(customer_payables[group_name].keys()):
+		temp_customers = []
+		for customer in sorted(customer_groups[group_name].keys()):
 			customer_row = create_row(customer, indent=4)
-			payments = customer_payables[group_name][customer]
+			debit_transactions = customer_groups[group_name][customer]["debit"]
+			credit_transactions = customer_groups[group_name][customer]["credit"]
+			has_negative = False
 
 			for period in periods:
-				# CUMULATIVE: From beginning to period end
-				balance = sum(
-					flt(pe["received_amount"]) for pe in payments
-					if getdate(pe["posting_date"]) <= period["to_date"]
+				# CUMULATIVE: Biznes boshidan period oxirigacha
+				total_debit = sum(
+					t["amount"] for t in debit_transactions
+					if getdate(t["date"]) <= period["to_date"]
 				)
-				customer_row[period["key"]] = balance
-				group_row[period["key"]] += balance
-				kreditorka_mijozlar_row[period["key"]] += balance
-				kreditorka_subsection_row[period["key"]] += balance
 
-			data.append(customer_row)
+				total_credit = sum(
+					t["amount"] for t in credit_transactions
+					if getdate(t["date"]) <= period["to_date"]
+				)
+
+				# Balance = Debit - Credit
+				# Agar manfiy -> biz klientdan qarz (Kreditorka)
+				balance = total_debit - total_credit
+				
+				if balance < 0:
+					# Manfiy balans - avans (musbat qilib ko'rsatamiz)
+					customer_row[period["key"]] = abs(balance)
+					group_row[period["key"]] += abs(balance)
+					kreditorka_mijozlar_row[period["key"]] += abs(balance)
+					kreditorka_subsection_row[period["key"]] += abs(balance)
+					has_negative = True
+				else:
+					customer_row[period["key"]] = 0
+
+			if has_negative:
+				temp_customers.append(customer_row)
+				group_has_data = True
+
+		if group_has_data:
+			data.append(group_row)
+			data.extend(temp_customers)
 
 	# 2.1.2 Yetkazib beruvchilar (Supplier Payables) - CUMULATIVE
+	# Logika: Kontragent reportdagi kabi
+	# Credit = Installment Application + Payment Receive (biz qarz oldik)
+	# Debit = Payment Pay (biz to'ladik)
+	# Balance = Credit - Debit
 	kreditorka_suppliers_row = create_row("Yetkazib beruvchilar (Qarzlar)", indent=2,
 										  is_group=True)
 	data.append(kreditorka_suppliers_row)
 
-	supplier_payables = defaultdict(lambda: defaultdict(list))
-
-	for ia_item in raw_data["installment_application_items"]:
-		group = ia_item.get("supplier_group_name") or "Boshqa"
-		supplier_payables[group][ia_item["supplier"]].append({
-			"type": "ia_item",
-			"date": ia_item["transaction_date"],
-			"amount": flt(ia_item["amount"])
-		})
-
-	for pe in raw_data["payment_entries"]:
-		if pe["party_type"] == "Supplier" and pe["payment_type"] == "Receive":
-			group = pe.get("group_name") or "Boshqa"
-			supplier_payables[group][pe["party"]].append({
-				"type": "payment_receive",
-				"date": pe["posting_date"],
-				"amount": flt(pe["received_amount"])
-			})
+	# supplier_payables allaqachon yuqorida to'ldirilgan
 
 	for group_name in sorted(supplier_payables.keys()):
 		group_row = create_row(group_name, indent=3, is_group=True)
@@ -505,19 +588,34 @@ def build_tree_structure(raw_data, filters):
 
 		for supplier in sorted(supplier_payables[group_name].keys()):
 			supplier_row = create_row(supplier, indent=4)
-			transactions = supplier_payables[group_name][supplier]
+			credit_transactions = supplier_payables[group_name][supplier]["credit"]
+			debit_transactions = supplier_payables[group_name][supplier]["debit"]
 
 			for period in periods:
-				# CUMULATIVE: From beginning to period end
-				balance = sum(
-					t["amount"] for t in transactions
+				# CUMULATIVE: Biznes boshidan period oxirigacha
+				# Credit = Installment + Receive
+				total_credit = sum(
+					t["amount"] for t in credit_transactions
 					if getdate(t["date"]) <= period["to_date"]
 				)
 
-				supplier_row[period["key"]] = balance
-				group_row[period["key"]] += balance
-				kreditorka_suppliers_row[period["key"]] += balance
-				kreditorka_subsection_row[period["key"]] += balance
+				# Debit = Pay
+				total_debit = sum(
+					t["amount"] for t in debit_transactions
+					if getdate(t["date"]) <= period["to_date"]
+				)
+
+				# Balance = Credit - Debit
+				# Agar musbat -> biz supplierdan qarz (Kreditorka)
+				balance = total_credit - total_debit
+				
+				if balance > 0:
+					supplier_row[period["key"]] = balance
+					group_row[period["key"]] += balance
+					kreditorka_suppliers_row[period["key"]] += balance
+					kreditorka_subsection_row[period["key"]] += balance
+				else:
+					supplier_row[period["key"]] = 0
 
 			data.append(supplier_row)
 
