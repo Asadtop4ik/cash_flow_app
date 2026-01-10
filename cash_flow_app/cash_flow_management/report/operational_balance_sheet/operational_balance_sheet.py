@@ -551,23 +551,49 @@ def build_tree_structure(raw_data, filters):
 	data.append(ustav_row)
 
 	# ============================================================
-	# 2.3 NET PROFIT / RETAINED EARNINGS - CUMULATIVE
+	# 2.3 SOF FOYDA (NET PROFIT) - PROFESSIONAL STRUCTURE
+	# Parent: Sof Foyda (Net Profit)
+	# Children: Taqsimlangan, Joriy, Dividends
+	# Formula: Parent = Taqsimlangan + Joriy - Dividends
 	# ============================================================
 
-	net_profit_row = create_row("Net Profit (Current)", indent=1, is_group=True)
-	retained_earnings_row = create_row("Retained Earnings", indent=1, is_group=True)
+	# Parent row: Sof Foyda (Net Profit after Dividends)
+	net_profit_parent_row = create_row("Sof Foyda", indent=1, is_group=True)
+	
+	# Child 1: Taqsimlangan Sof Foyda (Retained Earnings from previous periods)
+	# Biznes boshlanganidan o'tgan oyning oxirigacha
+	retained_earnings_row = create_row("Taqsimlangan Sof Foyda", indent=2)
+	
+	# Child 2: Joriy Sof Foyda (Current Period Profit)
+	# Faqat shu oy ichidagi foyda
+	current_profit_row = create_row("Joriy Sof Foyda", indent=2)
+	
+	# Child 3: Dividends (Manfiy - kapitaldan chiqarilgan)
+	# Biznes boshlanganidan shu oyning oxirigacha
+	dividends_row = create_row("Dividends", indent=2)
+	
+	# Shareholder dividends detail rows (indent=3)
+	shareholder_dividends = defaultdict(list)
+	for pe in raw_data["payment_entries"]:
+		if (pe["party_type"] == "Shareholder"
+			and pe["payment_type"] == "Pay"
+			and pe.get("party") in shareholder_dict
+			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Dividends"):
+			shareholder_dividends[pe["party"]].append(pe)
 
-	for period in periods:
-		# CUMULATIVE: Total profit from beginning to period end
-		interest = sum(
+	for i, period in enumerate(periods):
+		# ============================================================
+		# 1. JORIY SOF FOYDA (Current Period Profit)
+		# Faqat shu oy: from_date to to_date
+		# ============================================================
+		current_interest = sum(
 			flt(ia["custom_total_interest"]) for ia in raw_data["installment_applications"]
-			if getdate(ia["transaction_date"]) <= period["to_date"]
+			if period["from_date"] <= getdate(ia["transaction_date"]) <= period["to_date"]
 		)
 
-		# CUMULATIVE: Total expenses from beginning to period end
-		expenses = 0
+		current_expenses = 0
 		for pe in raw_data["payment_entries"]:
-			if (getdate(pe["posting_date"]) <= period["to_date"]
+			if (period["from_date"] <= getdate(pe["posting_date"]) <= period["to_date"]
 				and pe.get("custom_counterparty_category")):
 
 				category = category_dict.get(pe["custom_counterparty_category"])
@@ -578,52 +604,66 @@ def build_tree_structure(raw_data, filters):
 					if category.get("category_type") == "Income":
 						amount = -amount
 
-					expenses += amount
+					current_expenses += amount
 
-		# Calculate total profit
-		total_profit = interest - expenses
+		current_period_profit = current_interest - current_expenses
+		current_profit_row[period["key"]] = current_period_profit
 
-		# CUMULATIVE: Total dividends PAID OUT from beginning to period end
-		# Only payments where Shareholder.custom_category = "Dividends" and payment_type = "Pay"
-		total_dividends_paid = sum(
-			flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
-			if pe["party_type"] == "Shareholder"
-			and pe["payment_type"] == "Pay"
-			and pe.get("party") in shareholder_dict
-			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Dividends"
-			and getdate(pe["posting_date"]) <= period["to_date"]
-		)
+		# ============================================================
+		# 2. TAQSIMLANGAN SOF FOYDA (Retained Earnings)
+		# O'tgan davrlarning to'plangan foydasi
+		# ============================================================
+		
+		if i == 0:
+			# Birinchi period uchun: period boshlanishidan OLDINGI foydalar
+			prev_date = add_days(period["from_date"], -1)
+			
+			# O'tgan davr foydasi
+			prev_interest = sum(
+				flt(ia["custom_total_interest"]) for ia in raw_data["installment_applications"]
+				if getdate(ia["transaction_date"]) <= prev_date
+			)
+			
+			prev_expenses = 0
+			for pe in raw_data["payment_entries"]:
+				if (getdate(pe["posting_date"]) <= prev_date
+					and pe.get("custom_counterparty_category")):
 
-		# Retained Earnings = Total Profit - Dividends Paid Out
-		retained = total_profit - total_dividends_paid
+					category = category_dict.get(pe["custom_counterparty_category"])
 
-		net_profit_row[period["key"]] = total_profit
+					if category and category.get("custom_expense_type") == "Xarajat":
+						amount = flt(pe["paid_amount"])
+
+						if category.get("category_type") == "Income":
+							amount = -amount
+
+						prev_expenses += amount
+			
+			prev_total_profit = prev_interest - prev_expenses
+			
+			# O'tgan davr dividendlari
+			prev_dividends = sum(
+				flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
+				if pe["party_type"] == "Shareholder"
+				and pe["payment_type"] == "Pay"
+				and pe.get("party") in shareholder_dict
+				and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Dividends"
+				and getdate(pe["posting_date"]) <= prev_date
+			)
+			
+			retained = prev_total_profit - prev_dividends
+		else:
+			# Keyingi periodlar: o'tgan period Sof Foyda (Parent)
+			prev_period_key = periods[i-1]["key"]
+			retained = net_profit_parent_row[prev_period_key]
+		
 		retained_earnings_row[period["key"]] = retained
 
-	data.append(net_profit_row)
-	data.append(retained_earnings_row)
-
-	# ============================================================
-	# 2.4 DIVIDENDS - CUMULATIVE (NEGATIVE)
-	# Filter by Shareholder.custom_category = "Dividends"
-	# ============================================================
-
-	dividends_parent_row = create_row("Dividends", indent=1, is_group=True)
-
-	# Group dividends by shareholder
-	# Only payments where Shareholder.custom_category = "Dividends"
-	shareholder_dividends = defaultdict(list)
-	for pe in raw_data["payment_entries"]:
-		if (pe["party_type"] == "Shareholder"
-			and pe.get("party") in shareholder_dict
-			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Dividends"):
-			shareholder_dividends[pe["party"]].append(pe)
-
-	# Calculate CUMULATIVE dividends
-	for period in periods:
-		# Pay: increases dividend (shown as negative - reduces equity)
-		# Receive: decreases dividend (shown as positive - increases equity)
-		total_pay = sum(
+		# ============================================================
+		# 3. DIVIDENDS (Cumulative, Negative)
+		# Biznes boshlanganidan shu oyning oxirigacha
+		# ============================================================
+		total_dividends_cumulative = sum(
 			flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
 			if pe["party_type"] == "Shareholder"
 			and pe["payment_type"] == "Pay"
@@ -631,54 +671,53 @@ def build_tree_structure(raw_data, filters):
 			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Dividends"
 			and getdate(pe["posting_date"]) <= period["to_date"]
 		)
-
-		total_receive = sum(
-			flt(pe["received_amount"]) for pe in raw_data["payment_entries"]
-			if pe["party_type"] == "Shareholder"
-			and pe["payment_type"] == "Receive"
-			and pe.get("party") in shareholder_dict
-			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Dividends"
-			and getdate(pe["posting_date"]) <= period["to_date"]
+		
+		# Manfiy ko'rsatiladi (kapitaldan chiqarilgan)
+		dividends_row[period["key"]] = -total_dividends_cumulative
+		
+		# ============================================================
+		# 4. SOF FOYDA (Parent) = Retained + Current - Dividends
+		# ============================================================
+		net_profit_parent_row[period["key"]] = (
+			retained + 
+			current_period_profit - 
+			total_dividends_cumulative
 		)
 
-		# Dividends = -(Pay - Receive)
-		# Pay increases dividend (negative), Receive decreases dividend (less negative)
-		dividends_parent_row[period["key"]] = -(total_pay - total_receive)
+	# Add rows to data
+	data.append(net_profit_parent_row)
+	data.append(retained_earnings_row)
+	data.append(current_profit_row)
+	data.append(dividends_row)
 
-	data.append(dividends_parent_row)
-
-	# Add shareholder detail rows - CUMULATIVE
+	# Add shareholder detail rows under Dividends (indent=3)
 	for shareholder in sorted(shareholder_dividends.keys()):
-		shareholder_name = shareholder_dict.get(shareholder, {}).get(
-			"title") or shareholder
-		shareholder_row = create_row(shareholder_name, indent=2)
+		shareholder_name = shareholder_dict.get(shareholder, {}).get("title") or shareholder
+		shareholder_row = create_row(shareholder_name, indent=3)
 
 		for period in periods:
-			# CUMULATIVE: From beginning to period end
-			pay_amount = sum(
+			# CUMULATIVE: Biznes boshlanganidan period oxirigacha
+			paid_amount = sum(
 				flt(pe["paid_amount"]) for pe in shareholder_dividends[shareholder]
 				if pe["payment_type"] == "Pay"
 				and getdate(pe["posting_date"]) <= period["to_date"]
 			)
 
-			receive_amount = sum(
-				flt(pe["received_amount"]) for pe in shareholder_dividends[shareholder]
-				if pe["payment_type"] == "Receive"
-				and getdate(pe["posting_date"]) <= period["to_date"]
-			)
-
-			# Show as negative (Pay - Receive)
-			shareholder_row[period["key"]] = -(pay_amount - receive_amount)
+			# Manfiy ko'rsatiladi
+			shareholder_row[period["key"]] = -paid_amount
 
 		data.append(shareholder_row)
 
-	# Calculate JAMI KREDITORKA totals
+	# ============================================================
+	# JAMI KREDITORKA CALCULATION
+	# Formula: Kreditorka + Ustav Kapitali + Sof Foyda (includes Dividends)
+	# ============================================================
 	for period in periods:
 		jami_kreditorka_row[period["key"]] = (
 			kreditorka_subsection_row[period["key"]] +
 			ustav_row[period["key"]] +
-			retained_earnings_row[period["key"]] +
-			dividends_parent_row[period["key"]]
+			net_profit_parent_row[period["key"]]
+			# Note: Dividends already included in net_profit_parent_row
 		)
 
 	# ============================================================
