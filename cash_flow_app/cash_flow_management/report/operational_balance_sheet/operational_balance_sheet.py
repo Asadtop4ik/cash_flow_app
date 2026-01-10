@@ -149,23 +149,27 @@ class OperationalBalanceData:
 
 	def __init__(self, filters):
 		self.filters = filters
-		self.from_date = filters["from_date"]
 		self.to_date = filters["to_date"]
 		self.periods = get_periods(filters)
 
 	def load_all_data(self):
-		"""Load ALL historical data up to to_date in single queries"""
+		"""Load ALL historical data from beginning of time (no date filter in SQL)
+		
+		Balance Sheet is a cumulative report showing position from business start
+		to end of each period. Date filtering is done in Python code per period.
+		"""
 		return {
 			"cash_accounts": self.load_cash_accounts(),
 			"sales_orders": self.load_sales_orders(),
 			"payment_entries": self.load_payment_entries(),
 			"installment_applications": self.load_installment_applications(),
 			"installment_application_items": self.load_installment_application_items(),
-			"counterparty_categories": self.load_counterparty_categories()
+			"counterparty_categories": self.load_counterparty_categories(),
+			"shareholders": self.load_shareholders()
 		}
 
 	def load_cash_accounts(self):
-		"""Load ALL cash transactions from beginning of time up to to_date"""
+		"""Load ALL cash transactions from beginning of time (no date filter)"""
 		query = """
 			SELECT
 				acc.name as account_name,
@@ -181,16 +185,15 @@ class OperationalBalanceData:
 			LEFT JOIN `tabPayment Entry` pe ON (
 				(pe.paid_to = acc.name OR pe.paid_from = acc.name)
 				AND pe.docstatus = 1
-				AND pe.posting_date <= %(to_date)s
 			)
 			WHERE acc.account_type = 'Cash'
 				AND acc.is_group = 0
 			ORDER BY acc.name, pe.posting_date
 		"""
-		return frappe.db.sql(query, {"to_date": self.to_date}, as_dict=1)
+		return frappe.db.sql(query, as_dict=1)
 
 	def load_sales_orders(self):
-		"""Load ALL sales orders from beginning up to to_date"""
+		"""Load ALL sales orders from beginning (no date filter)"""
 		return frappe.db.sql("""
 			SELECT
 				so.name,
@@ -203,12 +206,11 @@ class OperationalBalanceData:
 			LEFT JOIN `tabCustomer` c ON c.name = so.customer
 			LEFT JOIN `tabCustomer Group` cg ON cg.name = c.customer_group
 			WHERE so.docstatus = 1
-				AND so.transaction_date <= %(to_date)s
 			ORDER BY cg.customer_group_name, so.customer, so.transaction_date
-		""", {"to_date": self.to_date}, as_dict=1)
+		""", as_dict=1)
 
 	def load_payment_entries(self):
-		"""Load ALL payment entries from beginning up to to_date"""
+		"""Load ALL payment entries from beginning (no date filter)"""
 		return frappe.db.sql("""
 			SELECT
 				pe.name,
@@ -231,12 +233,11 @@ class OperationalBalanceData:
 			LEFT JOIN `tabSupplier` s ON s.name = pe.party AND pe.party_type = 'Supplier'
 			LEFT JOIN `tabSupplier Group` sg ON sg.name = s.supplier_group
 			WHERE pe.docstatus = 1
-				AND pe.posting_date <= %(to_date)s
 			ORDER BY pe.party_type, pe.party, pe.posting_date
-		""", {"to_date": self.to_date}, as_dict=1)
+		""", as_dict=1)
 
 	def load_installment_applications(self):
-		"""Load ALL installment applications from beginning up to to_date"""
+		"""Load ALL installment applications from beginning (no date filter)"""
 		return frappe.db.sql("""
 			SELECT
 				ia.name,
@@ -250,12 +251,11 @@ class OperationalBalanceData:
 			LEFT JOIN `tabCustomer` c ON c.name = ia.customer
 			LEFT JOIN `tabCustomer Group` cg ON cg.name = c.customer_group
 			WHERE ia.docstatus = 1
-				AND ia.transaction_date <= %(to_date)s
 			ORDER BY cg.customer_group_name, ia.customer, ia.transaction_date
-		""", {"to_date": self.to_date}, as_dict=1)
+		""", as_dict=1)
 
 	def load_installment_application_items(self):
-		"""Load ALL installment application items from beginning up to to_date"""
+		"""Load ALL installment application items from beginning (no date filter)"""
 		return frappe.db.sql("""
 			SELECT
 				ia.name as parent_ia,
@@ -270,11 +270,10 @@ class OperationalBalanceData:
 			LEFT JOIN `tabSupplier` s ON s.name = item.custom_supplier
 			LEFT JOIN `tabSupplier Group` sg ON sg.name = s.supplier_group
 			WHERE ia.docstatus = 1
-				AND ia.transaction_date <= %(to_date)s
 				AND item.custom_supplier IS NOT NULL
 				AND item.custom_supplier != ''
 			ORDER BY sg.supplier_group_name, item.custom_supplier, ia.transaction_date
-		""", {"to_date": self.to_date}, as_dict=1)
+		""", as_dict=1)
 
 	def load_counterparty_categories(self):
 		"""Load active counterparty categories"""
@@ -284,39 +283,16 @@ class OperationalBalanceData:
 			WHERE is_active = 1
 		""", as_dict=1)
 
-
-def calculate_period_profit(raw_data, period_start, period_end, category_dict):
-	"""Calculate profit for a specific period (Income - Expenses)"""
-
-	# Calculate interest income for the period
-	interest = sum(
-		flt(ia["custom_total_interest"]) for ia in raw_data["installment_applications"]
-		if getdate(ia["transaction_date"]) >= period_start
-		and getdate(ia["transaction_date"]) <= period_end
-	)
-
-	# Calculate expenses for the period
-	expenses = 0
-	for pe in raw_data["payment_entries"]:
-		if (getdate(pe["posting_date"]) >= period_start
-			and getdate(pe["posting_date"]) <= period_end
-			and pe.get("custom_counterparty_category")):
-
-			category = category_dict.get(pe["custom_counterparty_category"])
-
-			if category and category.get("custom_expense_type") == "Xarajat":
-				amount = flt(pe["paid_amount"])
-
-				if category.get("category_type") == "Income":
-					amount = -amount
-
-				expenses += amount
-
-	return interest - expenses
+	def load_shareholders(self):
+		"""Load all shareholders with their custom_category"""
+		return frappe.db.sql("""
+			SELECT name, title, custom_category
+			FROM `tabShareholder`
+		""", as_dict=1)
 
 
 def build_tree_structure(raw_data, filters):
-	"""Build hierarchical tree with CUMULATIVE balances"""
+	"""Build hierarchical tree with CUMULATIVE balances (Balance Sheet Standard)"""
 	periods = get_periods(filters)
 	data = []
 
@@ -331,18 +307,20 @@ def build_tree_structure(raw_data, filters):
 	# Create category lookup dictionary
 	category_dict = {cc["name"]: cc for cc in raw_data["counterparty_categories"]}
 
+	# Create shareholder lookup dictionary
+	shareholder_dict = {sh["name"]: sh for sh in raw_data["shareholders"]}
+
 	# ============================================================
-	# SECTION 1: AKTIVLAR (ASSETS)
+	# SECTION 1: AKTIVLAR (ASSETS) - ALL CUMULATIVE
 	# ============================================================
 
 	aktivlar_row = create_row("AKTIVLAR", indent=0, is_group=True)
 	data.append(aktivlar_row)
 
-	# 1.1 PUL (Cash) - CUMULATIVE CLOSING BALANCE
+	# 1.1 PUL (Cash) - CUMULATIVE
 	pul_row = create_row("Pul", indent=1, is_group=True)
 	data.append(pul_row)
 
-	# Group cash transactions by account
 	cash_accounts = defaultdict(list)
 	for t in raw_data["cash_accounts"]:
 		if t.get("account_name"):
@@ -353,6 +331,7 @@ def build_tree_structure(raw_data, filters):
 		transactions = cash_accounts[account_name]
 
 		for period in periods:
+			# CUMULATIVE: From beginning to period end
 			balance = sum(
 				flt(t["amount"]) for t in transactions
 				if t.get("posting_date") and getdate(t["posting_date"]) <= period["to_date"]
@@ -363,7 +342,7 @@ def build_tree_structure(raw_data, filters):
 
 		data.append(account_row)
 
-	# 1.2 DEBITORKA (Receivables)
+	# 1.2 DEBITORKA (Receivables) - CUMULATIVE
 	debitorka_row = create_row("Debitorka", indent=1, is_group=True)
 	data.append(debitorka_row)
 
@@ -399,6 +378,7 @@ def build_tree_structure(raw_data, filters):
 			transactions = customer_groups[group_name][customer]
 
 			for period in periods:
+				# CUMULATIVE: From beginning to period end
 				so_total = sum(
 					t["amount"] for t in transactions
 					if t["type"] == "sales_order" and getdate(t["date"]) <= period["to_date"]
@@ -439,6 +419,7 @@ def build_tree_structure(raw_data, filters):
 			payments = supplier_advances[group_name][supplier]
 
 			for period in periods:
+				# CUMULATIVE: From beginning to period end
 				balance = sum(
 					flt(pe["paid_amount"]) for pe in payments
 					if getdate(pe["posting_date"]) <= period["to_date"]
@@ -452,13 +433,13 @@ def build_tree_structure(raw_data, filters):
 			data.append(supplier_row)
 
 	# ============================================================
-	# SECTION 2: JAMI KREDITORKA (TOTAL LIABILITIES & EQUITY)
+	# SECTION 2: JAMI KREDITORKA - ALL CUMULATIVE
 	# ============================================================
 
 	jami_kreditorka_row = create_row("JAMI KREDITORKA", indent=0, is_group=True)
 	data.append(jami_kreditorka_row)
 
-	# 2.1 KREDITORKA (Payables)
+	# 2.1 KREDITORKA (Payables) - CUMULATIVE
 	kreditorka_subsection_row = create_row("Kreditorka", indent=1, is_group=True)
 	data.append(kreditorka_subsection_row)
 
@@ -482,6 +463,7 @@ def build_tree_structure(raw_data, filters):
 			payments = customer_payables[group_name][customer]
 
 			for period in periods:
+				# CUMULATIVE: From beginning to period end
 				balance = sum(
 					flt(pe["received_amount"]) for pe in payments
 					if getdate(pe["posting_date"]) <= period["to_date"]
@@ -526,6 +508,7 @@ def build_tree_structure(raw_data, filters):
 			transactions = supplier_payables[group_name][supplier]
 
 			for period in periods:
+				# CUMULATIVE: From beginning to period end
 				balance = sum(
 					t["amount"] for t in transactions
 					if getdate(t["date"]) <= period["to_date"]
@@ -539,127 +522,153 @@ def build_tree_structure(raw_data, filters):
 			data.append(supplier_row)
 
 	# 2.2 USTAV KAPITALI (Share Capital) - CUMULATIVE
+	# Filter by Shareholder.custom_category = "Ustav Kapitali"
 	ustav_row = create_row("Ustav Kapitali", indent=1, is_group=True)
 
 	for period in periods:
+		# CUMULATIVE: From beginning to period end
+		# Only Shareholder payments where Shareholder.custom_category = "Ustav Kapitali"
 		receive = sum(
 			flt(pe["received_amount"]) for pe in raw_data["payment_entries"]
-			if pe["party_type"] == "Shareholder" and pe["payment_type"] == "Receive"
+			if pe["party_type"] == "Shareholder"
+			and pe["payment_type"] == "Receive"
+			and pe.get("party") in shareholder_dict
+			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Ustav Kapitali"
 			and getdate(pe["posting_date"]) <= period["to_date"]
 		)
 		pay = sum(
 			flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
-			if pe["party_type"] == "Shareholder" and pe["payment_type"] == "Pay"
+			if pe["party_type"] == "Shareholder"
+			and pe["payment_type"] == "Pay"
+			and pe.get("party") in shareholder_dict
+			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Ustav Kapitali"
 			and getdate(pe["posting_date"]) <= period["to_date"]
 		)
+		# Receive adds to capital, Pay reduces capital
 		balance = receive - pay
 		ustav_row[period["key"]] = balance
 
 	data.append(ustav_row)
 
 	# ============================================================
-	# 2.3 NET PROFIT / ACCUMULATED PROFIT (NEW STRUCTURE)
+	# 2.3 NET PROFIT / RETAINED EARNINGS - CUMULATIVE
 	# ============================================================
 
-	# Parent row: Net Profit / Accumulated Profit
-	net_profit_row = create_row("Sof Foyda", indent=1, is_group=True)
+	net_profit_row = create_row("Net Profit (Current)", indent=1, is_group=True)
+	retained_earnings_row = create_row("Retained Earnings", indent=1, is_group=True)
 
-	# Child rows
-	retained_earnings_row = create_row("Taq Sof Foyda", indent=2)
-	current_profit_row = create_row("Jory Sof Foyda", indent=2)
-
-	# Calculate historical profit and dividends (before first period)
-	first_period = periods[0]
-	historical_end = add_days(first_period["from_date"], -1)
-
-	historical_profit = calculate_period_profit(
-		raw_data,
-		datetime(2000, 1, 1).date(),  # Beginning of time
-		historical_end,
-		category_dict
-	)
-
-	historical_dividends = sum(
-		flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
-		if pe["party_type"] == "Shareholder" and pe["payment_type"] == "Pay"
-		and getdate(pe["posting_date"]) <= historical_end
-	)
-
-	# Initialize retained earnings with historical balance
-	retained_balance = historical_profit - historical_dividends
-
-	# Calculate for each period using recursive logic
-	for i, period in enumerate(periods):
-		# Current period profit (Income - Expenses for THIS period only)
-		current_profit = calculate_period_profit(
-			raw_data,
-			period["from_date"],
-			period["to_date"],
-			category_dict
+	for period in periods:
+		# CUMULATIVE: Total profit from beginning to period end
+		interest = sum(
+			flt(ia["custom_total_interest"]) for ia in raw_data["installment_applications"]
+			if getdate(ia["transaction_date"]) <= period["to_date"]
 		)
 
-		# Current period dividends
-		period_dividends = sum(
+		# CUMULATIVE: Total expenses from beginning to period end
+		expenses = 0
+		for pe in raw_data["payment_entries"]:
+			if (getdate(pe["posting_date"]) <= period["to_date"]
+				and pe.get("custom_counterparty_category")):
+
+				category = category_dict.get(pe["custom_counterparty_category"])
+
+				if category and category.get("custom_expense_type") == "Xarajat":
+					amount = flt(pe["paid_amount"])
+
+					if category.get("category_type") == "Income":
+						amount = -amount
+
+					expenses += amount
+
+		# Calculate total profit
+		total_profit = interest - expenses
+
+		# CUMULATIVE: Total dividends PAID OUT from beginning to period end
+		# Only payments where Shareholder.custom_category = "Dividends" and payment_type = "Pay"
+		total_dividends_paid = sum(
 			flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
-			if pe["party_type"] == "Shareholder" and pe["payment_type"] == "Pay"
-			and getdate(pe["posting_date"]) >= period["from_date"]
+			if pe["party_type"] == "Shareholder"
+			and pe["payment_type"] == "Pay"
+			and pe.get("party") in shareholder_dict
+			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Dividends"
 			and getdate(pe["posting_date"]) <= period["to_date"]
 		)
 
-		# Set values for current period
-		retained_earnings_row[period["key"]] = retained_balance
-		current_profit_row[period["key"]] = current_profit
-		net_profit_row[period["key"]] = retained_balance + current_profit
+		# Retained Earnings = Total Profit - Dividends Paid Out
+		retained = total_profit - total_dividends_paid
 
-		# Update retained balance for next period
-		# Next period's retained = Current retained + Current profit - Current dividends
-		retained_balance = retained_balance + current_profit - period_dividends
+		net_profit_row[period["key"]] = total_profit
+		retained_earnings_row[period["key"]] = retained
 
 	data.append(net_profit_row)
 	data.append(retained_earnings_row)
-	data.append(current_profit_row)
 
 	# ============================================================
-	# 2.4 DIVIDENDS (NEW STRUCTURE WITH SHAREHOLDER BREAKDOWN)
+	# 2.4 DIVIDENDS - CUMULATIVE (NEGATIVE)
+	# Filter by Shareholder.custom_category = "Dividends"
 	# ============================================================
 
 	dividends_parent_row = create_row("Dividends", indent=1, is_group=True)
 
 	# Group dividends by shareholder
+	# Only payments where Shareholder.custom_category = "Dividends"
 	shareholder_dividends = defaultdict(list)
 	for pe in raw_data["payment_entries"]:
-		if pe["party_type"] == "Shareholder" and pe["payment_type"] == "Pay":
+		if (pe["party_type"] == "Shareholder"
+			and pe.get("party") in shareholder_dict
+			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Dividends"):
 			shareholder_dividends[pe["party"]].append(pe)
 
-	# Calculate dividends for each period
+	# Calculate CUMULATIVE dividends
 	for period in periods:
-		total_period_dividends = 0
+		# Pay: increases dividend (shown as negative - reduces equity)
+		# Receive: decreases dividend (shown as positive - increases equity)
+		total_pay = sum(
+			flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
+			if pe["party_type"] == "Shareholder"
+			and pe["payment_type"] == "Pay"
+			and pe.get("party") in shareholder_dict
+			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Dividends"
+			and getdate(pe["posting_date"]) <= period["to_date"]
+		)
 
-		for shareholder in sorted(shareholder_dividends.keys()):
-			shareholder_total = sum(
-				flt(pe["paid_amount"]) for pe in shareholder_dividends[shareholder]
-				if getdate(pe["posting_date"]) >= period["from_date"]
-				and getdate(pe["posting_date"]) <= period["to_date"]
-			)
-			total_period_dividends += shareholder_total
+		total_receive = sum(
+			flt(pe["received_amount"]) for pe in raw_data["payment_entries"]
+			if pe["party_type"] == "Shareholder"
+			and pe["payment_type"] == "Receive"
+			and pe.get("party") in shareholder_dict
+			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Dividends"
+			and getdate(pe["posting_date"]) <= period["to_date"]
+		)
 
-		# Show dividends as negative (reducing equity)
-		dividends_parent_row[period["key"]] = -total_period_dividends
+		# Dividends = -(Pay - Receive)
+		# Pay increases dividend (negative), Receive decreases dividend (less negative)
+		dividends_parent_row[period["key"]] = -(total_pay - total_receive)
 
 	data.append(dividends_parent_row)
 
-	# Add shareholder detail rows
+	# Add shareholder detail rows - CUMULATIVE
 	for shareholder in sorted(shareholder_dividends.keys()):
-		shareholder_row = create_row(shareholder, indent=2)
+		shareholder_name = shareholder_dict.get(shareholder, {}).get(
+			"title") or shareholder
+		shareholder_row = create_row(shareholder_name, indent=2)
 
 		for period in periods:
-			amount = sum(
+			# CUMULATIVE: From beginning to period end
+			pay_amount = sum(
 				flt(pe["paid_amount"]) for pe in shareholder_dividends[shareholder]
-				if getdate(pe["posting_date"]) >= period["from_date"]
+				if pe["payment_type"] == "Pay"
 				and getdate(pe["posting_date"]) <= period["to_date"]
 			)
-			# Show as negative
-			shareholder_row[period["key"]] = -amount
+
+			receive_amount = sum(
+				flt(pe["received_amount"]) for pe in shareholder_dividends[shareholder]
+				if pe["payment_type"] == "Receive"
+				and getdate(pe["posting_date"]) <= period["to_date"]
+			)
+
+			# Show as negative (Pay - Receive)
+			shareholder_row[period["key"]] = -(pay_amount - receive_amount)
 
 		data.append(shareholder_row)
 
@@ -668,7 +677,7 @@ def build_tree_structure(raw_data, filters):
 		jami_kreditorka_row[period["key"]] = (
 			kreditorka_subsection_row[period["key"]] +
 			ustav_row[period["key"]] +
-			net_profit_row[period["key"]] +
+			retained_earnings_row[period["key"]] +
 			dividends_parent_row[period["key"]]
 		)
 

@@ -274,7 +274,8 @@ fixtures = [
 			"Sales Order",
 			"Counterparty Category",
 			"Supplier",
-			"Contract Notes"
+			"Contract Notes",
+			"Shareholder"
 		]]]
 	},
 
