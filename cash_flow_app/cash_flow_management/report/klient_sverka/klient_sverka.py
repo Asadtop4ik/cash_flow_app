@@ -88,14 +88,15 @@ def get_data(filters):
 	contract_filter = filters.get("contract")
 
 	data = []
+	# 1. Calculate opening balance (before from_date)
+	opening_balance = calculate_opening_balance(customer, from_date, contract_filter)
 
 	# 1. Get all transactions (contracts and payments) in date range
 	transactions = get_transactions(customer, from_date, to_date, contract_filter)
 
 	# 2. Process transactions and calculate running balance
-	# Start from 0 for the table (only showing this date range)
-	running_balance = 0
-
+	# Start from opening balance inserted of 0
+	running_balance = opening_balance
 	for transaction in transactions:
 		debit = flt(transaction.get("debit", 0))
 		credit = flt(transaction.get("credit", 0))
