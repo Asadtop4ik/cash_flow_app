@@ -321,7 +321,7 @@
                             ${status === 'Completed' ? `
                                 <button class="schedule-toggle-btn" 
                                         data-contract="${contract.name}"
-                                        data-expanded="true"
+                                        data-expanded="false"
                                         style="background: rgba(255,255,255,0.3); 
                                                border: none; 
                                                color: white; 
@@ -330,7 +330,7 @@
                                                cursor: pointer;
                                                font-size: 11px;
                                                margin-left: 5px;">
-                                    📦 Yopish ▼
+                                    📂 Ochish ▶
                                 </button>
                             ` : ''}
                         </h3>
@@ -395,11 +395,11 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                </div >
                 
-                <!-- Payment Schedule Table INLINE -->
+                < !--Payment Schedule Table INLINE-- >
                 ${contract_schedules.length > 0 ? `
-                    <div class="schedule-section-${contract.name.replace(/[^a-zA-Z0-9]/g, '_')}" style="padding: 20px; background: #f9fafb;">
+                    <div class="schedule-section-${contract.name.replace(/[^a-zA-Z0-9]/g, '_')}" style="padding: 20px; background: #f9fafb; ${status === 'Completed' ? 'display: none;' : ''}">
                         <h4 style="margin: 0 0 15px 0; color: #1f2937; display: flex; justify-content: space-between; align-items: center;">
                             <span>📅 Oylik To'lovlar Jadvali</span>
                             <span style="background: #eff6ff; color: #1e40af; padding: 4px 12px; border-radius: 4px; font-size: 12px;">
@@ -438,9 +438,10 @@
                             </div>
                         </div>
                     </div>
-                ` : '<div style="padding: 20px; text-align: center; color: #9ca3af;">To\'lovlar jadvali hali mavjud emas</div>'}
-            </div>
-        `;
+                ` : '<div style="padding: 20px; text-align: center; color: #9ca3af;">To\'lovlar jadvali hali mavjud emas</div>'
+                }
+            </div >
+                `;
 
             // Add to dashboard
             frm.dashboard.add_section(combined_html);
@@ -452,12 +453,12 @@
 
     function render_empty_state(frm) {
         const html = `
-        <div class="customer-contracts-section" style="background: #f9fafb; padding: 40px; border-radius: 8px; margin-top: 20px; text-align: center; border: 2px dashed #d1d5db;">
+                < div class="customer-contracts-section" style = "background: #f9fafb; padding: 40px; border-radius: 8px; margin-top: 20px; text-align: center; border: 2px dashed #d1d5db;" >
             <div style="font-size: 48px; margin-bottom: 15px;">📋</div>
             <h4 style="color: #6b7280; margin-bottom: 10px;">Hozircha shartnoma yo'q</h4>
             <p style="color: #9ca3af; font-size: 14px;">Yangi Installment Application yarating</p>
-        </div>
-    `;
+        </div >
+                `;
 
         frm.dashboard.add_section(html);
     }
@@ -530,7 +531,7 @@
                     fieldtype: 'Data',
                     fieldname: 'sheet_name',
                     label: __('Sheet Name'),
-                    default: `Customer_${frm.doc.name.replace(/ /g, '_')}`,
+                    default: `Customer_${frm.doc.name.replace(/ /g, '_')} `,
                     reqd: 1
                 },
                 {
@@ -591,7 +592,7 @@
 
         // Contract name'ni class-safe qilish (special characters olib tashlash)
         const safe_contract = contract.replace(/[^a-zA-Z0-9]/g, '_');
-        const $schedule_div = $(`.schedule-section-${safe_contract}`);
+        const $schedule_div = $(`.schedule - section - ${safe_contract} `);
 
         console.log('📦 Toggle clicked:', contract, 'expanded:', expanded);
         console.log('   Schedule div found:', $schedule_div.length);
