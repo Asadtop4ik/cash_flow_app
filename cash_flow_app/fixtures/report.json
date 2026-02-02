@@ -123,44 +123,6 @@
   "filters": [],
   "is_standard": "Yes",
   "javascript": null,
-  "json": null,
-  "letter_head": null,
-  "modified": "2025-12-21 23:07:32.230548",
-  "module": "Cash Flow Management",
-  "name": "Custom Profit and Loss",
-  "prepared_report": 0,
-  "query": null,
-  "ref_doctype": "Installment Application",
-  "reference_report": null,
-  "report_name": "Custom Profit and Loss",
-  "report_script": null,
-  "report_type": "Script Report",
-  "roles": [
-   {
-    "parent": "Custom Profit and Loss",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Operator"
-   },
-   {
-    "parent": "Custom Profit and Loss",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "System Manager"
-   }
-  ],
-  "timeout": 0
- },
- {
-  "add_total_row": 0,
-  "add_translate_data": 0,
-  "columns": [],
-  "disabled": 0,
-  "docstatus": 0,
-  "doctype": "Report",
-  "filters": [],
-  "is_standard": "Yes",
-  "javascript": null,
   "json": "{}",
   "letter_head": null,
   "modified": "2025-12-15 16:59:16.728644",
@@ -497,56 +459,6 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "Accounts Manager"
-   }
-  ],
-  "timeout": 0
- },
- {
-  "add_total_row": 1,
-  "add_translate_data": 0,
-  "columns": [],
-  "disabled": 0,
-  "docstatus": 0,
-  "doctype": "Report",
-  "filters": [],
-  "is_standard": "Yes",
-  "javascript": null,
-  "json": null,
-  "letter_head": null,
-  "modified": "2025-11-09 01:20:43.689615",
-  "module": "Cash Flow Management",
-  "name": "Kassa Hisoboti",
-  "prepared_report": 0,
-  "query": null,
-  "ref_doctype": "Payment Entry",
-  "reference_report": null,
-  "report_name": "Kassa Hisoboti",
-  "report_script": null,
-  "report_type": "Script Report",
-  "roles": [
-   {
-    "parent": "Kassa Hisoboti",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Accounts Manager"
-   },
-   {
-    "parent": "Kassa Hisoboti",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Accounts User"
-   },
-   {
-    "parent": "Kassa Hisoboti",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Operator"
-   },
-   {
-    "parent": "Kassa Hisoboti",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "System Manager"
    }
   ],
   "timeout": 0
@@ -1028,6 +940,94 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "Accounts Manager"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2025-12-21 23:07:32.230548",
+  "module": "Cash Flow Management",
+  "name": "Custom Profit and Loss",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Installment Application",
+  "reference_report": null,
+  "report_name": "Custom Profit and Loss",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Custom Profit and Loss",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Operator"
+   },
+   {
+    "parent": "Custom Profit and Loss",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 1,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2025-11-09 01:20:43.689615",
+  "module": "Cash Flow Management",
+  "name": "Kassa Hisoboti",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Payment Entry",
+  "reference_report": null,
+  "report_name": "Kassa Hisoboti",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Operator"
+   },
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
    }
   ],
   "timeout": 0

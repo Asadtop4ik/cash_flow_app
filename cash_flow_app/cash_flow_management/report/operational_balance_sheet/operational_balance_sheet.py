@@ -506,7 +506,7 @@ def build_tree_structure(raw_data, filters):
 	# SECTION 2: JAMI KREDITORKA - ALL CUMULATIVE
 	# ============================================================
 
-	jami_kreditorka_row = create_row("JAMI KREDITORKA", indent=0, is_group=True)
+	jami_kreditorka_row = create_row("PASSIVLAR", indent=0, is_group=True)
 	data.append(jami_kreditorka_row)
 	# 2.1 KREDITORKA (Payables) - CUMULATIVE
 	kreditorka_subsection_row = create_row("Kreditorka", indent=1, is_group=True)
