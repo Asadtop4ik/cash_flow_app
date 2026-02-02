@@ -72,6 +72,13 @@ def get_customer_contracts(customer):
 			contract['status_color'] = 'orange'
 			contract['status_icon'] = '⏳'
 
+	# ✅ Sort: Completed shartnomalar pastda, qolganlari tepada
+	# Ichida sana bo'yicha (eng yangi birinchi)
+	contracts.sort(key=lambda x: (
+		1 if x.get('custom_status') == 'Completed' else 0,  # Completed pastda
+		-getdate(x.get('transaction_date')).toordinal()     # Ichida sana bo'yicha DESC
+	))
+
 	return contracts
 
 
