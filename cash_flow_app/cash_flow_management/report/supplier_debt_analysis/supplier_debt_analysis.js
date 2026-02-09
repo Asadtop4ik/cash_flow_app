@@ -36,7 +36,9 @@ frappe.query_reports["Supplier Debt Analysis"] = {
 				return `<span style="font-weight: 700; font-size: 15px; color: #1e3a8a;">JAMI</span>`;
 			}
 			if (['kredit', 'debit', 'outstanding'].includes(column.fieldname)) {
-				return `<span style="font-weight: 700; color: #1e3a8a; font-size: 15px;">${value}</span>`;
+				let amount = flt(data[column.fieldname]);
+				let formatted = format_currency_with_symbol(amount);
+				return `<span style="font-weight: 700; color: #1e3a8a; font-size: 15px;">${formatted}</span>`;
 			}
 			return '';
 		}
@@ -47,30 +49,35 @@ frappe.query_reports["Supplier Debt Analysis"] = {
 				return `<span style="font-weight: 600; font-size: 13px; color: #2563eb; font-style: italic;">${value}</span>`;
 			}
 			if (['kredit', 'debit', 'outstanding'].includes(column.fieldname)) {
-				return `<span style="font-weight: 600; color: #2563eb; font-size: 13px;">${value}</span>`;
+				let amount = flt(data[column.fieldname]);
+				let formatted = format_currency_with_symbol(amount);
+				return `<span style="font-weight: 600; color: #2563eb; font-size: 13px;">${formatted}</span>`;
 			}
 			return '';
 		}
 
 		// Kredit - qizil
 		if (column.fieldname == "kredit" && flt(data.kredit) > 0) {
-			value = `<span style="color: #dc2626; font-weight: 600; font-size: 13px;">${value}</span>`;
+			let formatted = format_currency_with_symbol(flt(data.kredit));
+			value = `<span style="color: #dc2626; font-weight: 600; font-size: 13px;">${formatted}</span>`;
 		}
 
 		// Debit - yashil
 		if (column.fieldname == "debit" && flt(data.debit) > 0) {
-			value = `<span style="color: #16a34a; font-weight: 600; font-size: 13px;">${value}</span>`;
+			let formatted = format_currency_with_symbol(flt(data.debit));
+			value = `<span style="color: #16a34a; font-weight: 600; font-size: 13px;">${formatted}</span>`;
 		}
 
 		// Qoldiq
 		if (column.fieldname == "outstanding") {
 			let amount = flt(data.outstanding);
+			let formatted = format_currency_with_symbol(Math.abs(amount));
 			if (amount > 0) {
-				value = `<span style="color: #dc2626; font-weight: 700; font-size: 13px;">${value}</span>`;
+				value = `<span style="color: #dc2626; font-weight: 700; font-size: 13px;">${formatted}</span>`;
 			} else if (amount < 0) {
-				value = `<span style="color: #16a34a; font-weight: 700; font-size: 13px;">${value}</span>`;
+				value = `<span style="color: #16a34a; font-weight: 700; font-size: 13px;">-${formatted}</span>`;
 			} else {
-				value = `<span style="color: #6b7280; font-weight: 600; font-size: 13px;">${value}</span>`;
+				value = `<span style="color: #6b7280; font-weight: 600; font-size: 13px;">${formatted}</span>`;
 			}
 		}
 
@@ -152,9 +159,15 @@ frappe.query_reports["Supplier Debt Analysis"] = {
 
 		// CSS - Jadval va Dashboard optimallashtirish
 		add_custom_css();
+
+		// Dashboard summary kartalarini $ bilan formatlash
+		format_summary_cards();
 	},
 
 	"after_datatable_render": function(datatable) {
+		// Summary kartalarini har safar yangilash
+		format_summary_cards();
+
 		// Payment Entry qatorlarida "Izoh" tugmasini qo'shish
 		try {
 			if (datatable && datatable.datamanager && datatable.datamanager.data) {
@@ -381,6 +394,36 @@ function format_currency(value) {
 	// Russian style formatting: space separator, no decimals
 	if (!value) return '0';
 	return Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+
+function format_currency_with_symbol(value) {
+	// Russian style formatting with $ symbol: $ 1 234
+	if (!value && value !== 0) return '$ 0';
+	let formatted = Math.round(Math.abs(value)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+	return '$ ' + formatted;
+}
+
+
+function format_summary_cards() {
+	// Dashboard summary kartalaridagi qiymatlarni $ bilan formatlash
+	setTimeout(function() {
+		$('.summary-card .value, .report-summary .value, .number-card-value').each(function() {
+			let $el = $(this);
+			let text = $el.text().trim();
+			
+			// Agar allaqachon $ bo'lsa, o'tkazib yuborish
+			if (text.includes('$')) return;
+			
+			// Raqamni olish (vergul, nuqta, probel olib tashlash)
+			let num = parseFloat(text.replace(/[,\s]/g, '').replace(/[^0-9.-]/g, ''));
+			
+			if (!isNaN(num)) {
+				let formatted = format_currency_with_symbol(num);
+				$el.text(formatted);
+			}
+		});
+	}, 100);
 }
 
 

@@ -6,6 +6,15 @@ from frappe import _
 from frappe.utils import flt, getdate
 
 
+def format_usd(value):
+	"""Format number with $ symbol: $ 1 234"""
+	num = int(round(flt(value)))
+	formatted = "{:,}".format(abs(num)).replace(",", " ")
+	if num < 0:
+		return f"-$ {formatted}"
+	return f"$ {formatted}"
+
+
 def execute(filters=None):
 	"""
 	Supplier Debt Analysis Report - Moliyaviy hisoblar
@@ -395,32 +404,24 @@ def get_summary(data, filters):
 
 		return [
 			{
-				"value": nachalnaya_ostatok,
+				"value": format_usd(nachalnaya_ostatok),
 				"indicator": "blue",
-				"label": "Boshlang'ich qoldiq",
-				"datatype": "Currency",
-				"currency": "USD"
+				"label": "Boshlang'ich qoldiq"
 			},
 			{
-				"value": 0,
+				"value": format_usd(0),
 				"indicator": "red",
-				"label": "Jami Kredit",
-				"datatype": "Currency",
-				"currency": "USD"
+				"label": "Jami Kredit"
 			},
 			{
-				"value": 0,
+				"value": format_usd(0),
 				"indicator": "green",
-				"label": "Jami Debit",
-				"datatype": "Currency",
-				"currency": "USD"
+				"label": "Jami Debit"
 			},
 			{
-				"value": nachalnaya_ostatok,
+				"value": format_usd(nachalnaya_ostatok),
 				"indicator": "orange" if nachalnaya_ostatok > 0 else "green",
-				"label": "Oxirgi qoldiq",
-				"datatype": "Currency",
-				"currency": "USD"
+				"label": "Oxirgi qoldiq"
 			}
 		]
 
@@ -443,32 +444,24 @@ def get_summary(data, filters):
 
 	summary = [
 		{
-			"value": nachalnaya_ostatok,
+			"value": format_usd(nachalnaya_ostatok),
 			"indicator": "blue",
-			"label": "Boshlang'ich qoldiq",
-			"datatype": "Currency",
-			"currency": "USD"
+			"label": "Boshlang'ich qoldiq"
 		},
 		{
-			"value": total_kredit,
+			"value": format_usd(total_kredit),
 			"indicator": "red",
-			"label": "Jami Kredit",
-			"datatype": "Currency",
-			"currency": "USD"
+			"label": "Jami Kredit"
 		},
 		{
-			"value": total_debit,
+			"value": format_usd(total_debit),
 			"indicator": "green",
-			"label": "Jami Debit",
-			"datatype": "Currency",
-			"currency": "USD"
+			"label": "Jami Debit"
 		},
 		{
-			"value": ostatok_na_konets,
+			"value": format_usd(ostatok_na_konets),
 			"indicator": "orange" if ostatok_na_konets > 0 else "green",
-			"label": "Oxirgi qoldiq",
-			"datatype": "Currency",
-			"currency": "USD"
+			"label": "Oxirgi qoldiq"
 		}
 	]
 
