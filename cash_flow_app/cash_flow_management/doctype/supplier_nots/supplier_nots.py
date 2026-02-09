@@ -12,10 +12,22 @@ class SupplierNots(Document):
 		self.modified_by_user = frappe.session.user
 
 	def validate(self):
-		# Auto-fill supplier from Payment Entry if not provided
-		if self.payment_reference and not self.supplier:
-			self.supplier = frappe.db.get_value(
-				"Payment Entry",
-				self.payment_reference,
-				"party"
-			)
+		# Auto-fill supplier based on reference document
+		if not self.supplier and self.reference_name and self.reference_type:
+			if self.reference_type == "Payment Entry":
+				self.supplier = frappe.db.get_value(
+					"Payment Entry",
+					self.reference_name,
+					"party"
+				)
+			elif self.reference_type == "Installment Application":
+				# Installment Application dan supplier olish (agar mavjud bo'lsa)
+				# Yoki birinchi item dan custom_supplier olish
+				items = frappe.get_all(
+					"Installment Application Item",
+					filters={"parent": self.reference_name},
+					fields=["custom_supplier"],
+					limit=1
+				)
+				if items and items[0].custom_supplier:
+					self.supplier = items[0].custom_supplier

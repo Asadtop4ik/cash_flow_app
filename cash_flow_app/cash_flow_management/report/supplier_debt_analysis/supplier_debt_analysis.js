@@ -198,10 +198,13 @@ function add_note_buttons(datatable) {
 			return;
 		}
 
+		// Qo'llab-quvvatlanadigan hujjat turlari
+		const supported_types = ['Payment Entry', 'Installment Application'];
+
 		datatable.datamanager.data.forEach((row, row_index) => {
 			try {
-				// Faqat Payment Entry qatorlari uchun
-				if (row.document_type !== 'Payment Entry' || !row.document) {
+				// Faqat qo'llab-quvvatlanadigan hujjat turlari uchun
+				if (!row.document || !row.document_type || !supported_types.includes(row.document_type)) {
 					return;
 				}
 
@@ -227,7 +230,7 @@ function add_note_buttons(datatable) {
 				btn.onclick = function(e) {
 					e.preventDefault();
 					e.stopPropagation();
-					show_note_dialog(row.document, row);
+					show_note_dialog(row.document_type, row.document, row);
 				};
 
 				const cell_content = cell.querySelector('.dt-cell__content');
@@ -244,37 +247,42 @@ function add_note_buttons(datatable) {
 }
 
 
-function show_note_dialog(payment_entry, row_data) {
+function show_note_dialog(reference_type, reference_name, row_data) {
 	// Avval mavjud izohlarni olish
 	frappe.call({
 		method: 'cash_flow_app.cash_flow_management.report.supplier_debt_analysis.supplier_debt_analysis.get_supplier_notes',
 		args: {
-			payment_reference: payment_entry
+			reference_type: reference_type,
+			reference_name: reference_name
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {
-				show_note_dialog_with_history(payment_entry, row_data, r.message.notes);
+				show_note_dialog_with_history(reference_type, reference_name, row_data, r.message.notes);
 			} else {
-				show_note_dialog_with_history(payment_entry, row_data, []);
+				show_note_dialog_with_history(reference_type, reference_name, row_data, []);
 			}
 		}
 	});
 }
 
 
-function show_note_dialog_with_history(payment_entry, row_data, existing_notes) {
+function show_note_dialog_with_history(reference_type, reference_name, row_data, existing_notes) {
 	const supplier = frappe.query_report.get_filter_value('supplier');
 	
+	// Hujjat turini o'zbek tilida ko'rsatish
+	const type_label = reference_type === 'Payment Entry' ? 'To\'lov' : 'Shartnoma';
+	
 	const d = new frappe.ui.Dialog({
-		title: __('To\'lov: {0}', [payment_entry]),
+		title: __('{0}: {1}', [type_label, reference_name]),
 		size: 'large',
 		fields: [
 			{
 				fieldtype: 'HTML',
-				fieldname: 'payment_info',
+				fieldname: 'doc_info',
 				options: `<div class="alert alert-info">
+					<strong>Hujjat turi:</strong> ${reference_type}<br>
 					<strong>Yetkazib beruvchi:</strong> ${supplier || 'N/A'}<br>
-					<strong>Summa:</strong> ${format_currency(row_data.debit || row_data.kredit || 0)}
+					<strong>Summa:</strong> ${format_currency_with_symbol(row_data.debit || row_data.kredit || 0)}
 				</div>`
 			},
 			{
@@ -316,7 +324,8 @@ function show_note_dialog_with_history(payment_entry, row_data, existing_notes) 
 			frappe.call({
 				method: 'cash_flow_app.cash_flow_management.report.supplier_debt_analysis.supplier_debt_analysis.save_supplier_note',
 				args: {
-					payment_reference: payment_entry,
+					reference_type: reference_type,
+					reference_name: reference_name,
 					note_text: values.note_text,
 					note_category: values.note_category,
 					supplier: supplier
@@ -434,20 +443,43 @@ function show_add_note_dialog(report) {
 		title: __('Yangi Izoh Qo\'shish'),
 		fields: [
 			{
-				fieldtype: 'Link',
-				fieldname: 'payment_entry',
-				label: __('To\'lov (Payment Entry)'),
-				options: 'Payment Entry',
+				fieldtype: 'Select',
+				fieldname: 'reference_type',
+				label: __('Hujjat Turi'),
+				options: [
+					'Payment Entry',
+					'Installment Application'
+				],
+				default: 'Payment Entry',
+				reqd: 1,
+				onchange: function() {
+					// Hujjat turi o'zgarganda reference_name ni tozalash
+					d.set_value('reference_name', '');
+				}
+			},
+			{
+				fieldtype: 'Dynamic Link',
+				fieldname: 'reference_name',
+				label: __('Hujjat'),
+				options: 'reference_type',
 				reqd: 1,
 				get_query: function() {
-					let filters = {
-						docstatus: 1,
-						party_type: 'Supplier'
-					};
-					if (supplier) {
-						filters.party = supplier;
+					let ref_type = d.get_value('reference_type');
+					
+					if (ref_type === 'Payment Entry') {
+						let filters = { docstatus: 1, party_type: 'Supplier' };
+						if (supplier) {
+							filters.party = supplier;
+						}
+						return { filters: filters };
+					} else if (ref_type === 'Installment Application') {
+						// Installment Application uchun custom query
+						return {
+							query: 'cash_flow_app.cash_flow_management.report.supplier_debt_analysis.supplier_debt_analysis.get_installment_applications_query',
+							filters: { supplier: supplier }
+						};
 					}
-					return { filters: filters };
+					return { filters: { docstatus: 1 } };
 				}
 			},
 			{
@@ -476,7 +508,8 @@ function show_add_note_dialog(report) {
 			frappe.call({
 				method: 'cash_flow_app.cash_flow_management.report.supplier_debt_analysis.supplier_debt_analysis.save_supplier_note',
 				args: {
-					payment_reference: values.payment_entry,
+					reference_type: values.reference_type,
+					reference_name: values.reference_name,
 					note_text: values.note,
 					note_category: values.category,
 					supplier: supplier

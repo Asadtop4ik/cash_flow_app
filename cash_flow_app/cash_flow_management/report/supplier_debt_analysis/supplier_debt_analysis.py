@@ -137,11 +137,22 @@ def get_data(filters):
 			NULL as cash_account,
 			ia.creation,
 			'USD' as currency,
-			NULL as note_text,
-			NULL as note_category,
-			NULL as note_date
+			sn.note_text as note_text,
+			sn.note_category as note_category,
+			sn.note_date as note_date
 		FROM `tabInstallment Application` ia
 		INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
+		LEFT JOIN (
+			SELECT reference_name, note_text, note_category, note_date
+			FROM `tabSupplier Nots` sn1
+			WHERE sn1.reference_type = 'Installment Application'
+				AND sn1.creation = (
+					SELECT MAX(sn2.creation)
+					FROM `tabSupplier Nots` sn2
+					WHERE sn2.reference_type = 'Installment Application'
+						AND sn2.reference_name = sn1.reference_name
+				)
+		) sn ON sn.reference_name = ia.name
 		WHERE ia.docstatus = 1
 			AND item.custom_supplier = %(supplier)s
 			{installment_where}
@@ -175,14 +186,16 @@ def get_data(filters):
 			sn.note_date as note_date
 		FROM `tabPayment Entry` pe
 		LEFT JOIN (
-			SELECT payment_reference, note_text, note_category, note_date
+			SELECT reference_name, note_text, note_category, note_date
 			FROM `tabSupplier Nots` sn1
-			WHERE sn1.creation = (
-				SELECT MAX(sn2.creation)
-				FROM `tabSupplier Nots` sn2
-				WHERE sn2.payment_reference = sn1.payment_reference
-			)
-		) sn ON sn.payment_reference = pe.name
+			WHERE sn1.reference_type = 'Payment Entry'
+				AND sn1.creation = (
+					SELECT MAX(sn2.creation)
+					FROM `tabSupplier Nots` sn2
+					WHERE sn2.reference_type = 'Payment Entry'
+						AND sn2.reference_name = sn1.reference_name
+				)
+		) sn ON sn.reference_name = pe.name
 		WHERE pe.docstatus = 1
 			AND pe.party_type = 'Supplier'
 			AND pe.party = %(supplier)s
@@ -210,14 +223,16 @@ def get_data(filters):
 			sn.note_date as note_date
 		FROM `tabPayment Entry` pe
 		LEFT JOIN (
-			SELECT payment_reference, note_text, note_category, note_date
+			SELECT reference_name, note_text, note_category, note_date
 			FROM `tabSupplier Nots` sn1
-			WHERE sn1.creation = (
-				SELECT MAX(sn2.creation)
-				FROM `tabSupplier Nots` sn2
-				WHERE sn2.payment_reference = sn1.payment_reference
-			)
-		) sn ON sn.payment_reference = pe.name
+			WHERE sn1.reference_type = 'Payment Entry'
+				AND sn1.creation = (
+					SELECT MAX(sn2.creation)
+					FROM `tabSupplier Nots` sn2
+					WHERE sn2.reference_type = 'Payment Entry'
+						AND sn2.reference_name = sn1.reference_name
+				)
+		) sn ON sn.reference_name = pe.name
 		WHERE pe.docstatus = 1
 			AND pe.party_type = 'Supplier'
 			AND pe.party = %(supplier)s
@@ -469,26 +484,36 @@ def get_summary(data, filters):
 
 
 @frappe.whitelist()
-def save_supplier_note(payment_reference, note_text, note_category="Eslatma", supplier=None):
-	"""Save a new supplier note for Payment Entry"""
+def save_supplier_note(reference_type, reference_name, note_text, note_category="Eslatma", supplier=None):
+	"""Save a new supplier note for Payment Entry or Installment Application"""
 	try:
-		if not payment_reference:
-			return {"success": False, "message": "Payment Entry ko'rsatilmagan"}
+		if not reference_name:
+			return {"success": False, "message": "Hujjat ko'rsatilmagan"}
+
+		if not reference_type:
+			return {"success": False, "message": "Hujjat turi ko'rsatilmagan"}
 
 		if not note_text or not note_text.strip():
 			return {"success": False, "message": "Izoh matni bo'sh"}
 
-		if not frappe.db.exists("Payment Entry", payment_reference):
-			return {"success": False, "message": f"Payment Entry topilmadi: {payment_reference}"}
+		# Validate reference exists
+		allowed_types = ["Payment Entry", "Installment Application"]
+		if reference_type not in allowed_types:
+			return {"success": False, "message": f"Noto'g'ri hujjat turi: {reference_type}"}
 
-		# Get supplier from Payment Entry if not provided
+		if not frappe.db.exists(reference_type, reference_name):
+			return {"success": False, "message": f"{reference_type} topilmadi: {reference_name}"}
+
+		# Get supplier if not provided
 		if not supplier:
-			supplier = frappe.db.get_value("Payment Entry", payment_reference, "party")
+			if reference_type == "Payment Entry":
+				supplier = frappe.db.get_value("Payment Entry", reference_name, "party")
 
 		from frappe.utils import nowdate
 
 		doc = frappe.new_doc("Supplier Nots")
-		doc.payment_reference = payment_reference
+		doc.reference_type = reference_type
+		doc.reference_name = reference_name
 		doc.supplier = supplier
 		doc.note_text = note_text.strip()
 		doc.note_category = note_category or "Eslatma"
@@ -510,12 +535,15 @@ def save_supplier_note(payment_reference, note_text, note_category="Eslatma", su
 
 
 @frappe.whitelist()
-def get_supplier_notes(payment_reference):
-	"""Get all notes for a Payment Entry"""
+def get_supplier_notes(reference_type, reference_name):
+	"""Get all notes for a document (Payment Entry or Installment Application)"""
 	try:
 		notes = frappe.get_all(
 			"Supplier Nots",
-			filters={"payment_reference": payment_reference},
+			filters={
+				"reference_type": reference_type,
+				"reference_name": reference_name
+			},
 			fields=["name", "note_text", "note_category", "note_date", "created_by_user"],
 			order_by="creation desc"
 		)
@@ -525,3 +553,50 @@ def get_supplier_notes(payment_reference):
 	except Exception as e:
 		frappe.log_error(f"Get supplier notes error: {str(e)}")
 		return {"success": False, "message": str(e), "notes": []}
+
+
+@frappe.whitelist()
+def get_installment_applications_by_supplier(supplier):
+	"""Supplier bo'yicha Installment Applicationlarni olish"""
+	try:
+		# Child table orqali supplier bog'langan Installment Applicationlar
+		result = frappe.db.sql("""
+			SELECT DISTINCT ia.name, ia.transaction_date, ia.customer
+			FROM `tabInstallment Application` ia
+			INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
+			WHERE item.custom_supplier = %(supplier)s
+			AND ia.docstatus = 1
+			ORDER BY ia.transaction_date DESC
+		""", {"supplier": supplier}, as_dict=True)
+		
+		return result
+	except Exception as e:
+		frappe.log_error(f"Get IA by supplier error: {str(e)}")
+		return []
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def get_installment_applications_query(doctype, txt, searchfield, start, page_len, filters):
+	"""Link field query uchun Supplier bo'yicha Installment Applicationlarni olish"""
+	supplier = filters.get('supplier')
+	
+	if not supplier:
+		return []
+	
+	return frappe.db.sql("""
+		SELECT DISTINCT ia.name, ia.transaction_date, ia.customer
+		FROM `tabInstallment Application` ia
+		INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
+		WHERE item.custom_supplier = %(supplier)s
+		AND ia.docstatus = 1
+		AND (ia.name LIKE %(txt)s OR ia.customer LIKE %(txt)s)
+		ORDER BY ia.transaction_date DESC
+		LIMIT %(page_len)s OFFSET %(start)s
+	""", {
+		"supplier": supplier,
+		"txt": "%{}%".format(txt),
+		"start": start,
+		"page_len": page_len
+	})
+

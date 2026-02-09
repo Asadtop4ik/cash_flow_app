@@ -6,13 +6,14 @@
  "engine": "InnoDB",
  "field_order": [
   "supplier",
+  "reference_type",
+  "reference_name",
   "note_date",
   "note_category",
   "note_text",
   "is_important",
   "created_by_user",
-  "modified_by_user",
-  "payment_reference"
+  "modified_by_user"
  ],
  "fields": [
   {
@@ -22,29 +23,46 @@
    "options": "Supplier"
   },
   {
+   "fieldname": "reference_type",
+   "fieldtype": "Link",
+   "label": "Reference Type",
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference Name",
+   "options": "reference_type",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
    "fieldname": "note_date",
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "Sana",
-   "options": "Today",
+   "default": "Today",
    "reqd": 1
   },
   {
    "fieldname": "note_category",
    "fieldtype": "Select",
-   "label": "Kategory",
-   "options": "Eslatma\nOgohlantirish\nQo'ng'iroq Qilindi\nTo'lov qilish kerak\nBoshqa"
+   "label": "Kategoriya",
+   "options": "Eslatma\nOgohlantirish\nQo'ng'iroq Qilindi\nTo'lov qilish kerak\nBoshqa",
+   "in_list_view": 1
   },
   {
    "fieldname": "note_text",
    "fieldtype": "Small Text",
-   "label": "Izoh matni"
+   "label": "Izoh matni",
+   "in_list_view": 1
   },
   {
    "default": "0",
    "fieldname": "is_important",
    "fieldtype": "Check",
-   "label": "Muhum"
+   "label": "Muhim"
   },
   {
    "fieldname": "created_by_user",
@@ -59,18 +77,12 @@
    "label": "O'zgartirgan",
    "options": "User",
    "read_only": 1
-  },
-  {
-   "fieldname": "payment_reference",
-   "fieldtype": "Link",
-   "label": "Payment Reference",
-   "options": "Payment Entry"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-09 11:12:36.206153",
+ "modified": "2026-02-09 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Flow Management",
  "name": "Supplier Nots",
