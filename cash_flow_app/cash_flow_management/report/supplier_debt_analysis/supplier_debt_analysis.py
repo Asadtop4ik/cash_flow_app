@@ -67,17 +67,29 @@ def get_columns():
 			"width": 150
 		},
 		{
-			"label": "Izoh",
-			"fieldname": "notes",
-			"fieldtype": "Small Text",
-			"width": 200
-		},
-		{
 			"label": "Kassa",
 			"fieldname": "cash_account",
 			"fieldtype": "Link",
 			"options": "Account",
 			"width": 150
+		},
+		{
+			"label": "Izoh",
+			"fieldname": "note_text",
+			"fieldtype": "Data",
+			"width": 200
+		},
+		{
+			"label": "Izoh Kategoriyasi",
+			"fieldname": "note_category",
+			"fieldtype": "Data",
+			"width": 120
+		},
+		{
+			"label": "Izoh Sanasi",
+			"fieldname": "note_date",
+			"fieldtype": "Date",
+			"width": 100
 		}
 	]
 
@@ -115,7 +127,10 @@ def get_data(filters):
 			COALESCE(ia.notes, '') as notes,
 			NULL as cash_account,
 			ia.creation,
-			'USD' as currency
+			'USD' as currency,
+			NULL as note_text,
+			NULL as note_category,
+			NULL as note_date
 		FROM `tabInstallment Application` ia
 		INNER JOIN `tabInstallment Application Item` item ON item.parent = ia.name
 		WHERE ia.docstatus = 1
@@ -145,8 +160,20 @@ def get_data(filters):
 			COALESCE(pe.remarks, '') as notes,
 			COALESCE(pe.paid_from, '') as cash_account,
 			pe.creation,
-			'USD' as currency
+			'USD' as currency,
+			sn.note_text as note_text,
+			sn.note_category as note_category,
+			sn.note_date as note_date
 		FROM `tabPayment Entry` pe
+		LEFT JOIN (
+			SELECT payment_reference, note_text, note_category, note_date
+			FROM `tabSupplier Nots` sn1
+			WHERE sn1.creation = (
+				SELECT MAX(sn2.creation)
+				FROM `tabSupplier Nots` sn2
+				WHERE sn2.payment_reference = sn1.payment_reference
+			)
+		) sn ON sn.payment_reference = pe.name
 		WHERE pe.docstatus = 1
 			AND pe.party_type = 'Supplier'
 			AND pe.party = %(supplier)s
@@ -168,8 +195,20 @@ def get_data(filters):
 			COALESCE(pe.remarks, '') as notes,
 			COALESCE(pe.paid_to, '') as cash_account,
 			pe.creation,
-			'USD' as currency
+			'USD' as currency,
+			sn.note_text as note_text,
+			sn.note_category as note_category,
+			sn.note_date as note_date
 		FROM `tabPayment Entry` pe
+		LEFT JOIN (
+			SELECT payment_reference, note_text, note_category, note_date
+			FROM `tabSupplier Nots` sn1
+			WHERE sn1.creation = (
+				SELECT MAX(sn2.creation)
+				FROM `tabSupplier Nots` sn2
+				WHERE sn2.payment_reference = sn1.payment_reference
+			)
+		) sn ON sn.payment_reference = pe.name
 		WHERE pe.docstatus = 1
 			AND pe.party_type = 'Supplier'
 			AND pe.party = %(supplier)s
@@ -434,3 +473,62 @@ def get_summary(data, filters):
 	]
 
 	return summary
+
+
+@frappe.whitelist()
+def save_supplier_note(payment_reference, note_text, note_category="Eslatma", supplier=None):
+	"""Save a new supplier note for Payment Entry"""
+	try:
+		if not payment_reference:
+			return {"success": False, "message": "Payment Entry ko'rsatilmagan"}
+
+		if not note_text or not note_text.strip():
+			return {"success": False, "message": "Izoh matni bo'sh"}
+
+		if not frappe.db.exists("Payment Entry", payment_reference):
+			return {"success": False, "message": f"Payment Entry topilmadi: {payment_reference}"}
+
+		# Get supplier from Payment Entry if not provided
+		if not supplier:
+			supplier = frappe.db.get_value("Payment Entry", payment_reference, "party")
+
+		from frappe.utils import nowdate
+
+		doc = frappe.new_doc("Supplier Nots")
+		doc.payment_reference = payment_reference
+		doc.supplier = supplier
+		doc.note_text = note_text.strip()
+		doc.note_category = note_category or "Eslatma"
+		doc.note_date = nowdate()
+		doc.created_by_user = frappe.session.user
+
+		doc.save(ignore_permissions=True)
+		frappe.db.commit()
+
+		return {
+			"success": True,
+			"message": "Izoh saqlandi",
+			"note_id": doc.name
+		}
+
+	except Exception as e:
+		frappe.log_error(f"Supplier Note save error: {str(e)}", "Save Supplier Note Error")
+		return {"success": False, "message": f"Xatolik: {str(e)}"}
+
+
+@frappe.whitelist()
+def get_supplier_notes(payment_reference):
+	"""Get all notes for a Payment Entry"""
+	try:
+		notes = frappe.get_all(
+			"Supplier Nots",
+			filters={"payment_reference": payment_reference},
+			fields=["name", "note_text", "note_category", "note_date", "created_by_user"],
+			order_by="creation desc"
+		)
+
+		return {"success": True, "notes": notes}
+
+	except Exception as e:
+		frappe.log_error(f"Get supplier notes error: {str(e)}")
+		return {"success": False, "message": str(e), "notes": []}

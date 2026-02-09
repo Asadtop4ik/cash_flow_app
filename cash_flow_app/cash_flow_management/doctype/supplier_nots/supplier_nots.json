@@ -1,0 +1,97 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-09 10:50:21.644555",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "supplier",
+  "note_date",
+  "note_category",
+  "note_text",
+  "is_important",
+  "created_by_user",
+  "modified_by_user",
+  "payment_reference"
+ ],
+ "fields": [
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Supplier",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "note_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Sana",
+   "options": "Today",
+   "reqd": 1
+  },
+  {
+   "fieldname": "note_category",
+   "fieldtype": "Select",
+   "label": "Kategory",
+   "options": "Eslatma\nOgohlantirish\nQo'ng'iroq Qilindi\nTo'lov qilish kerak\nBoshqa"
+  },
+  {
+   "fieldname": "note_text",
+   "fieldtype": "Small Text",
+   "label": "Izoh matni"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_important",
+   "fieldtype": "Check",
+   "label": "Muhum"
+  },
+  {
+   "fieldname": "created_by_user",
+   "fieldtype": "Link",
+   "label": "Yaratgan",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "modified_by_user",
+   "fieldtype": "Link",
+   "label": "O'zgartirgan",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_reference",
+   "fieldtype": "Link",
+   "label": "Payment Reference",
+   "options": "Payment Entry"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-02-09 11:12:36.206153",
+ "modified_by": "Administrator",
+ "module": "Cash Flow Management",
+ "name": "Supplier Nots",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
