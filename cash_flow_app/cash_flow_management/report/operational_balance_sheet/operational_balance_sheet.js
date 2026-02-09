@@ -28,14 +28,47 @@ frappe.query_reports["Operational Balance Sheet"] = {
 	],
 
 	"formatter": function(value, row, column, data, default_formatter) {
+		// Bypass Frappe's formatter for Currency/Float columns - return manual string
+		if (column.fieldname !== "account" && data && (column.fieldtype === "Currency" || column.fieldtype === "Float")) {
+			const numValue = parseFloat(data[column.fieldname]);
+			if (numValue === null || numValue === undefined || isNaN(numValue)) {
+				return "";
+			}
+			
+			// Round to integer using standard mathematical rounding
+			const roundedValue = Math.round(numValue);
+			// Format using ru-RU locale (space as thousand separator, no decimals)
+			const formattedNumber = new Intl.NumberFormat('ru-RU').format(Math.abs(roundedValue));
+			
+			// Build result with currency symbol
+			let result = (roundedValue < 0) ? `- $ ${formattedNumber}` : `$ ${formattedNumber}`;
+			
+			// Apply styling based on row type
+			// Main sections (AKTIVLAR, JAMI KREDITORKA, BALANS)
+			if (data.indent === 0) {
+				result = `<span style="font-weight: bold; font-size: 14px;">${result}</span>`;
+			}
+			
+			// BALANS row highlighting
+			if (data.account && data.account === "BALANS") {
+				const color = Math.abs(roundedValue) < 1 ? "#27ae60" : "#e74c3c";
+				result = `<span style="font-weight: bold; color: ${color}; font-size: 14px;">${result}</span>`;
+			}
+			// Negative numbers in red
+			else if (roundedValue < 0) {
+				result = `<span style="color: #e74c3c;">${result}</span>`;
+			}
+			
+			return result;
+		}
+
+		// For non-numeric columns (like "account"), use default formatter
 		value = default_formatter(value, row, column, data);
 
 		// Main sections (AKTIVLAR, JAMI KREDITORKA, BALANS)
 		if (data && data.indent === 0) {
 			if (column.fieldname === "account") {
 				value = `<span style="font-weight: bold; font-size: 15px; color: #2c3e50; text-transform: uppercase;">${value}</span>`;
-			} else {
-				value = `<span style="font-weight: bold; font-size: 14px;">${value}</span>`;
 			}
 		}
 
@@ -52,30 +85,6 @@ frappe.query_reports["Operational Balance Sheet"] = {
 		// Level 3 bold (Customer Groups, Supplier Groups)
 		if (data && data.indent === 3 && data.is_group) {
 			value = `<span style="font-weight: bold; color: #555;">${value}</span>`;
-		}
-
-		// BALANS row highlighting
-		if (data && data.account && data.account === "BALANS") {
-			if (column.fieldname !== "account") {
-				const numValue = parseFloat(data[column.fieldname]) || 0;
-				const color = Math.abs(numValue) < 0.01 ? "#27ae60" : "#e74c3c";
-				value = `<span style="font-weight: bold; color: ${color}; font-size: 14px;">${value}</span>`;
-			}
-		}
-
-		// Format negative numbers with minus sign
-		if (column.fieldname !== "account" && data) {
-			const numValue = parseFloat(data[column.fieldname]);
-			if (!isNaN(numValue) && numValue < 0) {
-				value = value.replace(/[\d,.-]+/, function(match) {
-					const absValue = Math.abs(parseFloat(match.replace(/,/g, '')));
-					return `-${absValue.toLocaleString('en-US', {
-						minimumFractionDigits: 2,
-						maximumFractionDigits: 2
-					})}`;
-				});
-				value = `<span style="color: #e74c3c;">${value}</span>`;
-			}
 		}
 
 		return value;
