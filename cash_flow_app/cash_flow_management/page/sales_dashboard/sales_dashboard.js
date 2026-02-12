@@ -23,7 +23,7 @@ class ModernSalesDashboard {
 
         this.createHTML();
         this.createThemeToggle();
-        this.applyTheme(this.currentTheme, false); // Apply without animation on init
+        this.applyTheme(this.currentTheme, false);
 
         this.loadChartJS().then(() => {
             this.setup();
@@ -35,22 +35,16 @@ class ModernSalesDashboard {
         return [currentYear - 2, currentYear - 1, currentYear];
     }
 
-    /**
-     * Load theme preference from localStorage
-     */
     loadThemePreference() {
         try {
             const saved = localStorage.getItem('sales_dashboard_theme');
-            return saved || 'dark'; // Default to dark theme
+            return saved || 'dark';
         } catch (e) {
             console.warn('localStorage not available:', e);
             return 'dark';
         }
     }
 
-    /**
-     * Save theme preference to localStorage
-     */
     saveThemePreference(theme) {
         try {
             localStorage.setItem('sales_dashboard_theme', theme);
@@ -59,14 +53,9 @@ class ModernSalesDashboard {
         }
     }
 
-    /**
-     * Create elegant emoji-based theme toggle with glassmorphism
-     */
     createThemeToggle() {
-        // Clear existing actions
         this.page.clear_actions();
 
-        // Create custom toggle button container
         const toggleContainer = $(`
             <div class="theme-toggle-container">
                 <button class="theme-toggle-btn" id="themeToggleBtn" title="${this.currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}">
@@ -75,134 +64,125 @@ class ModernSalesDashboard {
             </div>
         `);
 
-        // Inject into page actions area
         this.page.page_actions.prepend(toggleContainer);
-
-        // Store reference
         this.themeToggleBtn = toggleContainer.find('#themeToggleBtn');
 
-        // Bind click event
         this.themeToggleBtn.on('click', () => {
             this.toggleTheme();
         });
     }
 
-    /**
-     * Update theme toggle button appearance
-     */
     updateThemeToggle() {
         if (!this.themeToggleBtn) return;
 
         const emoji = this.themeToggleBtn.find('.theme-toggle-emoji');
-
-        // Update emoji
         emoji.text(this.currentTheme === 'dark' ? '☀️' : '🌙');
-
-        // Update title
         this.themeToggleBtn.attr('title', this.currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode');
     }
 
-    /**
-     * Toggle between light and dark themes with full system sync
-     */
     toggleTheme() {
         const newTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
         this.currentTheme = newTheme;
 
-        // Save preference to localStorage
         this.saveThemePreference(newTheme);
 
-        // Sync with Frappe's global theme system
         if (typeof frappe !== 'undefined' && frappe.ui && frappe.ui.set_theme) {
             frappe.ui.set_theme(newTheme);
         }
 
-        // Apply theme with smooth animation
         this.applyTheme(newTheme, true);
-
-        // Update toggle button
         this.updateThemeToggle();
 
-        // Re-render all charts with new theme colors
         if (this.data && Object.keys(this.data).length > 0) {
-            // Slight delay for smooth visual transition
             setTimeout(() => {
                 this.reRenderAllCharts();
             }, 150);
         }
 
-        // Show elegant notification
         frappe.show_alert({
             message: `${newTheme === 'dark' ? '🌙 Dark' : '☀️ Light'} Mode Activated`,
             indicator: newTheme === 'dark' ? 'purple' : 'blue'
         }, 3);
     }
 
-    /**
-     * Apply theme to the entire dashboard with CSS variable updates
-     */
     applyTheme(theme, animate = true) {
         const root = document.documentElement;
 
-        // Add transition class if animating
         if (animate) {
             this.wrapper.addClass('theme-transitioning');
         }
 
         if (theme === 'dark') {
-            // Dark Mode - Premium Neon Cockpit
-            root.style.setProperty('--bg-color', '#000000');
-            root.style.setProperty('--card-bg', '#0d0d0d');
-            root.style.setProperty('--card-bg-elevated', '#121212');
-            root.style.setProperty('--text-color', '#ffffff');
+            // OBSIDIAN DARK THEME - Extracted from Reference
+            root.style.setProperty('--bg-color', '#0a0a0a');
+            root.style.setProperty('--bg-gradient', 'radial-gradient(ellipse at top, #0d0d0d, #0a0a0a)');
+            root.style.setProperty('--card-bg', '#111111');
+            root.style.setProperty('--card-bg-elevated', '#141414');
+            root.style.setProperty('--text-color', '#f8fafc');
             root.style.setProperty('--text-muted', '#94a3b8');
-            root.style.setProperty('--border-color', '#1f1f1f');
-            root.style.setProperty('--subtle-fg', '#121212');
-            root.style.setProperty('--grid-color', 'rgba(255, 255, 255, 0.05)');
-            root.style.setProperty('--tooltip-bg', 'rgba(0, 0, 0, 0.95)');
-            root.style.setProperty('--tooltip-border', '#8b5cf6');
-            root.style.setProperty('--shadow-sm', '0 4px 20px rgba(0, 0, 0, 0.4)');
-            root.style.setProperty('--shadow-lg', '0 8px 32px rgba(0, 0, 0, 0.6)');
-            root.style.setProperty('--hover-overlay', 'rgba(139, 92, 246, 0.15)');
+            root.style.setProperty('--border-color', 'rgba(139, 92, 246, 0.15)');
+            root.style.setProperty('--border-subtle', 'rgba(255, 255, 255, 0.05)');
+            root.style.setProperty('--grid-color', 'rgba(255, 255, 255, 0.03)');
+            root.style.setProperty('--tooltip-bg', 'rgba(17, 17, 17, 0.98)');
+            root.style.setProperty('--tooltip-border', '#9333ea');
+            root.style.setProperty('--shadow-sm', '0 2px 8px rgba(0, 0, 0, 0.4), 0 0 1px rgba(147, 51, 234, 0.2)');
+            root.style.setProperty('--shadow-md', '0 4px 16px rgba(0, 0, 0, 0.5), 0 0 2px rgba(147, 51, 234, 0.3)');
+            root.style.setProperty('--shadow-lg', '0 8px 32px rgba(0, 0, 0, 0.6), 0 0 4px rgba(147, 51, 234, 0.4)');
+            root.style.setProperty('--hover-overlay', 'rgba(147, 51, 234, 0.08)');
 
-            // Toggle button specific
-            root.style.setProperty('--toggle-bg', 'rgba(13, 13, 13, 0.8)');
-            root.style.setProperty('--toggle-border', 'rgba(139, 92, 246, 0.3)');
-            root.style.setProperty('--toggle-shadow', '0 4px 16px rgba(139, 92, 246, 0.2)');
-            root.style.setProperty('--toggle-hover-bg', 'rgba(139, 92, 246, 0.15)');
-            root.style.setProperty('--toggle-hover-shadow', '0 6px 24px rgba(139, 92, 246, 0.4)');
+            // Toggle button
+            root.style.setProperty('--toggle-bg', 'rgba(17, 17, 17, 0.9)');
+            root.style.setProperty('--toggle-border', 'rgba(147, 51, 234, 0.3)');
+            root.style.setProperty('--toggle-shadow', '0 4px 16px rgba(147, 51, 234, 0.25)');
+            root.style.setProperty('--toggle-hover-bg', 'rgba(147, 51, 234, 0.15)');
+            root.style.setProperty('--toggle-hover-shadow', '0 6px 24px rgba(147, 51, 234, 0.4)');
+
+            // Chart-specific colors
+            root.style.setProperty('--chart-purple', '#9333ea');
+            root.style.setProperty('--chart-pink', '#ec4899');
+            root.style.setProperty('--chart-cyan', '#06b6d4');
+            root.style.setProperty('--chart-green', '#10b981');
+            root.style.setProperty('--chart-orange', '#f97316');
         } else {
-            // Light Mode - Clean Office Productivity
-            root.style.setProperty('--bg-color', '#ffffff');
-            root.style.setProperty('--card-bg', '#f8f9fa');
+            // CRYSTAL LIGHT THEME - Extracted from Reference
+            root.style.setProperty('--bg-color', '#fafafa');
+            root.style.setProperty('--bg-gradient', 'linear-gradient(to bottom, #ffffff, #fafafa)');
+            root.style.setProperty('--card-bg', '#ffffff');
             root.style.setProperty('--card-bg-elevated', '#ffffff');
-            root.style.setProperty('--text-color', '#1a1a1a');
+            root.style.setProperty('--text-color', '#0f172a');
             root.style.setProperty('--text-muted', '#64748b');
-            root.style.setProperty('--border-color', '#e5e7eb');
-            root.style.setProperty('--subtle-fg', '#f3f4f6');
-            root.style.setProperty('--grid-color', 'rgba(0, 0, 0, 0.06)');
+            root.style.setProperty('--border-color', 'rgba(99, 102, 241, 0.12)');
+            root.style.setProperty('--border-subtle', 'rgba(0, 0, 0, 0.06)');
+            root.style.setProperty('--grid-color', 'rgba(0, 0, 0, 0.04)');
             root.style.setProperty('--tooltip-bg', 'rgba(255, 255, 255, 0.98)');
             root.style.setProperty('--tooltip-border', '#6366f1');
-            root.style.setProperty('--shadow-sm', '0 2px 8px rgba(0, 0, 0, 0.08)');
-            root.style.setProperty('--shadow-lg', '0 4px 16px rgba(0, 0, 0, 0.12)');
-            root.style.setProperty('--hover-overlay', 'rgba(99, 102, 241, 0.08)');
+            root.style.setProperty('--shadow-sm', '0 1px 3px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.04)');
+            root.style.setProperty('--shadow-md', '0 2px 8px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)');
+            root.style.setProperty('--shadow-lg', '0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08)');
+            root.style.setProperty('--hover-overlay', 'rgba(99, 102, 241, 0.06)');
 
-            // Toggle button specific
-            root.style.setProperty('--toggle-bg', 'rgba(248, 249, 250, 0.9)');
+            // Toggle button
+            root.style.setProperty('--toggle-bg', 'rgba(255, 255, 255, 0.95)');
             root.style.setProperty('--toggle-border', 'rgba(99, 102, 241, 0.2)');
             root.style.setProperty('--toggle-shadow', '0 2px 12px rgba(99, 102, 241, 0.15)');
-            root.style.setProperty('--toggle-hover-bg', 'rgba(99, 102, 241, 0.1)');
+            root.style.setProperty('--toggle-hover-bg', 'rgba(99, 102, 241, 0.08)');
             root.style.setProperty('--toggle-hover-shadow', '0 4px 20px rgba(99, 102, 241, 0.25)');
+
+            // Chart-specific colors
+            root.style.setProperty('--chart-purple', '#6366f1');
+            root.style.setProperty('--chart-pink', '#e11d48');
+            root.style.setProperty('--chart-cyan', '#0ea5e9');
+            root.style.setProperty('--chart-green', '#059669');
+            root.style.setProperty('--chart-orange', '#ea580c');
         }
 
-        // Brand accent colors remain consistent across themes
-        root.style.setProperty('--accent-cyan', '#00d4ff');
-        root.style.setProperty('--accent-green', '#00ff88');
-        root.style.setProperty('--accent-purple', '#8b5cf6');
-        root.style.setProperty('--accent-orange', '#ff6b00');
-        root.style.setProperty('--accent-pink', '#d946ef');
+        // Brand accent colors - consistent
+        root.style.setProperty('--accent-cyan', theme === 'dark' ? '#06b6d4' : '#0ea5e9');
+        root.style.setProperty('--accent-green', theme === 'dark' ? '#10b981' : '#059669');
+        root.style.setProperty('--accent-purple', theme === 'dark' ? '#9333ea' : '#6366f1');
+        root.style.setProperty('--accent-orange', theme === 'dark' ? '#f97316' : '#ea580c');
+        root.style.setProperty('--accent-pink', theme === 'dark' ? '#ec4899' : '#e11d48');
 
-        // Remove transition class after animation completes
         if (animate) {
             setTimeout(() => {
                 this.wrapper.removeClass('theme-transitioning');
@@ -210,9 +190,6 @@ class ModernSalesDashboard {
         }
     }
 
-    /**
-     * Re-render all charts with new theme colors
-     */
     reRenderAllCharts() {
         if (this.data && Object.keys(this.data).length > 0) {
             this.renderChart1();
@@ -223,70 +200,85 @@ class ModernSalesDashboard {
         }
     }
 
-    /**
-     * Get dynamic colors based on current theme
-     */
     getThemeColors() {
         const root = document.documentElement;
         const computedStyle = getComputedStyle(root);
 
         return {
-            // Core theme colors from CSS variables
             bgColor: computedStyle.getPropertyValue('--bg-color').trim(),
             cardBg: computedStyle.getPropertyValue('--card-bg').trim(),
             textColor: computedStyle.getPropertyValue('--text-color').trim(),
             textMuted: computedStyle.getPropertyValue('--text-muted').trim(),
             borderColor: computedStyle.getPropertyValue('--border-color').trim(),
-            subtleFg: computedStyle.getPropertyValue('--subtle-fg').trim(),
             gridColor: computedStyle.getPropertyValue('--grid-color').trim(),
             tooltipBg: computedStyle.getPropertyValue('--tooltip-bg').trim(),
             tooltipBorder: computedStyle.getPropertyValue('--tooltip-border').trim(),
 
-            // Brand accent colors
             accentPurple: computedStyle.getPropertyValue('--accent-purple').trim(),
             accentPink: computedStyle.getPropertyValue('--accent-pink').trim(),
             accentCyan: computedStyle.getPropertyValue('--accent-cyan').trim(),
             accentGreen: computedStyle.getPropertyValue('--accent-green').trim(),
-            accentOrange: computedStyle.getPropertyValue('--accent-orange').trim()
+            accentOrange: computedStyle.getPropertyValue('--accent-orange').trim(),
+
+            chartPurple: computedStyle.getPropertyValue('--chart-purple').trim(),
+            chartPink: computedStyle.getPropertyValue('--chart-pink').trim(),
+            chartCyan: computedStyle.getPropertyValue('--chart-cyan').trim(),
+            chartGreen: computedStyle.getPropertyValue('--chart-green').trim(),
+            chartOrange: computedStyle.getPropertyValue('--chart-orange').trim()
         };
     }
 
     createHTML() {
         const html = `
             <style>
-                /* ========== CSS CUSTOM PROPERTIES (Theme Variables) ========== */
+                /* ========== EXECUTIVE TYPOGRAPHY ========== */
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
                 :root {
-                    /* Theme colors - set dynamically by JavaScript */
-                    --bg-color: #000000;
-                    --card-bg: #0d0d0d;
-                    --card-bg-elevated: #121212;
-                    --text-color: #ffffff;
+                    /* Theme variables - dynamically set */
+                    --bg-color: #0a0a0a;
+                    --bg-gradient: radial-gradient(ellipse at top, #0d0d0d, #0a0a0a);
+                    --card-bg: #111111;
+                    --card-bg-elevated: #141414;
+                    --text-color: #f8fafc;
                     --text-muted: #94a3b8;
-                    --border-color: #1f1f1f;
-                    --subtle-fg: #121212;
-                    --grid-color: rgba(255, 255, 255, 0.05);
-                    --tooltip-bg: rgba(0, 0, 0, 0.95);
-                    --tooltip-border: #8b5cf6;
-                    --shadow-sm: 0 4px 20px rgba(0, 0, 0, 0.4);
-                    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
-                    --hover-overlay: rgba(139, 92, 246, 0.15);
+                    --border-color: rgba(139, 92, 246, 0.15);
+                    --border-subtle: rgba(255, 255, 255, 0.05);
+                    --grid-color: rgba(255, 255, 255, 0.03);
+                    --tooltip-bg: rgba(17, 17, 17, 0.98);
+                    --tooltip-border: #9333ea;
+                    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 1px rgba(147, 51, 234, 0.2);
+                    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 2px rgba(147, 51, 234, 0.3);
+                    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 4px rgba(147, 51, 234, 0.4);
+                    --hover-overlay: rgba(147, 51, 234, 0.08);
 
-                    /* Toggle button variables */
-                    --toggle-bg: rgba(13, 13, 13, 0.8);
-                    --toggle-border: rgba(139, 92, 246, 0.3);
-                    --toggle-shadow: 0 4px 16px rgba(139, 92, 246, 0.2);
-                    --toggle-hover-bg: rgba(139, 92, 246, 0.15);
-                    --toggle-hover-shadow: 0 6px 24px rgba(139, 92, 246, 0.4);
+                    --toggle-bg: rgba(17, 17, 17, 0.9);
+                    --toggle-border: rgba(147, 51, 234, 0.3);
+                    --toggle-shadow: 0 4px 16px rgba(147, 51, 234, 0.25);
+                    --toggle-hover-bg: rgba(147, 51, 234, 0.15);
+                    --toggle-hover-shadow: 0 6px 24px rgba(147, 51, 234, 0.4);
 
-                    /* Brand accent colors - consistent across themes */
-                    --accent-cyan: #00d4ff;
-                    --accent-green: #00ff88;
-                    --accent-purple: #8b5cf6;
-                    --accent-orange: #ff6b00;
-                    --accent-pink: #d946ef;
+                    --chart-purple: #9333ea;
+                    --chart-pink: #ec4899;
+                    --chart-cyan: #06b6d4;
+                    --chart-green: #10b981;
+                    --chart-orange: #f97316;
+
+                    --accent-cyan: #06b6d4;
+                    --accent-green: #10b981;
+                    --accent-purple: #9333ea;
+                    --accent-orange: #f97316;
+                    --accent-pink: #ec4899;
                 }
 
-                /* ========== GLASSMORPHIC THEME TOGGLE BUTTON ========== */
+                * {
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    -webkit-font-smoothing: antialiased;
+                    -moz-osx-font-smoothing: grayscale;
+                    text-rendering: optimizeLegibility;
+                }
+
+                /* ========== GLASSMORPHIC THEME TOGGLE ========== */
                 .theme-toggle-container {
                     display: inline-flex;
                     align-items: center;
@@ -300,9 +292,9 @@ class ModernSalesDashboard {
                     height: 48px;
                     border-radius: 12px;
                     background: var(--toggle-bg);
-                    backdrop-filter: blur(10px);
-                    -webkit-backdrop-filter: blur(10px);
-                    border: 1.5px solid var(--toggle-border);
+                    backdrop-filter: blur(12px);
+                    -webkit-backdrop-filter: blur(12px);
+                    border: 0.5px solid var(--toggle-border);
                     box-shadow: var(--toggle-shadow);
                     cursor: pointer;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -318,7 +310,7 @@ class ModernSalesDashboard {
                     position: absolute;
                     inset: 0;
                     border-radius: 12px;
-                    padding: 1.5px;
+                    padding: 0.5px;
                     background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
                     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
                     -webkit-mask-composite: xor;
@@ -346,15 +338,14 @@ class ModernSalesDashboard {
                     font-size: 24px;
                     line-height: 1;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+                    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
                 }
 
                 .theme-toggle-btn:hover .theme-toggle-emoji {
                     transform: scale(1.15) rotate(15deg);
-                    filter: drop-shadow(0 4px 8px rgba(139, 92, 246, 0.4));
+                    filter: drop-shadow(0 4px 8px rgba(147, 51, 234, 0.5));
                 }
 
-                /* Animation for emoji change */
                 @keyframes emojiPop {
                     0% {
                         transform: scale(0.8) rotate(-10deg);
@@ -373,7 +364,7 @@ class ModernSalesDashboard {
                     animation: emojiPop 0.4s cubic-bezier(0.4, 0, 0.2, 1);
                 }
 
-                /* ========== SMOOTH THEME TRANSITIONS ========== */
+                /* ========== THEME TRANSITIONS ========== */
                 .theme-transitioning,
                 .theme-transitioning * {
                     transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
@@ -397,16 +388,16 @@ class ModernSalesDashboard {
                     max-width: none !important;
                 }
 
-                /* ========== FLUID LAYOUT ENGINE ========== */
+                /* ========== ENTERPRISE LAYOUT ========== */
                 .dashboard-fullscreen {
                     background: var(--bg-color);
-                    padding: 20px;
+                    background-image: var(--bg-gradient);
+                    padding: 24px;
                     min-height: 100vh;
                     width: 100vw !important;
                     max-width: 100vw !important;
                     margin: 0 !important;
                     box-sizing: border-box;
-                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
                     position: relative;
                     left: 50%;
                     right: 50%;
@@ -415,7 +406,7 @@ class ModernSalesDashboard {
                     padding-bottom: 50px;
                 }
 
-                /* Loading State */
+                /* Loading */
                 .dashboard-loading {
                     position: fixed;
                     inset: 0;
@@ -424,6 +415,7 @@ class ModernSalesDashboard {
                     align-items: center;
                     justify-content: center;
                     background: var(--bg-color);
+                    background-image: var(--bg-gradient);
                     z-index: 9999;
                     width: 100vw;
                     height: 100vh;
@@ -434,7 +426,7 @@ class ModernSalesDashboard {
                 .loading-spinner {
                     width: 60px;
                     height: 60px;
-                    border: 4px solid rgba(139, 92, 246, 0.2);
+                    border: 3px solid rgba(147, 51, 234, 0.2);
                     border-top-color: var(--accent-purple);
                     border-radius: 50%;
                     animation: spin 1s linear infinite;
@@ -446,26 +438,27 @@ class ModernSalesDashboard {
 
                 .loading-text {
                     margin-top: 20px;
-                    font-size: 18px;
-                    color: var(--text-color);
+                    font-size: 16px;
                     font-weight: 600;
+                    color: var(--text-color);
+                    letter-spacing: 0.5px;
                 }
 
-                /* ========== KPI CARDS (Theme-Aware) ========== */
+                /* ========== PREMIUM KPI CARDS ========== */
                 .kpi-row {
                     display: grid;
                     grid-template-columns: repeat(7, 1fr);
-                    gap: 15px;
-                    margin-bottom: 15px;
+                    gap: 16px;
+                    margin-bottom: 20px;
                 }
 
                 .kpi-card {
                     background: var(--card-bg);
                     border-radius: 16px;
-                    padding: 25px 15px;
+                    padding: 24px 16px;
                     text-align: center;
                     box-shadow: var(--shadow-sm);
-                    border: 1px solid var(--border-color);
+                    border: 0.5px solid var(--border-color);
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     position: relative;
                     overflow: hidden;
@@ -481,68 +474,97 @@ class ModernSalesDashboard {
                     top: 0;
                     left: 0;
                     right: 0;
-                    height: 3px;
-                    background: var(--card-color);
+                    height: 2px;
+                    background: linear-gradient(90deg, var(--card-color), transparent);
+                }
+
+                .kpi-card::after {
+                    content: '';
+                    position: absolute;
+                    inset: 0;
+                    background: radial-gradient(circle at top, var(--card-color-fade), transparent 70%);
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
                 }
 
                 .kpi-card:hover {
-                    transform: translateY(-5px);
+                    transform: translateY(-4px);
                     box-shadow: var(--shadow-lg);
                     border-color: var(--card-color);
                     background: var(--card-bg-elevated);
                 }
 
-                .kpi-card.cyan { --card-color: var(--accent-cyan); }
-                .kpi-card.green { --card-color: var(--accent-green); }
-                .kpi-card.purple { --card-color: var(--accent-purple); }
-                .kpi-card.orange { --card-color: var(--accent-orange); }
-                .kpi-card.pink { --card-color: var(--accent-pink); }
+                .kpi-card:hover::after {
+                    opacity: 0.08;
+                }
+
+                .kpi-card.cyan {
+                    --card-color: var(--accent-cyan);
+                    --card-color-fade: rgba(6, 182, 212, 0.2);
+                }
+                .kpi-card.green {
+                    --card-color: var(--accent-green);
+                    --card-color-fade: rgba(16, 185, 129, 0.2);
+                }
+                .kpi-card.purple {
+                    --card-color: var(--accent-purple);
+                    --card-color-fade: rgba(147, 51, 234, 0.2);
+                }
+                .kpi-card.orange {
+                    --card-color: var(--accent-orange);
+                    --card-color-fade: rgba(249, 115, 22, 0.2);
+                }
+                .kpi-card.pink {
+                    --card-color: var(--accent-pink);
+                    --card-color-fade: rgba(236, 72, 153, 0.2);
+                }
 
                 .kpi-value {
-                    font-size: 26px;
-                    font-weight: 900;
+                    font-size: 28px;
+                    font-weight: 800;
                     color: var(--card-color);
-                    margin-bottom: 10px;
+                    margin-bottom: 8px;
                     line-height: 1.2;
+                    letter-spacing: -0.5px;
                 }
 
                 .kpi-label {
-                    font-size: 11px;
+                    font-size: 10px;
                     color: var(--text-muted);
                     text-transform: uppercase;
-                    letter-spacing: 1px;
+                    letter-spacing: 1.2px;
                     font-weight: 600;
                     line-height: 1.4;
                 }
 
-                /* ========== YEAR FILTER (Theme-Aware) ========== */
+                /* ========== YEAR FILTER ========== */
                 .year-filter {
                     position: relative;
                     background: var(--card-bg);
-                    border-radius: 12px;
-                    padding: 20px 25px;
+                    border-radius: 16px;
+                    padding: 20px 28px;
                     margin-bottom: 20px;
                     box-shadow: var(--shadow-sm);
                     display: flex;
-                    gap: 15px;
+                    gap: 16px;
                     align-items: center;
                     justify-content: center;
-                    border: 1px solid var(--border-color);
+                    border: 0.5px solid var(--border-color);
                     flex-wrap: wrap;
                 }
 
                 .year-filter-label {
-                    font-size: 14px;
+                    font-size: 13px;
                     font-weight: 700;
                     color: var(--text-color);
                     text-transform: uppercase;
                     letter-spacing: 1.5px;
-                    margin-right: 10px;
+                    margin-right: 12px;
                 }
 
                 .year-selectors {
                     display: flex;
-                    gap: 15px;
+                    gap: 16px;
                     align-items: center;
                     flex-wrap: wrap;
                 }
@@ -550,21 +572,21 @@ class ModernSalesDashboard {
                 .year-select-group {
                     display: flex;
                     flex-direction: column;
-                    gap: 5px;
+                    gap: 6px;
                 }
 
                 .year-select-label {
-                    font-size: 11px;
+                    font-size: 10px;
                     color: var(--text-muted);
                     text-transform: uppercase;
-                    letter-spacing: 0.5px;
+                    letter-spacing: 0.8px;
                     font-weight: 600;
                 }
 
                 .year-select {
-                    padding: 10px 35px 10px 15px;
+                    padding: 10px 36px 10px 16px;
                     background: var(--bg-color);
-                    border: 2px solid var(--border-color);
+                    border: 1px solid var(--border-subtle);
                     color: var(--text-color);
                     border-radius: 10px;
                     font-size: 14px;
@@ -572,101 +594,84 @@ class ModernSalesDashboard {
                     cursor: pointer;
                     transition: all 0.3s ease;
                     outline: none;
-                    min-width: 100px;
+                    min-width: 110px;
                     appearance: none;
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b5cf6' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239333ea' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
                     background-repeat: no-repeat;
-                    background-position: right 10px center;
+                    background-position: right 12px center;
                 }
 
                 .year-select:hover {
                     border-color: var(--accent-purple);
+                    background: var(--card-bg);
                 }
 
                 .year-select:focus {
                     border-color: var(--accent-purple);
-                    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+                    box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.15);
                 }
 
                 .year-select option {
                     background: var(--card-bg);
                     color: var(--text-color);
-                    padding: 10px;
+                    padding: 12px;
                 }
 
                 .apply-years-btn {
-                    padding: 12px 25px;
+                    padding: 12px 28px;
                     background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
                     border: none;
                     color: white;
                     border-radius: 10px;
                     font-weight: 700;
-                    font-size: 14px;
+                    font-size: 13px;
                     cursor: pointer;
                     transition: all 0.3s ease;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
-                    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+                    letter-spacing: 1.2px;
+                    box-shadow: 0 4px 16px rgba(147, 51, 234, 0.3);
                 }
 
                 .apply-years-btn:hover {
                     transform: translateY(-2px);
-                    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.6);
+                    box-shadow: 0 6px 20px rgba(147, 51, 234, 0.5);
                 }
 
                 .apply-years-btn:active {
                     transform: translateY(0);
                 }
 
-                /* ========== CHARTS GRID (Responsive) ========== */
+                /* ========== ENTERPRISE CHARTS GRID ========== */
                 .charts-grid {
                     display: grid;
                     grid-template-columns: repeat(12, 1fr);
                     grid-template-rows: repeat(6, 140px);
-                    gap: 15px;
+                    gap: 16px;
                 }
 
-                /* Chart positions matching Figma */
-                .chart-1 {
-                    grid-column: 1 / 7;
-                    grid-row: 1 / 3;
-                }
-
-                .chart-2 {
-                    grid-column: 1 / 7;
-                    grid-row: 3 / 5;
-                }
-
-                .chart-3 {
-                    grid-column: 1 / 4;
-                    grid-row: 5 / 7;
-                }
-
-                .chart-4 {
-                    grid-column: 4 / 7;
-                    grid-row: 5 / 7;
-                }
-
-                .chart-5 {
-                    grid-column: 7 / 10;
-                    grid-row: 1 / 4;
-                }
-
-                .chart-6 {
-                    grid-column: 10 / 13;
-                    grid-row: 1 / 7;
-                }
+                .chart-1 { grid-column: 1 / 7; grid-row: 1 / 3; }
+                .chart-2 { grid-column: 1 / 7; grid-row: 3 / 5; }
+                .chart-3 { grid-column: 1 / 4; grid-row: 5 / 7; }
+                .chart-4 { grid-column: 4 / 7; grid-row: 5 / 7; }
+                .chart-5 { grid-column: 7 / 10; grid-row: 1 / 4; }
+                .chart-6 { grid-column: 10 / 13; grid-row: 1 / 7; }
 
                 .chart-container {
                     background: var(--card-bg);
                     border-radius: 16px;
-                    padding: 20px;
+                    padding: 22px;
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
-                    border: 1px solid var(--border-color);
+                    border: 0.5px solid var(--border-color);
                     box-shadow: var(--shadow-sm);
                     position: relative;
+                    transition: all 0.3s ease;
+                }
+
+                .chart-container:hover {
+                    box-shadow: var(--shadow-md);
+                    border-color: var(--border-subtle);
                 }
 
                 .chart-container::before {
@@ -675,17 +680,18 @@ class ModernSalesDashboard {
                     top: 0;
                     left: 0;
                     right: 0;
-                    height: 2px;
-                    background: linear-gradient(90deg, var(--accent-purple), var(--accent-pink));
-                    opacity: 0.6;
+                    height: 1px;
+                    background: linear-gradient(90deg, var(--accent-purple), var(--accent-pink), transparent);
+                    opacity: 0.4;
                 }
 
                 .chart-title {
-                    font-size: 14px;
+                    font-size: 13px;
                     font-weight: 700;
                     color: var(--text-color);
-                    margin-bottom: 15px;
+                    margin-bottom: 16px;
                     text-align: center;
+                    letter-spacing: 0.3px;
                 }
 
                 .chart-body {
@@ -700,10 +706,6 @@ class ModernSalesDashboard {
                 }
 
                 /* ROI Center Text */
-                .chart-4 .chart-body {
-                    position: relative;
-                }
-
                 .roi-center-text {
                     position: absolute;
                     top: 50%;
@@ -715,13 +717,15 @@ class ModernSalesDashboard {
                 }
 
                 .roi-percentage {
-                    font-size: 32px;
+                    font-size: 36px;
                     font-weight: 900;
                     color: var(--accent-purple);
                     line-height: 1;
+                    letter-spacing: -1px;
+                    text-shadow: 0 2px 8px rgba(147, 51, 234, 0.3);
                 }
 
-                /* ========== TABLE STYLES (Theme-Aware) ========== */
+                /* ========== PREMIUM TABLE ========== */
                 .debt-table-wrapper {
                     overflow-y: auto;
                     max-height: 100%;
@@ -740,21 +744,26 @@ class ModernSalesDashboard {
                 }
 
                 .debt-table th {
-                    padding: 12px 10px;
+                    padding: 14px 12px;
                     text-align: left;
-                    font-size: 11px;
-                    color: var(--text-color);
+                    font-size: 10px;
+                    color: var(--text-muted);
                     font-weight: 700;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
-                    border-bottom: 2px solid var(--border-color);
+                    letter-spacing: 1.2px;
+                    border-bottom: 1px solid var(--border-subtle);
                 }
 
                 .debt-table td {
-                    padding: 10px;
-                    font-size: 12px;
+                    padding: 12px;
+                    font-size: 13px;
                     color: var(--text-color);
-                    border-bottom: 1px solid var(--border-color);
+                    border-bottom: 0.5px solid var(--border-subtle);
+                    font-weight: 500;
+                }
+
+                .debt-table tbody tr {
+                    transition: background 0.2s ease;
                 }
 
                 .debt-table tbody tr:hover {
@@ -763,11 +772,12 @@ class ModernSalesDashboard {
 
                 .classification-badge {
                     display: inline-block;
-                    padding: 4px 12px;
-                    border-radius: 8px;
-                    font-size: 11px;
+                    padding: 4px 10px;
+                    border-radius: 6px;
+                    font-size: 10px;
                     font-weight: 700;
                     text-transform: uppercase;
+                    letter-spacing: 0.5px;
                 }
 
                 .classification-badge.class-a {
@@ -786,11 +796,11 @@ class ModernSalesDashboard {
                 }
 
                 .classification-badge.class-n-a {
-                    background: var(--subtle-fg);
+                    background: var(--border-subtle);
                     color: var(--text-muted);
                 }
 
-                /* ========== RESPONSIVE BREAKPOINTS ========== */
+                /* ========== RESPONSIVE ========== */
                 @media (max-width: 1600px) {
                     .kpi-row {
                         grid-template-columns: repeat(4, 1fr);
@@ -804,33 +814,28 @@ class ModernSalesDashboard {
                     .chart-1, .chart-2, .chart-3, .chart-4, .chart-5, .chart-6 {
                         grid-column: auto;
                         grid-row: auto;
-                        min-height: 300px;
+                        min-height: 320px;
                     }
                 }
 
                 @media (max-width: 768px) {
                     .dashboard-fullscreen {
-                        padding: 15px;
+                        padding: 16px;
                     }
 
                     .kpi-row {
                         grid-template-columns: repeat(2, 1fr);
-                        gap: 10px;
+                        gap: 12px;
                     }
 
                     .charts-grid {
                         grid-template-columns: 1fr;
-                        gap: 15px;
+                        gap: 16px;
                     }
 
                     .year-filter {
                         flex-direction: column;
-                        padding: 15px;
-                    }
-
-                    .year-filter-label {
-                        margin-right: 0;
-                        margin-bottom: 10px;
+                        padding: 16px;
                     }
 
                     .year-selectors {
@@ -838,14 +843,8 @@ class ModernSalesDashboard {
                         width: 100%;
                     }
 
-                    .year-select-group {
-                        width: 100%;
-                    }
-
-                    .year-select {
-                        width: 100%;
-                    }
-
+                    .year-select-group,
+                    .year-select,
                     .apply-years-btn {
                         width: 100%;
                     }
@@ -902,7 +901,6 @@ class ModernSalesDashboard {
 
                 <!-- Charts Grid -->
                 <div class="charts-grid">
-                    <!-- Chart 1: Monthly Finance -->
                     <div class="chart-container chart-1">
                         <div class="chart-title">Har Oylik Tikilgan Pul</div>
                         <div class="chart-body">
@@ -910,7 +908,6 @@ class ModernSalesDashboard {
                         </div>
                     </div>
 
-                    <!-- Chart 2: Monthly Revenue -->
                     <div class="chart-container chart-2">
                         <div class="chart-title">Oylik Kirim (Klientlardan to'lovlar)</div>
                         <div class="chart-body">
@@ -918,7 +915,6 @@ class ModernSalesDashboard {
                         </div>
                     </div>
 
-                    <!-- Chart 3: Monthly Contracts -->
                     <div class="chart-container chart-3">
                         <div class="chart-title">Oylik Shartnomalar Soni</div>
                         <div class="chart-body">
@@ -926,7 +922,6 @@ class ModernSalesDashboard {
                         </div>
                     </div>
 
-                    <!-- Chart 4: ROI Statistics -->
                     <div class="chart-container chart-4">
                         <div class="chart-title">ROI Statistikasi</div>
                         <div class="chart-body">
@@ -937,7 +932,6 @@ class ModernSalesDashboard {
                         </div>
                     </div>
 
-                    <!-- Chart 5: Monthly Profit -->
                     <div class="chart-container chart-5">
                         <div class="chart-title">Oylik Sof Foyda</div>
                         <div class="chart-body">
@@ -945,7 +939,6 @@ class ModernSalesDashboard {
                         </div>
                     </div>
 
-                    <!-- Chart 6: Debt Table -->
                     <div class="chart-container chart-6">
                         <div class="chart-title">Klientlar Qarzdorligi</div>
                         <div class="chart-body">
@@ -1169,9 +1162,21 @@ class ModernSalesDashboard {
         const datasets = [];
 
         const lineColors = [
-            { line: colors.accentPurple, gradientStart: 'rgba(139, 92, 246, 0.3)', gradientEnd: 'rgba(139, 92, 246, 0)' },
-            { line: colors.accentPink, gradientStart: 'rgba(217, 70, 239, 0.3)', gradientEnd: 'rgba(217, 70, 239, 0)' },
-            { line: colors.accentCyan, gradientStart: 'rgba(0, 212, 255, 0.3)', gradientEnd: 'rgba(0, 212, 255, 0)' }
+            {
+                line: colors.chartPurple,
+                gradientStart: this.currentTheme === 'dark' ? 'rgba(147, 51, 234, 0.25)' : 'rgba(99, 102, 241, 0.2)',
+                gradientEnd: 'rgba(147, 51, 234, 0)'
+            },
+            {
+                line: colors.chartPink,
+                gradientStart: this.currentTheme === 'dark' ? 'rgba(236, 72, 153, 0.25)' : 'rgba(225, 29, 72, 0.2)',
+                gradientEnd: 'rgba(236, 72, 153, 0)'
+            },
+            {
+                line: colors.chartCyan,
+                gradientStart: this.currentTheme === 'dark' ? 'rgba(6, 182, 212, 0.25)' : 'rgba(14, 165, 233, 0.2)',
+                gradientEnd: 'rgba(6, 182, 212, 0)'
+            }
         ];
 
         this.selectedYears.forEach((year, index) => {
@@ -1186,17 +1191,15 @@ class ModernSalesDashboard {
                 data: yearData,
                 borderColor: lineColors[index % lineColors.length].line,
                 backgroundColor: gradient,
-                borderWidth: 3,
+                borderWidth: 2.5,
                 fill: true,
                 tension: 0.4,
-                pointRadius: 6,
-                pointHoverRadius: 8,
+                pointRadius: 0,
+                pointHoverRadius: 6,
                 pointBackgroundColor: lineColors[index % lineColors.length].line,
-                pointBorderColor: colors.bgColor,
+                pointBorderColor: colors.cardBg,
                 pointBorderWidth: 2,
-                pointHoverBackgroundColor: lineColors[index % lineColors.length].line,
-                pointHoverBorderColor: colors.textColor,
-                pointHoverBorderWidth: 3
+                pointHoverBorderWidth: 2
             });
         });
 
@@ -1215,9 +1218,11 @@ class ModernSalesDashboard {
                         position: 'top',
                         labels: {
                             color: colors.textColor,
-                            font: { size: 11, weight: '600' },
+                            font: { size: 11, weight: '600', family: 'Inter' },
                             usePointStyle: true,
-                            padding: 12
+                            padding: 15,
+                            boxWidth: 8,
+                            boxHeight: 8
                         }
                     },
                     tooltip: {
@@ -1226,10 +1231,15 @@ class ModernSalesDashboard {
                         titleColor: colors.textColor,
                         bodyColor: colors.textColor,
                         borderColor: colors.tooltipBorder,
-                        borderWidth: 1,
+                        borderWidth: 0.5,
                         padding: 12,
                         cornerRadius: 8,
                         displayColors: true,
+                        boxWidth: 8,
+                        boxHeight: 8,
+                        boxPadding: 6,
+                        titleFont: { size: 12, weight: '600', family: 'Inter' },
+                        bodyFont: { size: 11, weight: '500', family: 'Inter' },
                         callbacks: {
                             label: function(context) {
                                 const value = context.parsed.y;
@@ -1248,11 +1258,13 @@ class ModernSalesDashboard {
                         beginAtZero: true,
                         grid: {
                             color: colors.gridColor,
-                            drawBorder: false
+                            drawBorder: false,
+                            lineWidth: 0.5
                         },
                         ticks: {
                             color: colors.textMuted,
-                            font: { size: 10 },
+                            font: { size: 10, weight: '500', family: 'Inter' },
+                            padding: 8,
                             callback: function(value) {
                                 if (value >= 1000000) return (value / 1000000).toFixed(0) + 'M';
                                 if (value >= 1000) return (value / 1000).toFixed(0) + 'K';
@@ -1262,12 +1274,13 @@ class ModernSalesDashboard {
                     },
                     x: {
                         grid: {
-                            color: colors.gridColor,
+                            display: false,
                             drawBorder: false
                         },
                         ticks: {
                             color: colors.textMuted,
-                            font: { size: 10 }
+                            font: { size: 10, weight: '500', family: 'Inter' },
+                            padding: 8
                         }
                     }
                 },
@@ -1289,9 +1302,18 @@ class ModernSalesDashboard {
         const datasets = [];
 
         const barColors = [
-            { main: colors.accentGreen, light: 'rgba(0, 255, 136, 0.8)' },
-            { main: colors.accentPurple, light: 'rgba(139, 92, 246, 0.8)' },
-            { main: colors.accentCyan, light: 'rgba(0, 212, 255, 0.8)' }
+            {
+                main: colors.chartGreen,
+                light: this.currentTheme === 'dark' ? 'rgba(16, 185, 129, 0.85)' : 'rgba(5, 150, 105, 0.8)'
+            },
+            {
+                main: colors.chartPurple,
+                light: this.currentTheme === 'dark' ? 'rgba(147, 51, 234, 0.85)' : 'rgba(99, 102, 241, 0.8)'
+            },
+            {
+                main: colors.chartCyan,
+                light: this.currentTheme === 'dark' ? 'rgba(6, 182, 212, 0.85)' : 'rgba(14, 165, 233, 0.8)'
+            }
         ];
 
         this.selectedYears.forEach((year, index) => {
@@ -1307,8 +1329,8 @@ class ModernSalesDashboard {
                 backgroundColor: gradient,
                 borderWidth: 0,
                 borderRadius: 6,
-                barPercentage: 0.6,
-                categoryPercentage: 0.7
+                barPercentage: 0.7,
+                categoryPercentage: 0.8
             });
         });
 
@@ -1332,9 +1354,18 @@ class ModernSalesDashboard {
         const datasets = [];
 
         const barColors = [
-            { main: colors.accentPurple, light: 'rgba(139, 92, 246, 0.8)' },
-            { main: colors.accentPink, light: 'rgba(217, 70, 239, 0.8)' },
-            { main: colors.accentCyan, light: 'rgba(0, 212, 255, 0.8)' }
+            {
+                main: colors.chartPurple,
+                light: this.currentTheme === 'dark' ? 'rgba(147, 51, 234, 0.85)' : 'rgba(99, 102, 241, 0.8)'
+            },
+            {
+                main: colors.chartPink,
+                light: this.currentTheme === 'dark' ? 'rgba(236, 72, 153, 0.85)' : 'rgba(225, 29, 72, 0.8)'
+            },
+            {
+                main: colors.chartCyan,
+                light: this.currentTheme === 'dark' ? 'rgba(6, 182, 212, 0.85)' : 'rgba(14, 165, 233, 0.8)'
+            }
         ];
 
         this.selectedYears.forEach((year, index) => {
@@ -1350,8 +1381,8 @@ class ModernSalesDashboard {
                 backgroundColor: gradient,
                 borderWidth: 0,
                 borderRadius: 6,
-                barPercentage: 0.6,
-                categoryPercentage: 0.7
+                barPercentage: 0.7,
+                categoryPercentage: 0.8
             });
         });
 
@@ -1386,22 +1417,24 @@ class ModernSalesDashboard {
                     data: [totalInterest, totalFinance],
                     backgroundColor: [colors.accentGreen, colors.accentPurple],
                     borderWidth: 0,
-                    hoverOffset: 8
+                    hoverOffset: 6
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '65%',
+                cutout: '70%',
                 plugins: {
                     legend: {
                         display: true,
                         position: 'bottom',
                         labels: {
                             color: colors.textColor,
-                            font: { size: 11, weight: '600' },
+                            font: { size: 11, weight: '600', family: 'Inter' },
                             padding: 12,
                             usePointStyle: true,
+                            boxWidth: 8,
+                            boxHeight: 8,
                             generateLabels: function(chart) {
                                 const data = chart.data;
                                 if (data.labels.length && data.datasets.length) {
@@ -1430,9 +1463,11 @@ class ModernSalesDashboard {
                         titleColor: colors.textColor,
                         bodyColor: colors.textColor,
                         borderColor: colors.tooltipBorder,
-                        borderWidth: 1,
+                        borderWidth: 0.5,
                         padding: 12,
                         cornerRadius: 8,
+                        titleFont: { size: 12, weight: '600', family: 'Inter' },
+                        bodyFont: { size: 11, weight: '500', family: 'Inter' },
                         callbacks: {
                             label: function(context) {
                                 const label = context.label || '';
@@ -1465,9 +1500,9 @@ class ModernSalesDashboard {
                 data: yearData,
                 backgroundColor: barColors[index % barColors.length],
                 borderWidth: 0,
-                borderRadius: 8,
+                borderRadius: 6,
                 barThickness: 'flex',
-                maxBarThickness: 30
+                maxBarThickness: 24
             });
         });
 
@@ -1490,7 +1525,7 @@ class ModernSalesDashboard {
         if (debtList.length === 0) {
             tbody.append(`
                 <tr>
-                    <td colspan="3" style="text-align: center; padding: 30px;">
+                    <td colspan="3" style="text-align: center; padding: 30px; color: var(--text-muted);">
                         Ma'lumot topilmadi
                     </td>
                 </tr>
@@ -1537,9 +1572,11 @@ class ModernSalesDashboard {
                     position: 'top',
                     labels: {
                         color: colors.textColor,
-                        font: { size: 11, weight: '600' },
+                        font: { size: 11, weight: '600', family: 'Inter' },
                         usePointStyle: true,
-                        padding: 12
+                        padding: 15,
+                        boxWidth: 8,
+                        boxHeight: 8
                     }
                 },
                 tooltip: {
@@ -1547,9 +1584,15 @@ class ModernSalesDashboard {
                     titleColor: colors.textColor,
                     bodyColor: colors.textColor,
                     borderColor: colors.tooltipBorder,
-                    borderWidth: 1,
+                    borderWidth: 0.5,
                     padding: 12,
                     cornerRadius: 8,
+                    displayColors: true,
+                    boxWidth: 8,
+                    boxHeight: 8,
+                    boxPadding: 6,
+                    titleFont: { size: 12, weight: '600', family: 'Inter' },
+                    bodyFont: { size: 11, weight: '500', family: 'Inter' },
                     callbacks: {
                         label: function(context) {
                             const value = context.parsed.y;
@@ -1568,11 +1611,13 @@ class ModernSalesDashboard {
                     beginAtZero: true,
                     grid: {
                         color: colors.gridColor,
-                        drawBorder: false
+                        drawBorder: false,
+                        lineWidth: 0.5
                     },
                     ticks: {
                         color: colors.textMuted,
-                        font: { size: 10 },
+                        font: { size: 10, weight: '500', family: 'Inter' },
+                        padding: 8,
                         callback: function(value) {
                             if (value >= 1000000) return (value / 1000000).toFixed(0) + 'M';
                             if (value >= 1000) return (value / 1000).toFixed(0) + 'K';
@@ -1582,12 +1627,13 @@ class ModernSalesDashboard {
                 },
                 x: {
                     grid: {
-                        color: colors.gridColor,
+                        display: false,
                         drawBorder: false
                     },
                     ticks: {
                         color: colors.textMuted,
-                        font: { size: 10 }
+                        font: { size: 10, weight: '500', family: 'Inter' },
+                        padding: 8
                     }
                 }
             },
