@@ -40,11 +40,13 @@ doc_events = {
             "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_submit",
             "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_submit_installment_application",
             # 🔵 Shartnoma tasdiqlanganda (Submit) xabar boradi
+			"cash_flow_app.cash_flow_management.api.financial_control_tower_api.on_document_change",
             "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_installment_notification",
             "cash_flow_app.utils.customer_debt.update_customer_debt_on_installment_submit"
         ],
         "on_cancel": [
             "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_installment",
+			"cash_flow_app.cash_flow_management.api.financial_control_tower_api.on_document_change",
             "cash_flow_app.utils.customer_debt.update_customer_debt_on_installment_cancel"
         ]
     },
@@ -64,18 +66,22 @@ doc_events = {
             "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_payment",
             "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification",
             "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification_v2",
+			"cash_flow_app.cash_flow_management.api.financial_control_tower_api.on_document_change",
             "cash_flow_app.utils.customer_debt.update_customer_debt_on_payment_submit"
         ],
         "on_cancel": [
             "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry",
             "cash_flow_app.cash_flow_management.custom.supplier_debt_tracking.update_supplier_debt_on_cancel_payment",
             "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_cancel_notification",
+			"cash_flow_app.cash_flow_management.api.financial_control_tower_api.on_document_change",
             "cash_flow_app.utils.customer_debt.update_customer_debt_on_payment_cancel"
         ]
     },
     "Sales Order": {
         "validate": "cash_flow_app.cash_flow_management.custom.payment_validations.validate_payment_schedule_paid_amount",
-        "before_cancel": "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_sales_order"
+        "before_cancel": "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_sales_order",
+        "on_submit": "cash_flow_app.cash_flow_management.api.financial_control_tower_api.on_document_change",
+        "on_cancel": "cash_flow_app.cash_flow_management.api.financial_control_tower_api.on_document_change"
     }
 }
 
