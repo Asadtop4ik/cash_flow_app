@@ -628,14 +628,35 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 		app.mount('#fct-mount');
 	}
 
-	if (typeof Vue !== 'undefined') {
+	// Frappe v15+ has Vue 3 bundled - check multiple sources
+	const VueLib = window.Vue || frappe.Vue || (typeof Vue !== 'undefined' ? Vue : null);
+	
+	if (VueLib) {
+		// Make Vue available globally for the app
+		window.Vue = VueLib;
 		_initVueApp();
 	} else {
+		// Fallback: try loading from CDN
 		const vueScript = document.createElement('script');
-		vueScript.src = '/assets/cash_flow_app/js/vue.global.prod.js';
-		vueScript.onload = _initVueApp;
+		vueScript.src = 'https://unpkg.com/vue@3/dist/vue.global.prod.js';
+		vueScript.onload = function() {
+			window.Vue = window.Vue || Vue;
+			_initVueApp();
+		};
 		vueScript.onerror = function() {
-			page.main[0].innerHTML = '<div style="padding:2rem;color:#f87171;font-family:sans-serif;">Vue yuklanmadi. Tarmoqni tekshiring yoki qo\'llab-quvvatlash xizmatiga murojaat qiling.</div>';
+			// Last resort: show manual error with debug info
+			page.main[0].innerHTML = `
+				<div style="padding:2rem;color:#f87171;font-family:sans-serif;">
+					<h3>Vue yuklanmadi</h3>
+					<p>Tarmoqni tekshiring yoki qo'llab-quvvatlash xizmatiga murojaat qiling.</p>
+					<details style="margin-top:1rem;font-size:12px;color:#888;">
+						<summary>Debug Info</summary>
+						<pre>window.Vue: ${typeof window.Vue}
+frappe.Vue: ${typeof frappe?.Vue}
+Vue global: ${typeof Vue}</pre>
+					</details>
+				</div>
+			`;
 		};
 		document.head.appendChild(vueScript);
 	}
