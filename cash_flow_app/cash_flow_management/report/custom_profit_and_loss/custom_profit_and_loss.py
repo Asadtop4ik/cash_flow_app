@@ -52,17 +52,24 @@ def get_balance_sheet_net_profit(from_date, to_date):
 	payment_entries = frappe.db.sql("""
 		SELECT
 			custom_counterparty_category,
-			paid_amount
+			paid_amount,
+			party_type,
+			party_name
 		FROM `tabPayment Entry`
 		WHERE docstatus = 1
 		AND DATE(posting_date) BETWEEN %s AND %s
 		AND custom_counterparty_category IS NOT NULL
+		AND party_type = 'Employee'
+		AND party_name = 'Xarajat'
 	""", (from_date, to_date), as_dict=1)
 
 	for pe in payment_entries:
 		category = category_map.get(pe.get("custom_counterparty_category"))
 
-		if category and category.get("custom_expense_type") == "Xarajat":
+		if (category
+			and category.get("custom_expense_type") == "Xarajat"
+			and pe.get("party_type") == "Employee"
+			and pe.get("party_name") == "Xarajat"):
 			amount = flt(pe["paid_amount"])
 
 			# Agar category_type Income bo'lsa, manfiy qilamiz
@@ -311,6 +318,8 @@ def get_data(filters):
 				ON pe.custom_counterparty_category = cc.name
 			WHERE pe.docstatus = 1
 			AND cc.custom_expense_type = 'Xarajat'
+			AND pe.party_type = 'Employee'
+			AND pe.party_name = 'Xarajat'
 			AND DATE(pe.posting_date) BETWEEN %s AND %s
 			GROUP BY cc.name, cc.category_name, cc.category_type
 		""", (period["from_date"], period["to_date"]), as_dict=1)
