@@ -697,7 +697,10 @@ def build_tree_structure(raw_data, filters):
 
 				category = category_dict.get(pe["custom_counterparty_category"])
 
-				if category and category.get("custom_expense_type") == "Xarajat":
+				if (category
+					and category.get("custom_expense_type") == "Xarajat"
+					and pe.get("party_type") == "Employee"
+					and pe.get("party_name") == "Xarajat"):
 					amount = flt(pe["paid_amount"])
 
 					if category.get("category_type") == "Income":
@@ -728,7 +731,10 @@ def build_tree_structure(raw_data, filters):
 					and pe.get("custom_counterparty_category")):
 					category = category_dict.get(pe["custom_counterparty_category"])
 
-					if category and category.get("custom_expense_type") == "Xarajat":
+					if (category
+						and category.get("custom_expense_type") == "Xarajat"
+						and pe.get("party_type") == "Employee"
+						and pe.get("party_name") == "Xarajat"):
 						amount = flt(pe["paid_amount"])
 						if category.get("category_type") == "Income":
 							amount = -amount

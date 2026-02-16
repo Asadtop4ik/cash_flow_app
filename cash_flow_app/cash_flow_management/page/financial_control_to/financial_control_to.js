@@ -64,8 +64,8 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 	page.main[0].innerHTML = '';
 	page.main[0].appendChild(mountEl);
 
-	function _initVueApp() {
-		const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
+	const _initVueApp() {
+		const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = frappe.Vue;
 
 	const app = createApp({
 		template: PAGE_TEMPLATE,
@@ -630,7 +630,7 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 
 	// Frappe v15+ has Vue 3 bundled - check multiple sources
 	const VueLib = window.Vue || frappe.Vue || (typeof Vue !== 'undefined' ? Vue : null);
-	
+
 	if (VueLib) {
 		// Make Vue available globally for the app
 		window.Vue = VueLib;
