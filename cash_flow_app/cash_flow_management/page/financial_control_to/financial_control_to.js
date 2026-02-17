@@ -109,9 +109,9 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 				const PAD = { t: 20, r: 24, b: 65, l: 62 };
 
 				const tierMeta = [
-					{ key: 'A', title: 'Tier A — Yaxshi', sub: 'A toifadagi mijozlar', accent: '#34d399', accentBg: 'rgba(52,211,153,.12)', icon: '✓' },
-					{ key: 'B', title: 'Tier B — O\'rtacha', sub: 'B toifadagi mijozlar', accent: '#fbbf24', accentBg: 'rgba(251,191,36,.12)', icon: '⚡' },
-					{ key: 'C', title: 'Tier C — Xavfli', sub: 'C toifadagi mijozlar', accent: '#f87171', accentBg: 'rgba(248,113,113,.12)', icon: '⚠' }
+					{ key: 'A', title: 'A toifadagi mijozlar', sub: 'A toifadagi mijozlar', accent: '#34d399', accentBg: 'rgba(52,211,153,.12)', icon: '✓' },
+					{ key: 'B', title: 'B toifadagi mijozlar', sub: 'B toifadagi mijozlar', accent: '#fbbf24', accentBg: 'rgba(251,191,36,.12)', icon: '⚡' },
+					{ key: 'C', title: 'C toifadagi mijozlar', sub: 'C toifadagi mijozlar', accent: '#f87171', accentBg: 'rgba(248,113,113,.12)', icon: '⚠' }
 				];
 
 				const presets = [
@@ -902,7 +902,11 @@ const PAGE_TEMPLATE = `
           <div class="fct-chart__body">
             <svg v-if="investChart.pts.length" :viewBox="'0 0 ' + CHART_W + ' ' + CHART_H" preserveAspectRatio="xMidYMid meet" class="fct-chart__svg">
               <defs>
-                <linearGradient id="fctInvGr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#818cf8" stop-opacity="0.35"/><stop offset="40%" stop-color="#818cf8" stop-opacity="0.15"/><stop offset="100%" stop-color="#818cf8" stop-opacity="0.02"/></linearGradient>
+              	<linearGradient id="fctInvGr" x1="0" y1="0" x2="0" y2="1">
+				  <stop offset="0%" stop-color="#818cf8" stop-opacity="0.4"/>
+				  <stop offset="40%" stop-color="#818cf8" stop-opacity="0.2"/>
+				  <stop offset="100%" stop-color="#818cf8" stop-opacity="0.03"/>
+				</linearGradient>
                 <filter id="fctDotGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
               </defs>
               <line v-for="(t,i) in investChart.yTicks" :key="'ig'+i" :x1="PAD.l" :y1="t.y" :x2="CHART_W - PAD.r" :y2="t.y" class="fct-chart__grid"/>
@@ -998,7 +1002,7 @@ const FCT_STYLES = `
   --fct-bg-0: #0b0d14; --fct-bg-1: #12151e; --fct-bg-2: #181b26;
   --fct-bg-glass: rgba(18,21,30,.78);
   --fct-bdr: #1f2330; --fct-bdr-subtle: #1a1d28;
-  --fct-tx-0: #e8eaef; --fct-tx-1: #a0a7b8; --fct-tx-2: #5f677a; --fct-tx-3: #3a3f50;
+--fct-tx-0: #e8eaef; --fct-tx-1: #a0a7b8; --fct-tx-2: #7a8294; --fct-tx-3: #4d5366;
   --fct-sh-card: 0 1px 3px rgba(0,0,0,.2), 0 0 0 1px rgba(255,255,255,.03);
   --fct-sh-hover: 0 8px 24px rgba(0,0,0,.3), 0 0 0 1px rgba(255,255,255,.04);
   --fct-sh-float: 0 12px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.06);
@@ -1061,7 +1065,7 @@ const FCT_STYLES = `
 .fct-kpi__icon { opacity: .45; }
 .fct-kpi__val { font-size: 24px; font-weight: 800; letter-spacing: -.035em; font-variant-numeric: tabular-nums; color: var(--fct-tx-0); }
 .fct-kpi__bar { height: 3px; background: var(--fct-bdr-subtle); border-radius: 2px; margin-top: 10px; overflow: hidden; }
-.fct-kpi__barfill { height: 100%; width: 60%; background: var(--kpi-accent); border-radius: 2px; opacity: .3; }
+.fct-kpi__barfill { height: 100%; width: 60%; background: var(--kpi-accent); border-radius: 2px; opacity: .45; }
 
 /* DUO ROW */
 .fct-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
@@ -1142,15 +1146,15 @@ const FCT_STYLES = `
 .fct-cust-row__name { font-size: 13px; font-weight: 600; color: var(--fct-tx-0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fct-cust-row__id { font-size: 11px; color: var(--fct-tx-3); font-family: 'JetBrains Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fct-cust-row__debt { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace; white-space: nowrap; padding-left: 12px; flex-shrink: 0; }
-.fct-tier-col__foot { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; margin-top: auto; border-top: 1px solid var(--fct-bdr); font-size: 13px; font-weight: 700; color: var(--fct-tx-1); }
-.fct-tier-col__foot strong { font-size: 15px; font-weight: 800; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+.fct-tier-col__foot { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; margin-top: auto; border-top: 1px solid var(--fct-bdr); font-size: 14px; font-weight: 800; color: var(--fct-tx-0); text-transform: uppercase; letter-spacing: .03em; background: var(--fct-bg-2); }
+.fct-tier-col__foot strong { font-size: 16px; font-weight: 800; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 .fct-tier__badge { width: 34px; height: 34px; border-radius: var(--fct-radius-xs); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
 .fct-tier__info { flex: 1; min-width: 150px; }
 .fct-tier__title { font-size: 14px; font-weight: 700; color: var(--fct-tx-0); }
 .fct-tier__sub { font-size: 12px; color: var(--fct-tx-2); margin-top: 1px; }
-.fct-tier__searchico { position: absolute; left: 10px; color: var(--fct-tx-3); pointer-events: none; }
-.fct-tier__input { padding: 6px 10px 6px 30px; border: 1px solid var(--fct-bdr); border-radius: var(--fct-radius-xs); background: var(--fct-bg-2); color: var(--fct-tx-0); font-size: 12px; font-family: inherit; outline: none; width: 160px; transition: border-color .2s, box-shadow .2s; }
-.fct-tier__input:focus { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,.12); }
+.fct-tier__searchico { position: absolute; left: 14px; color: var(--fct-tx-2); pointer-events: none; }
+.fct-tier__input { padding: 8px 12px 8px 36px; border: 1.5px solid var(--fct-tx-3); border-radius: 10px; background: var(--fct-bg-2); color: var(--fct-tx-0); font-size: 12px; font-family: inherit; outline: none; width: 160px; transition: border-color .2s, box-shadow .2s; }
+.fct-tier__input:focus { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,.18); }
 .fct-tier__input::placeholder { color: var(--fct-tx-3); }
 .fct-tier__empty { padding: 28px; text-align: center; font-size: 13px; color: var(--fct-tx-3); }
 
@@ -1173,15 +1177,15 @@ const FCT_STYLES = `
 .fct-chart-card { padding-bottom: 18px; }
 .fct-chart__body { padding: 0 18px; overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; }
 .fct-chart__svg { width: 100%; height: auto; min-width: 400px; overflow: visible; }
-.fct-chart__grid { stroke: var(--fct-tx-2); stroke-width: .8; opacity: .5; stroke-dasharray: 4 4; }
+.fct-chart__grid { stroke: var(--fct-bdr); stroke-width: .8; stroke-dasharray: 4 4; }
 .fct-chart__area { transition: opacity .3s ease; }
 .fct-chart__line { transition: stroke-width .2s ease; }
-.fct-chart__crosshair { stroke: var(--fct-tx-2); stroke-width: 1; stroke-dasharray: 4 3; opacity: .6; pointer-events: none; }
+.fct-chart__crosshair { stroke: var(--fct-tx-1); stroke-width: 1; stroke-dasharray: 4 3; opacity: .7; pointer-events: none; }
 .fct-chart__dot { transition: r .2s cubic-bezier(.4,0,.2,1), filter .2s ease; cursor: crosshair; }
 .fct-chart__bar { transition: opacity .15s ease, filter .15s ease; }
 .fct-chart__bar:hover { opacity: 1 !important; filter: brightness(1.15) saturate(1.1); }
-.fct-chart__ylab { font-size: 10px; fill: var(--fct-tx-2); font-family: 'JetBrains Mono', monospace; text-anchor: end; }
-.fct-chart__xlab { font-size: 10px; fill: var(--fct-tx-2); font-family: 'JetBrains Mono', monospace; text-anchor: middle; }
+.fct-chart__ylab { font-size: 10px; fill: var(--fct-tx-1); font-family: 'JetBrains Mono', monospace; text-anchor: end; }
+.fct-chart__xlab { font-size: 10.5px; fill: var(--fct-tx-1); font-family: 'JetBrains Mono', monospace; text-anchor: middle; }
 .fct-chart__xlab--rotated { text-anchor: end; font-size: 9px; }
 .fct-chart__empty { display: flex; align-items: center; justify-content: center; min-height: 160px; color: var(--fct-tx-3); font-size: 13px; }
 .fct-chart__legend { display: flex; gap: 14px; font-size: 12px; color: var(--fct-tx-1); }
@@ -1241,7 +1245,7 @@ const FCT_STYLES = `
   .fct-tier-grid { grid-template-columns: 1fr; gap: 10px; }
   .fct-tier-col__hd { padding: 12px 14px 8px; } .fct-tier-col__search { padding: 0 14px 10px; } .fct-tier-col__list { max-height: 280px; }
   .fct-cust-row { padding: 8px 10px; } .fct-cust-row__name { font-size: 12px; } .fct-cust-row__debt { font-size: 13px; }
-  .fct-tier-col__foot { padding: 10px 14px; font-size: 12px; }
+.fct-tier-col__foot { padding: 12px 14px; font-size: 13px; }
   .fct-charts-duo { margin-bottom: 12px; gap: 10px; } .fct-chart__body { padding: 0 10px; } .fct-chart__svg { min-width: 340px; }
   .fct-dates { flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 14px; }
   .fct-dates__fields { flex-wrap: wrap; gap: 8px; } .fct-dates__f { flex: 1 1 130px; } .fct-dates__input { width: 100%; }
