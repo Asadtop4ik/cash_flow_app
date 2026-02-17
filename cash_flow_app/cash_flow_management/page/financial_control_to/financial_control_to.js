@@ -568,10 +568,10 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 	console.log('  - window.Vue:', typeof window.Vue);
 	console.log('  - frappe.Vue:', typeof frappe?.Vue);
 	console.log('  - global Vue:', typeof Vue);
-	
+
 	// Try multiple Vue sources in order of preference
 	let VueLib = null;
-	
+
 	// Method 1: Check frappe.boot.vue (Frappe v15+)
 	if (typeof frappe !== 'undefined' && frappe.Vue) {
 		VueLib = frappe.Vue;
@@ -587,7 +587,7 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 		VueLib = Vue;
 		console.log('✅ FCT: Found Vue via global Vue');
 	}
-	
+
 	if (VueLib && typeof VueLib.createApp === 'function') {
 		console.log('✅ FCT: Vue 3 detected with createApp');
 		window.Vue = VueLib;
@@ -735,22 +735,22 @@ const PAGE_TEMPLATE = `
       <!-- ROI + Contract Tracker -->
       <div class="fct-duo">
 
-        <!-- ROI Donut -->
+ <!-- ROI Donut — v4.2 -->
         <div class="fct-card fct-roi">
           <div class="fct-card__hd"><h2 class="fct-card__title">ROI Statistikasi</h2></div>
-          <div class="fct-roi__body">
-            <div class="fct-roi__donut">
+          <div class="fct-roi__body fct-roi__body--vertical">
+            <div class="fct-roi__legend fct-roi__legend--horizontal">
+              <div class="fct-roi__li"><span class="fct-roi__dot" style="background:#34d399"></span><span>Sof foyda</span><strong>{{ fmt(donut.interest) }}</strong></div>
+              <div class="fct-roi__li"><span class="fct-roi__dot" style="background:#94a3b8"></span><span>Ustav Kapitali</span><strong>{{ fmt(donut.principal) }}</strong></div>
+            </div>
+            <div class="fct-roi__donut fct-roi__donut--large">
               <svg viewBox="0 0 200 200" class="fct-roi__svg">
-                <circle cx="100" cy="100" r="76" fill="none" :stroke="isDark ? '#1e293b' : '#e2e8f0'" stroke-width="20"/>
-                <circle cx="100" cy="100" r="76" fill="none" stroke="url(#fctRoiGr)" stroke-width="20" stroke-linecap="round" :stroke-dasharray="donut.iDash" :stroke-dashoffset="donut.iOff" transform="rotate(-90 100 100)" class="fct-roi__arc"/>
-                <circle cx="100" cy="100" r="76" fill="none" :stroke="isDark ? '#334155' : '#94a3b8'" stroke-width="20" stroke-linecap="round" :stroke-dasharray="donut.pDash" :stroke-dashoffset="donut.pOff" transform="rotate(-90 100 100)" class="fct-roi__arc" style="opacity:.5"/>
+                <circle cx="100" cy="100" r="76" fill="none" :stroke="isDark ? '#1e293b' : '#e2e8f0'" stroke-width="18"/>
+                <circle cx="100" cy="100" r="76" fill="none" stroke="url(#fctRoiGr)" stroke-width="18" stroke-linecap="round" :stroke-dasharray="donut.iDash" :stroke-dashoffset="donut.iOff" transform="rotate(-90 100 100)" class="fct-roi__arc"/>
+                <circle cx="100" cy="100" r="76" fill="none" :stroke="isDark ? '#334155' : '#94a3b8'" stroke-width="18" stroke-linecap="round" :stroke-dasharray="donut.pDash" :stroke-dashoffset="donut.pOff" transform="rotate(-90 100 100)" class="fct-roi__arc" style="opacity:.5"/>
                 <defs><linearGradient id="fctRoiGr" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#059669"/></linearGradient></defs>
               </svg>
               <div class="fct-roi__center"><span class="fct-roi__pct">{{ donut.pct }}%</span><span class="fct-roi__lbl">ROI</span></div>
-            </div>
-            <div class="fct-roi__legend">
-              <div class="fct-roi__li"><span class="fct-roi__dot" style="background:#34d399"></span><span>Foiz daromad</span><strong>{{ fmt(donut.interest) }}</strong></div>
-              <div class="fct-roi__li"><span class="fct-roi__dot" style="background:#94a3b8"></span><span>Asosiy mablag'</span><strong>{{ fmt(donut.principal) }}</strong></div>
             </div>
           </div>
         </div>
@@ -1077,6 +1077,16 @@ const FCT_STYLES = `
 .fct-roi__legend { display: flex; flex-direction: column; gap: 10px; }
 .fct-roi__li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fct-tx-1); }
 .fct-roi__li strong { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--fct-tx-0); min-width: 60px; text-align: right; }
+/* ROI v4.2 — vertical layout with top label */
+.fct-roi__body--vertical { flex-direction: column; align-items: center; gap: 16px; }
+.fct-roi__top-label { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.fct-roi__pct-top { font-size: 36px; font-weight: 800; color: var(--fct-tx-0); letter-spacing: -.04em; line-height: 1; }
+.fct-roi__lbl-top { font-size: 12px; color: var(--fct-tx-2); text-transform: uppercase; letter-spacing: .12em; font-weight: 600; }
+.fct-roi__legend--horizontal { display: flex; flex-direction: row; gap: 24px; flex-wrap: wrap; justify-content: center; }
+.fct-roi__donut--large { width: 200px; height: 200px; }
+.fct-roi__body--vertical { flex-direction: column; align-items: center; gap: 16px; }
+.fct-roi__legend--horizontal { display: flex; flex-direction: row; gap: 24px; flex-wrap: wrap; justify-content: center; }
+.fct-roi__donut--large { width: 220px; height: 220px; }
 .fct-roi__dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
 /* CONTRACT TRACKER (v4.1) */
@@ -1204,7 +1214,11 @@ const FCT_STYLES = `
 @media (max-width: 1023px) { .fct-duo { grid-template-columns: 1fr; gap: 14px; } .fct-charts-duo { grid-template-columns: 1fr; gap: 14px; } .fct-tier-grid { grid-template-columns: 1fr; gap: 14px; } .fct-tier-col { min-height: auto; } .fct-tier-col__list { max-height: 320px; } }
 @media (min-width: 641px) and (max-width: 1023px) { .fct-hd__inner { padding: 10px 20px; gap: 14px; } .fct-body { padding: 20px; } .fct-kpis { grid-template-columns: repeat(4, 1fr); gap: 12px; } .fct-kpi { padding: 14px 14px 10px; } .fct-kpi__val { font-size: 21px; } .fct-card__hd { padding: 14px 18px 0; } .fct-roi__body { gap: 18px; } .fct-dates { gap: 10px; } .fct-chart__body { padding: 0 14px; } .fct-contract__table-wrap { padding: 10px 18px; } .fct-contract__meta { padding: 0 18px 12px; } }
 @media (max-width: 640px) {
-.fct-contract__dropdown { left: 14px; right: 14px; max-height: 220px; }
+	/* inside @media (max-width: 640px) add/update: */
+  .fct-roi__donut--large { width: 180px; height: 180px; }
+  .fct-roi__pct-top { font-size: 30px; }
+  .fct-roi__legend--horizontal { gap: 16px; }
+  .fct-contract__dropdown { left: 14px; right: 14px; max-height: 220px; }
   .fct-hd__inner { padding: 8px 14px; gap: 8px; flex-wrap: wrap; }
   .fct-hd__brand { flex: 1 1 auto; min-width: 0; } .fct-hd__logo svg { width: 24px; height: 24px; }
   .fct-hd__title { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
@@ -1234,7 +1248,14 @@ const FCT_STYLES = `
   .fct-dates__go { align-self: flex-start; } .fct-dates__presets { flex-wrap: wrap; gap: 4px; } .fct-dates__pre { flex: 1; text-align: center; }
   .fct-err { padding: 8px 14px; font-size: 12px; }
 }
-@media (max-width: 400px) { .fct-hd__inner { padding: 8px 10px; } .fct-hd__title { font-size: 13px; max-width: 140px; } .fct-hd__logo svg { width: 20px; height: 20px; } .fct-hd__btn { width: 32px; height: 32px; } .fct-hd__pill { display: none; } .fct-body { padding: 10px; } .fct-kpis { gap: 8px; } .fct-kpi { padding: 10px 10px 8px; } .fct-kpi__val { font-size: 18px; } .fct-dates__presets { gap: 3px; } .fct-dates__pre { padding: 7px 8px; font-size: 11px; } }
+@media (max-width: 400px) {
+.fct-hd__inner { padding: 8px 10px; }
+.fct-hd__title { font-size: 13px; max-width: 140px; }
+.fct-hd__logo svg { width: 20px; height: 20px; }
+.fct-hd__btn { width: 32px; height: 32px; }
+.fct-hd__pill { display: none; }
+.fct-roi__donut--large { width: 150px; height: 150px; }
+.fct-body { padding: 10px; } .fct-kpis { gap: 8px; } .fct-kpi { padding: 10px 10px 8px; } .fct-kpi__val { font-size: 18px; } .fct-dates__presets { gap: 3px; } .fct-dates__pre { padding: 7px 8px; font-size: 11px; } }
 @media (min-width: 1800px) { .fct-body { max-width: 1920px; padding: 28px 48px; } .fct-kpis { grid-template-columns: repeat(7, 1fr); } .fct-duo { grid-template-columns: 420px 1fr; } .fct-charts-duo { grid-template-columns: 1fr 1fr; gap: 22px; } .fct-tier-col__list { max-height: 560px; } }
 @media print { .fct-hd { position: static; backdrop-filter: none; } .fct-hd__actions, .fct-hd__nav { display: none; } .fct-kpi:hover, .fct-card:hover { transform: none; box-shadow: var(--fct-sh-card); } .fct-body { padding: 0; } }
 
