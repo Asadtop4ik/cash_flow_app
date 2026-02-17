@@ -560,3 +560,230 @@ def _clear_fct_cache():
 			frappe.cache().delete_value(key)
 		except Exception:
 			pass
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# NEW ENDPOINT: Contract Installment Analysis (v4.1)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# APPEND this entire block to the bottom of:
+#   financial_control_tower_api.py
+#
+# No existing functions are modified.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+@frappe.whitelist()
+def get_contract_installment_analysis(search_term):
+	"""
+	Fetches contract details + FIFO-reconciled payment schedule.
+
+	Args:
+		search_term: Installment Application ID or Customer Name (min 3 chars)
+
+	Returns:
+		{
+			"success": True,
+			"contract": { name, customer, customer_name, grand_total_with_interest, ... },
+			"schedule": [
+				{
+					"due_date": "2024-03-15",
+					"scheduled_amount": 1000.00,
+					"paid_amount": 1000.00,
+					"balance": 0,
+					"status": "Paid"
+				}, ...
+			],
+			"summary": { total_scheduled, total_paid, total_balance }
+		}
+	"""
+	try:
+		if not search_term or len(search_term.strip()) < 3:
+			return {"success": False, "error": "Kamida 3 ta belgi kiriting"}
+
+		term = search_term.strip()
+		like_term = f"%{term}%"
+
+		# ── Step 1: Find the Installment Application ────────────────────
+		ia = frappe.db.sql("""
+			SELECT
+				ia.name,
+				ia.customer,
+				ia.customer_name,
+				ia.transaction_date,
+				ia.total_amount,
+				ia.downpayment_amount,
+				ia.custom_grand_total_with_interest,
+				ia.sales_order,
+				ia.custom_total_interest
+			FROM `tabInstallment Application` ia
+			WHERE ia.docstatus = 1
+			  AND (
+			    ia.name LIKE %(term)s
+			    OR ia.customer_name LIKE %(term)s
+			    OR ia.customer LIKE %(term)s
+			  )
+			ORDER BY ia.transaction_date DESC
+			LIMIT 1
+		""", {"term": like_term}, as_dict=True)
+
+		if not ia:
+			return {"success": False, "error": "Shartnoma topilmadi"}
+
+		ia = ia[0]
+
+		if not ia.sales_order:
+			return {"success": False, "error": "Shartnomaga bog'langan Sales Order yo'q"}
+
+		# ── Step 2: Fetch Payment Schedule from Sales Order ─────────────
+		schedule = frappe.db.sql("""
+			SELECT
+				ps.due_date,
+				ps.payment_amount,
+				ps.idx
+			FROM `tabPayment Schedule` ps
+			WHERE ps.parent = %(so)s
+			  AND ps.parenttype = 'Sales Order'
+			ORDER BY ps.due_date ASC, ps.idx ASC
+		""", {"so": ia.sales_order}, as_dict=True)
+
+		if not schedule:
+			return {
+				"success": True,
+				"contract": _format_contract(ia),
+				"schedule": [],
+				"summary": {"total_scheduled": 0, "total_paid": 0, "total_balance": 0}
+			}
+
+		# ── Step 3: Fetch ALL Payments linked to this contract ──────────
+		payments = frappe.db.sql("""
+			SELECT
+				pe.received_amount
+			FROM `tabPayment Entry` pe
+			WHERE pe.docstatus = 1
+			  AND pe.payment_type = 'Receive'
+			  AND pe.custom_contract_reference = %(ia_name)s
+			ORDER BY pe.posting_date ASC, pe.creation ASC
+		""", {"ia_name": ia.name}, as_dict=True)
+
+		# ── Step 4: FIFO Payment Reconciliation ─────────────────────────
+		reconciled = _fifo_reconcile(schedule, payments)
+
+		return {
+			"success": True,
+			"contract": _format_contract(ia),
+			"schedule": reconciled,
+			"summary": {
+				"total_scheduled": sum(flt(r["scheduled_amount"]) for r in reconciled),
+				"total_paid": sum(flt(r["paid_amount"]) for r in reconciled),
+				"total_balance": sum(flt(r["balance"]) for r in reconciled)
+			}
+		}
+
+	except Exception as e:
+		frappe.log_error(f"Contract Analysis Error: {str(e)}", "FCT Contract Search")
+		return {"success": False, "error": str(e)}
+
+
+def _format_contract(ia):
+	"""Format IA record for frontend consumption."""
+	return {
+		"name": ia.name,
+		"customer": ia.customer,
+		"customer_name": ia.customer_name,
+		"transaction_date": str(ia.transaction_date),
+		"total_amount": flt(ia.total_amount),
+		"downpayment": flt(ia.downpayment_amount),
+		"grand_total_with_interest": flt(ia.custom_grand_total_with_interest),
+		"total_interest": flt(ia.custom_total_interest),
+		"sales_order": ia.sales_order
+	}
+
+
+def _fifo_reconcile(schedule, payments):
+	"""
+	FIFO Payment Reconciliation Algorithm.
+
+	┌──────────────────────────────────────────────────────────────────────┐
+	│ 1. Pool all payment amounts into a single running balance           │
+	│ 2. Walk through installments in chronological order                 │
+	│ 3. For each installment, consume min(balance, scheduled_amount)     │
+	│ 4. Carry any surplus forward to the next installment                │
+	│                                                                      │
+	│ Status Logic:                                                        │
+	│   applied == scheduled  → "Paid"                                    │
+	│   0 < applied < sched   → "Partially Paid"                         │
+	│   applied == 0          → "Unpaid"                                  │
+	└──────────────────────────────────────────────────────────────────────┘
+	"""
+	# Pool all payments into a single balance
+	balance = sum(flt(p.received_amount) for p in payments)
+
+	reconciled = []
+
+	for row in schedule:
+		scheduled = flt(row.payment_amount)
+
+		# Apply whatever we can from the running balance
+		applied = min(balance, scheduled)
+		balance -= applied
+		# Ensure no floating-point drift below zero
+		balance = max(0, balance)
+
+		remaining = scheduled - applied
+
+		# Determine status
+		if applied >= scheduled and scheduled > 0:
+			status = "Paid"
+		elif applied > 0:
+			status = "Partially Paid"
+		else:
+			status = "Unpaid"
+
+		reconciled.append({
+			"due_date": str(row.due_date),
+			"scheduled_amount": scheduled,
+			"paid_amount": round(applied, 2),
+			"balance": round(remaining, 2),
+			"status": status,
+			"idx": row.idx
+		})
+
+	return reconciled
+@frappe.whitelist()
+def search_contracts(search_term):
+	"""Shartnomalarni qidirish — dropdown uchun ro'yxat qaytaradi."""
+	if not search_term or len(search_term.strip()) < 2:
+		return {"success": True, "contracts": []}
+
+	term = f"%{search_term.strip()}%"
+
+	contracts = frappe.db.sql("""
+		SELECT
+			ia.name,
+			ia.customer,
+			ia.customer_name,
+			ia.transaction_date,
+			ia.custom_grand_total_with_interest
+		FROM `tabInstallment Application` ia
+		WHERE ia.docstatus = 1
+		  AND (
+		    ia.name LIKE %(term)s
+		    OR ia.customer_name LIKE %(term)s
+		    OR ia.customer LIKE %(term)s
+		  )
+		ORDER BY ia.transaction_date DESC
+		LIMIT 20
+	""", {"term": term}, as_dict=True)
+
+	return {
+		"success": True,
+		"contracts": [
+			{
+				"name": c.name,
+				"customer": c.customer,
+				"customer_name": c.customer_name,
+				"date": str(c.transaction_date),
+				"total": flt(c.custom_grand_total_with_interest)
+			}
+			for c in contracts
+		]
+	}
