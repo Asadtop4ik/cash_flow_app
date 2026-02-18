@@ -13,106 +13,224 @@
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate, nowdate, add_months
+from frappe.utils import flt, getdate, nowdate, add_months,now_datetime
 from datetime import datetime, date
 import calendar
+import json
 
+# ── Cache TTL: 25 hours (ensures stale cache never persists past next cron) ──
+CACHE_TTL = 25 * 60 * 60  # 90000 seconds
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # MAIN ENDPOINT: Intelligence View (KPIs + Tier Tables)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @frappe.whitelist()
-def get_intelligence_data():
+def get_intelligence_data(force_refresh=0):
 	"""
 	Returns all data for View 1: Intelligence Dashboard.
-	Single endpoint → single round-trip. All SQL uses docstatus = 1 ONLY.
 
-	Response shape:
-	{
-		"success": True,
-		"kpis": { invested_capital, total_debt, debt_a, debt_b, debt_c, ... },
-		"roi": { roi_percentage, total_interest, invested_capital, chart_data },
-		"tiers": {
-			"A": [ { customer, customer_name, total_debt }, ... ],
-			"B": [ ... ],
-			"C": [ ... ]
-		}
-	}
+	Cache Strategy:
+	  - force_refresh=0 (default): Read from cache. If cache miss → compute live.
+	  - force_refresh=1 (manual button): Always compute live, then update cache.
+
+	The 'force_refresh' param is passed from the JS "Refresh" button.
+	Normal page loads always hit cache.
 	"""
 	try:
-		kpis = _compute_kpis()
-		roi_data = _compute_roi(kpis)
-		tier_tables = _compute_customer_tiers()
+		force = int(force_refresh or 0)
+		if not force:
+			cached = frappe.cache().get_value('fct_intelligence_data')
+			if cached:
+				data = json.loads(cached) if isinstance(cached, str) else cached
+				# Inject cache metadata so frontend knows it's cached
+				data['_from_cache'] = True
+				data['_cached_at'] = frappe.cache().get_value('fct_cache_timestamp') or ''
+				return data
 
-		# ── Reconcile KPI debt buckets from actual tier data ──────────
-		# This ensures KPI cards and tier tables are numerically consistent.
-		debt_a = sum(flt(r["total_debt"]) for r in tier_tables.get("A", []))
-		debt_b = sum(flt(r["total_debt"]) for r in tier_tables.get("B", []))
-		debt_c = sum(flt(r["total_debt"]) for r in tier_tables.get("C", []))
-
-		kpis["debt_a"] = debt_a
-		kpis["debt_b"] = debt_b
-		kpis["debt_c"] = debt_c
-		kpis["total_debt"] = debt_a + debt_b + debt_c
-
-		# Active/closed counts are now computed in _compute_kpis() and NOT overwritten
-
-		return {
-			"success": True,
-			"kpis": kpis,
-			"roi": roi_data,
-			"tiers": tier_tables
-		}
+		# Cache miss or forced refresh → compute live
+		result = _build_and_cache_intelligence()
+		result['_from_cache'] = False
+		result['_cached_at'] = str(now_datetime())
+		return result
 	except Exception as e:
 		frappe.log_error(f"Financial Control Tower - Intelligence Error: {str(e)}")
 		return {"success": False, "error": str(e)}
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# MAIN ENDPOINT: Periodic View (Date-range filtered charts)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 @frappe.whitelist()
-def get_periodic_data(from_date=None, to_date=None):
-	"""
-	Returns data for View 2: Periodic Analysis.
-	Date-range filtered monthly investment + collection efficiency charts.
-	Now also includes net_profit and contract_count arrays.
-	"""
-	try:
-		if not from_date:
-			from_date = add_months(nowdate(), -12)
-		if not to_date:
-			to_date = nowdate()
+def get_periodic_data(from_date=None, to_date=None, force_refresh=0):
+    """
+    Returns data for View 2: Periodic Analysis.
 
-		from_date = getdate(from_date)
-		to_date = getdate(to_date)
+    Cache Strategy:
+      - Caches the DEFAULT date range (last 12 months) at key 'fct_periodic_data'.
+      - Custom date ranges are ALWAYS computed live (not cached).
+      - force_refresh=1 bypasses cache even for default range.
+    """
+    try:
+        force = int(force_refresh or 0)
 
-		monthly_investment = _get_monthly_investment(from_date, to_date)
-		collection_efficiency = _get_collection_efficiency(from_date, to_date)
-		net_profit = _get_monthly_net_profit(from_date, to_date)
-		contract_count = _get_monthly_contract_count(from_date, to_date)
+        default_from = str(getdate(add_months(nowdate(), -12)))
+        default_to = str(getdate(nowdate()))
 
-		return {
-			"success": True,
-			"monthly_investment": monthly_investment,
-			"collection_efficiency": collection_efficiency,
-			"net_profit": net_profit,
-			"contract_count": contract_count,
-			"date_range": {
-				"from": str(from_date),
-				"to": str(to_date)
-			}
-		}
-	except Exception as e:
-		frappe.log_error(f"Financial Control Tower - Periodic Error: {str(e)}")
-		return {"success": False, "error": str(e)}
+        if not from_date:
+            from_date = default_from
+        if not to_date:
+            to_date = default_to
 
+        is_default_range = (str(getdate(from_date)) == default_from and
+                            str(getdate(to_date)) == default_to)
+
+        # ── Try cache only for default date range ────────────────────────
+        if not force and is_default_range:
+            cached = frappe.cache().get_value('fct_periodic_data')
+            if cached:
+                data = json.loads(cached) if isinstance(cached, str) else cached
+                data['_from_cache'] = True
+                data['_cached_at'] = frappe.cache().get_value('fct_cache_timestamp') or ''
+                return data
+
+        # ── Compute live ─────────────────────────────────────────────────
+        from_date = getdate(from_date)
+        to_date = getdate(to_date)
+
+        result = _build_periodic_result(from_date, to_date)
+
+        # Only cache if it's the default range
+        if is_default_range:
+            frappe.cache().set_value('fct_periodic_data', json.dumps(result), expires_in_sec=CACHE_TTL)
+
+        result['_from_cache'] = False
+        result['_cached_at'] = str(now_datetime())
+        return result
+
+    except Exception as e:
+        frappe.log_error(f"Financial Control Tower - Periodic Error: {str(e)}")
+        return {"success": False, "error": str(e)}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # INTERNAL: KPI Computation
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# NEW: Internal builders that compute + cache
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def _build_and_cache_intelligence():
+    """
+    Computes full intelligence data and stores in cache.
+    This is the ONLY function that runs the heavy SQL queries.
+    Called by: (a) cache miss, (b) manual refresh, (c) 23:59 cron.
+    """
+    kpis = _compute_kpis()
+    roi_data = _compute_roi(kpis)
+    tier_tables = _compute_customer_tiers()
+
+    # Reconcile KPI debt buckets from tier data
+    debt_a = sum(flt(r["total_debt"]) for r in tier_tables.get("A", []))
+    debt_b = sum(flt(r["total_debt"]) for r in tier_tables.get("B", []))
+    debt_c = sum(flt(r["total_debt"]) for r in tier_tables.get("C", []))
+
+    kpis["debt_a"] = debt_a
+    kpis["debt_b"] = debt_b
+    kpis["debt_c"] = debt_c
+    kpis["total_debt"] = debt_a + debt_b + debt_c
+
+    result = {
+        "success": True,
+        "kpis": kpis,
+        "roi": roi_data,
+        "tiers": tier_tables
+    }
+
+    # ── Store in cache with TTL ──────────────────────────────────────────
+    frappe.cache().set_value('fct_intelligence_data', json.dumps(result), expires_in_sec=CACHE_TTL)
+    frappe.cache().set_value('fct_cache_timestamp', str(now_datetime()), expires_in_sec=CACHE_TTL)
+
+    return result
+
+
+def _build_periodic_result(from_date, to_date):
+    """
+    Computes periodic data for given date range.
+    Separated from caching logic for reuse.
+    """
+    from calendar import month_abbr  # already imported at top
+
+    monthly_investment = _get_monthly_investment(from_date, to_date)
+    collection_efficiency = _get_collection_efficiency(from_date, to_date)
+    net_profit = _get_monthly_net_profit(from_date, to_date)
+    contract_count = _get_monthly_contract_count(from_date, to_date)
+
+    return {
+        "success": True,
+        "monthly_investment": monthly_investment,
+        "collection_efficiency": collection_efficiency,
+        "net_profit": net_profit,
+        "contract_count": contract_count,
+        "date_range": {
+            "from": str(from_date),
+            "to": str(to_date)
+        }
+    }
+
+
+def _build_and_cache_periodic():
+    """
+    Computes default periodic data (last 12 months) and caches it.
+    Called by the 23:59 cron job.
+    """
+    from_date = getdate(add_months(nowdate(), -12))
+    to_date = getdate(nowdate())
+
+    result = _build_periodic_result(from_date, to_date)
+    frappe.cache().set_value('fct_periodic_data', json.dumps(result), expires_in_sec=CACHE_TTL)
+
+    return result
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# NEW: Scheduled Job Entry Point (23:59 Cron)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def rebuild_fct_cache():
+    """
+    Pre-calculates ALL dashboard data and stores in Redis cache.
+
+    Called by hooks.py scheduler_events at 23:59 daily.
+    This is the ONLY time heavy SQL queries run automatically.
+
+    Execution time: ~2-5 seconds (runs 6 SQL queries once).
+    Cache TTL: 25 hours (ensures overlap past next cron cycle).
+    """
+    try:
+        frappe.logger('fct').info("FCT Cache Rebuild: Starting 23:59 scheduled job...")
+
+        # ── Build intelligence data (KPIs + ROI + Tiers) ─────────────────
+        intel = _build_and_cache_intelligence()
+        frappe.logger('fct').info(
+            f"FCT Cache Rebuild: Intelligence OK — "
+            f"KPIs={bool(intel.get('kpis'))}, "
+            f"Tiers A={len(intel.get('tiers',{}).get('A',[]))}, "
+            f"B={len(intel.get('tiers',{}).get('B',[]))}, "
+            f"C={len(intel.get('tiers',{}).get('C',[]))}"
+        )
+
+        # ── Build periodic data (default 12-month range) ────────────────
+        periodic = _build_and_cache_periodic()
+        frappe.logger('fct').info(
+            f"FCT Cache Rebuild: Periodic OK — "
+            f"Investment months={len(periodic.get('monthly_investment',[]))}, "
+            f"Collection months={len(periodic.get('collection_efficiency',[]))}"
+        )
+
+        # ── Store timestamp ──────────────────────────────────────────────
+        frappe.cache().set_value('fct_cache_timestamp', str(now_datetime()), expires_in_sec=CACHE_TTL)
+
+        frappe.logger('fct').info("FCT Cache Rebuild: ✅ Complete")
+
+    except Exception as e:
+        frappe.log_error(f"FCT Cache Rebuild FAILED: {str(e)}", "Financial Control Tower")
+        frappe.logger('fct').error(f"FCT Cache Rebuild: ❌ {str(e)}")
 
 def _compute_kpis():
 	"""
@@ -520,28 +638,31 @@ def on_document_change(doc, method=None):
 	try:
 		_clear_fct_cache()
 
-		frappe.publish_realtime(
-			event='fct_data_changed',
-			message={
-				'doctype': doc.doctype,
-				'docname': doc.name,
-				'method': method or 'unknown',
-				'timestamp': str(frappe.utils.now_datetime()),
-				'user': frappe.session.user
-			},
-			after_commit=True
+		frappe.logger('fct').info(
+			f"FCT: Cache invalidated by {doc.doctype} {doc.name} ({method}). "
+			f"Dashboard will refresh on next manual load."
 		)
 
-		frappe.logger('fct').info(
-			f"FCT realtime: {doc.doctype} {doc.name} ({method}) → cache cleared, WebSocket pushed"
-		)
+	# ── REMOVED: frappe.publish_realtime() ───────────────────────────
+	# Previously pushed 'fct_data_changed' which triggered ALL open
+	# browsers to fetchGeneral() + fetchPeriodic() simultaneously.
+	# This was the primary cause of SQL load spikes.
+	#
+	# If you want SELECTIVE notification (eg, only the submitting user),
+	# uncomment the block below:
+	#
+	# frappe.publish_realtime(
+	#     event='fct_cache_cleared',
+	#     message={'doctype': doc.doctype, 'docname': doc.name},
+	#     user=frappe.session.user,  # only current user, not broadcast
+	#     after_commit=True
+	# )
 
 	except Exception as e:
 		frappe.log_error(
 			f"FCT on_document_change error: {str(e)}",
 			'Financial Control Tower'
 		)
-
 
 def _clear_fct_cache():
 	"""Clear all Financial Control Tower cache keys."""
@@ -653,16 +774,26 @@ def get_contract_installment_analysis(search_term):
 				"summary": {"total_scheduled": 0, "total_paid": 0, "total_balance": 0}
 			}
 
-		# ── Step 3: Fetch ALL Payments linked to this contract ──────────
+		# ── Step 3: Fetch ALL Payments linked to this Sales Order ────────
+		# Link path: IA → Sales Order ← Payment Entry
+		# Method 1: custom_contract_reference stores the Sales Order name
+		# Method 2: standard references child table (reference_name = SO)
 		payments = frappe.db.sql("""
-			SELECT
-				pe.received_amount
+			SELECT pe.received_amount, pe.posting_date
 			FROM `tabPayment Entry` pe
 			WHERE pe.docstatus = 1
 			  AND pe.payment_type = 'Receive'
-			  AND pe.custom_contract_reference = %(ia_name)s
+			  AND (
+			    pe.custom_contract_reference = %(sales_order)s
+			    OR pe.name IN (
+			      SELECT per.parent
+			      FROM `tabPayment Entry Reference` per
+			      WHERE per.reference_doctype = 'Sales Order'
+			        AND per.reference_name = %(sales_order)s
+			    )
+			  )
 			ORDER BY pe.posting_date ASC, pe.creation ASC
-		""", {"ia_name": ia.name}, as_dict=True)
+		""", {"sales_order": ia.sales_order}, as_dict=True)
 
 		# ── Step 4: FIFO Payment Reconciliation ─────────────────────────
 		reconciled = _fifo_reconcile(schedule, payments)
