@@ -295,25 +295,26 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 				// DATA FETCHING
 				// ═══════════════════════════════════════════════════════════
 
-				async function fetchGeneral() {
+				async function fetchGeneral(force = 0) {
 					loading.value = true; error.value = null;
 					try {
-						const r = await frappe.call({ method: `${API_BASE}.get_intelligence_data`, freeze: false });
+						const r = await frappe.call({ method: `${API_BASE}.get_intelligence_data`, args: { force_refresh: force }, freeze: false });
 						const d = r.message;
 						if (d?.success) {
 							kpis.value = d.kpis || {};
 							roi.value = d.roi || {};
 							tiers.value = d.tiers || { A: [], B: [], C: [] };
 							lastRefresh.value = new Date().toLocaleTimeString();
+							if (d._from_cache) lastRefresh.value += ' (cache)';
 						} else { error.value = d?.error || 'Ma\'lumot olishda xatolik'; }
 					} catch (e) { error.value = e.message || 'Tarmoq xatosi'; }
 					finally { loading.value = false; }
 				}
 
-				async function fetchPeriodic() {
+				async function fetchPeriodic(force = 0) {
 					loadingPeriodic.value = true; error.value = null;
 					try {
-						const r = await frappe.call({ method: `${API_BASE}.get_periodic_data`, args: { from_date: dateFrom.value, to_date: dateTo.value }, freeze: false });
+						const r = await frappe.call({ method: `${API_BASE}.get_periodic_data`, args: { from_date: dateFrom.value, to_date: dateTo.value, force_refresh: force }, freeze: false });
 						const d = r.message;
 						if (d?.success) {
 							periodic.value = {
@@ -411,8 +412,8 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 				// ═══════════════════════════════════════════════════════════
 
 				function refresh() {
-					if (current_view.value === 'general') fetchGeneral();
-					else fetchPeriodic();
+					if (current_view.value === 'general') fetchGeneral(1);
+					else fetchPeriodic(1);
 				}
 
 				function applyPreset(p) {
@@ -516,23 +517,26 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 					fetchGeneral();
 					fetchPeriodic();
 
-					frappe.realtime.on('fct_data_changed', (data) => {
-						console.log('📊 FCT: Real-time update', data);
-						frappe.show_alert({ message: __(`${data.doctype} ${data.docname} — ${data.method === 'on_submit' ? 'tasdiqlandi' : 'bekor qilindi'}. Dashboard yangilanmoqda...`), indicator: 'green' }, 5);
-						fetchGeneral(); fetchPeriodic();
+					// Real-time: only show notification, no auto-fetch (data is cached)
+					frappe.realtime.on('fct_cache_cleared', (data) => {
+						frappe.show_alert({ message: __(`${data.doctype} ${data.docname} yangilandi. "Yangilash" tugmasini bosing.`), indicator: 'blue' }, 5);
 					});
 
-					const _autoTimer = setInterval(() => {
-						if (!document.hidden) { if (current_view.value === 'general') fetchGeneral(); else fetchPeriodic(); }
-					}, 60000);
-
-					const _onVisible = () => { if (!document.hidden) { fetchGeneral(); fetchPeriodic(); } };
+					// On tab re-focus: only refresh if stale (>10 min since last load)
+					let _lastFetchTime = Date.now();
+					const STALE_MS = 10 * 60 * 1000; // 10 minutes
+					const _onVisible = () => {
+						if (!document.hidden && (Date.now() - _lastFetchTime) > STALE_MS) {
+							_lastFetchTime = Date.now();
+							if (current_view.value === 'general') fetchGeneral();
+							else fetchPeriodic();
+						}
+					};
 					document.addEventListener('visibilitychange', _onVisible);
 
 					if (cur_page?.page?.wrapper) {
 						$(cur_page.page.wrapper).on('remove', () => {
-							clearInterval(_autoTimer);
-							frappe.realtime.off('fct_data_changed');
+							frappe.realtime.off('fct_cache_cleared');
 							document.removeEventListener('visibilitychange', _onVisible);
 						});
 					}
@@ -1068,29 +1072,27 @@ const FCT_STYLES = `
 .fct-kpi__barfill { height: 100%; width: 60%; background: var(--kpi-accent); border-radius: 2px; opacity: .45; }
 
 /* DUO ROW */
-.fct-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+.fct-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; align-items: stretch; }
 
-/* ROI */
-.fct-roi__body { padding: 18px 22px 20px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; justify-content: center; }
-.fct-roi__donut { position: relative; width: 155px; height: 155px; flex-shrink: 0; }
+/* ROI — card stretches to match adjacent column */
+.fct-roi { display: flex; flex-direction: column; height: 100%; }
+.fct-roi__body { padding: 18px 22px 20px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; justify-content: center; flex: 1 1 auto; }
+.fct-roi__donut { position: relative; flex-shrink: 0; aspect-ratio: 1; }
 .fct-roi__svg { width: 100%; height: 100%; }
 .fct-roi__arc { transition: stroke-dasharray .8s cubic-bezier(.4,0,.2,1); }
 .fct-roi__center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.fct-roi__pct { font-size: 28px; font-weight: 800; color: var(--fct-tx-0); letter-spacing: -.04em; }
+.fct-roi__pct { font-size: clamp(24px, 2.2vw, 36px); font-weight: 800; color: var(--fct-tx-0); letter-spacing: -.04em; }
 .fct-roi__lbl { font-size: 11px; color: var(--fct-tx-2); text-transform: uppercase; letter-spacing: .12em; }
 .fct-roi__legend { display: flex; flex-direction: column; gap: 10px; }
 .fct-roi__li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fct-tx-1); }
 .fct-roi__li strong { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--fct-tx-0); min-width: 60px; text-align: right; }
 /* ROI v4.2 — vertical layout with top label */
-.fct-roi__body--vertical { flex-direction: column; align-items: center; gap: 16px; }
+.fct-roi__body--vertical { flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
 .fct-roi__top-label { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .fct-roi__pct-top { font-size: 36px; font-weight: 800; color: var(--fct-tx-0); letter-spacing: -.04em; line-height: 1; }
 .fct-roi__lbl-top { font-size: 12px; color: var(--fct-tx-2); text-transform: uppercase; letter-spacing: .12em; font-weight: 600; }
 .fct-roi__legend--horizontal { display: flex; flex-direction: row; gap: 24px; flex-wrap: wrap; justify-content: center; }
-.fct-roi__donut--large { width: 200px; height: 200px; }
-.fct-roi__body--vertical { flex-direction: column; align-items: center; gap: 16px; }
-.fct-roi__legend--horizontal { display: flex; flex-direction: row; gap: 24px; flex-wrap: wrap; justify-content: center; }
-.fct-roi__donut--large { width: 220px; height: 220px; }
+.fct-roi__donut--large { width: clamp(160px, 22vw, 280px); height: auto; }
 .fct-roi__dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
 /* CONTRACT TRACKER (v4.1) */
@@ -1219,7 +1221,7 @@ const FCT_STYLES = `
 @media (min-width: 641px) and (max-width: 1023px) { .fct-hd__inner { padding: 10px 20px; gap: 14px; } .fct-body { padding: 20px; } .fct-kpis { grid-template-columns: repeat(4, 1fr); gap: 12px; } .fct-kpi { padding: 14px 14px 10px; } .fct-kpi__val { font-size: 21px; } .fct-card__hd { padding: 14px 18px 0; } .fct-roi__body { gap: 18px; } .fct-dates { gap: 10px; } .fct-chart__body { padding: 0 14px; } .fct-contract__table-wrap { padding: 10px 18px; } .fct-contract__meta { padding: 0 18px 12px; } }
 @media (max-width: 640px) {
 	/* inside @media (max-width: 640px) add/update: */
-  .fct-roi__donut--large { width: 180px; height: 180px; }
+  .fct-roi__donut--large { width: 160px; height: auto; }
   .fct-roi__pct-top { font-size: 30px; }
   .fct-roi__legend--horizontal { gap: 16px; }
   .fct-contract__dropdown { left: 14px; right: 14px; max-height: 220px; }
@@ -1233,8 +1235,9 @@ const FCT_STYLES = `
   .fct-kpis { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
   .fct-kpi { padding: 12px 12px 9px; } .fct-kpi__val { font-size: 20px; } .fct-kpi__label { font-size: 10px; } .fct-kpi__icon { width: 15px; height: 15px; }
   .fct-duo { margin-bottom: 12px; }
+  .fct-roi { height: auto; }
   .fct-roi__body { flex-direction: column; align-items: center; gap: 14px; padding: 14px 14px 16px; }
-  .fct-roi__donut { width: 140px; height: 140px; } .fct-roi__pct { font-size: 24px; }
+  .fct-roi__donut--large { width: 140px; height: auto; } .fct-roi__pct { font-size: 24px; }
   .fct-roi__legend { flex-direction: row; flex-wrap: wrap; gap: 12px; justify-content: center; } .fct-roi__li strong { min-width: auto; margin-left: 6px; }
   .fct-card__hd { padding: 12px 14px 0; flex-wrap: wrap; gap: 6px; } .fct-card__title { font-size: 14px; }
   .fct-contract-tracker { max-height: none; }
@@ -1258,9 +1261,10 @@ const FCT_STYLES = `
 .fct-hd__logo svg { width: 20px; height: 20px; }
 .fct-hd__btn { width: 32px; height: 32px; }
 .fct-hd__pill { display: none; }
-.fct-roi__donut--large { width: 150px; height: 150px; }
+.fct-roi__donut--large { width: 130px; height: auto; }
 .fct-body { padding: 10px; } .fct-kpis { gap: 8px; } .fct-kpi { padding: 10px 10px 8px; } .fct-kpi__val { font-size: 18px; } .fct-dates__presets { gap: 3px; } .fct-dates__pre { padding: 7px 8px; font-size: 11px; } }
-@media (min-width: 1800px) { .fct-body { max-width: 1920px; padding: 28px 48px; } .fct-kpis { grid-template-columns: repeat(7, 1fr); } .fct-duo { grid-template-columns: 420px 1fr; } .fct-charts-duo { grid-template-columns: 1fr 1fr; gap: 22px; } .fct-tier-col__list { max-height: 560px; } }
+@media (min-width: 1024px) { .fct-duo { grid-template-columns: minmax(320px, 1fr) minmax(0, 2fr); } }
+@media (min-width: 1800px) { .fct-body { max-width: 1920px; padding: 28px 48px; } .fct-kpis { grid-template-columns: repeat(7, 1fr); } .fct-duo { grid-template-columns: minmax(360px, 420px) 1fr; } .fct-charts-duo { grid-template-columns: 1fr 1fr; gap: 22px; } .fct-tier-col__list { max-height: 560px; } }
 @media print { .fct-hd { position: static; backdrop-filter: none; } .fct-hd__actions, .fct-hd__nav { display: none; } .fct-kpi:hover, .fct-card:hover { transform: none; box-shadow: var(--fct-sh-card); } .fct-body { padding: 0; } }
 
 /* FRAPPE OVERRIDES */
