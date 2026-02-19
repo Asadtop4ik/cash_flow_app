@@ -895,7 +895,10 @@ def search_contracts(search_term):
 			ia.transaction_date,
 			ia.custom_grand_total_with_interest
 		FROM `tabInstallment Application` ia
+		INNER JOIN `tabSales Order` so ON so.name = ia.sales_order
 		WHERE ia.docstatus = 1
+		  AND so.docstatus = 1
+		  AND so.status NOT IN ('Completed', 'Cancelled', 'Closed', 'Draft')
 		  AND (
 		    ia.name LIKE %(term)s
 		    OR ia.customer_name LIKE %(term)s
