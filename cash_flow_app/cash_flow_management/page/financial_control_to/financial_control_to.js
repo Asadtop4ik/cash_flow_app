@@ -787,8 +787,8 @@ const PAGE_TEMPLATE = `
                   class="fct-contract__dropdown-item"
                   @mousedown.prevent="selectContract(c)">
                   <div class="fct-contract__dropdown-main">
-                    <strong>{{ c.name }}</strong>
                     <span>{{ c.customer_name }}</span>
+                    <strong>{{ c.name }}</strong>
                   </div>
                   <div class="fct-contract__dropdown-sub">
                     <span>{{ c.date }}</span>
@@ -818,6 +818,13 @@ const PAGE_TEMPLATE = `
           <!-- Payment Schedule Table -->
           <div v-if="contractSearch.result?.schedule?.length" class="fct-contract__table-wrap">
             <table class="fct-contract__table">
+              <colgroup>
+                <col style="width:18%">
+                <col style="width:21%">
+                <col style="width:21%">
+                <col style="width:20%">
+                <col style="width:20%">
+              </colgroup>
               <thead><tr><th>Sana</th><th>Rejalashtirilgan</th><th>To'langan</th><th>Qoldiq</th><th>Holat</th></tr></thead>
               <tbody>
                 <tr v-for="(row, idx) in contractSearch.result.schedule" :key="idx">
@@ -825,7 +832,7 @@ const PAGE_TEMPLATE = `
                   <td class="fct-contract__td--mono">{{ fmtFull(row.scheduled_amount) }}</td>
                   <td class="fct-contract__td--mono" :style="{ color: row.paid_amount > 0 ? '#34d399' : 'inherit' }">{{ fmtFull(row.paid_amount) }}</td>
                   <td class="fct-contract__td--mono" :style="{ color: row.balance > 0 ? '#f87171' : '#5f677a' }">{{ fmtFull(row.balance) }}</td>
-                  <td><span class="fct-contract__status" :style="{ color: getStatusColor(row.status), background: getStatusColor(row.status) + '18' }">{{ row.status === 'Paid' ? 'To\\'landi' : row.status === 'Partially Paid' ? 'Qisman' : 'To\\'lanmagan' }}</span></td>
+                  <td class="fct-contract__td--status"><span class="fct-contract__status" :style="{ color: getStatusColor(row.status), background: getStatusColor(row.status) + '18' }">{{ row.status === 'Paid' ? 'To\\'landi' : row.status === 'Partially Paid' ? 'Qisman' : 'To\\'lanmagan' }}</span></td>
                 </tr>
               </tbody>
             </table>
@@ -1111,11 +1118,15 @@ const FCT_STYLES = `
 .fct-contract__meta-row span { color: var(--fct-tx-2); }
 .fct-contract__meta-row strong { font-weight: 700; font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace; }
 .fct-contract__table-wrap { overflow-x: auto; overflow-y: auto; max-height: 320px; padding: 14px 22px; -webkit-overflow-scrolling: touch; }
-.fct-contract__table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fct-contract__table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
 .fct-contract__table thead th { position: sticky; top: 0; z-index: 1; padding: 8px 10px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--fct-tx-2); background: var(--fct-bg-2); border-bottom: 1px solid var(--fct-bdr); }
+.fct-contract__table thead th:nth-child(2),.fct-contract__table thead th:nth-child(3),.fct-contract__table thead th:nth-child(4) { text-align: right; }
+.fct-contract__table thead th:nth-child(5) { text-align: center; }
 .fct-contract__table tbody tr { border-bottom: 1px solid var(--fct-bdr-subtle); transition: background .15s; }
 .fct-contract__table tbody tr:hover { background: var(--fct-bg-2); }
 .fct-contract__table tbody td { padding: 9px 10px; color: var(--fct-tx-1); }
+.fct-contract__td--mono { text-align: right; font-family: 'JetBrains Mono', monospace; }
+.fct-contract__td--status { text-align: center; }
 .fct-contract__td--date { font-size: 12px; color: var(--fct-tx-2); white-space: nowrap; }
 .fct-contract__td--mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; text-align: right; }
 .fct-contract__status { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 10px; font-weight: 700; white-space: nowrap; }
@@ -1126,8 +1137,8 @@ const FCT_STYLES = `
 .fct-contract__dropdown-item { padding: 10px 12px; border-radius: 6px; cursor: pointer; transition: background .12s; }
 .fct-contract__dropdown-item:hover { background: var(--fct-bg-2); }
 .fct-contract__dropdown-main { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.fct-contract__dropdown-main strong { font-size: 13px; font-weight: 700; color: var(--fct-tx-0); font-family: 'JetBrains Mono', monospace; }
-.fct-contract__dropdown-main span { font-size: 12px; color: var(--fct-tx-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fct-contract__dropdown-main strong { font-size: 13px; font-weight: 700; color: var(--fct-tx-0); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; white-space: nowrap; }
+.fct-contract__dropdown-main span { font-size: 12px; color: var(--fct-tx-1); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fct-contract__dropdown-sub { display: flex; justify-content: space-between; margin-top: 2px; font-size: 11px; color: var(--fct-tx-3); }
 .fct-contract__dropdown-sub span:last-child { font-family: 'JetBrains Mono', monospace; color: var(--fct-tx-2); }
 .fct-contract__dropdown-empty { padding: 16px; text-align: center; font-size: 12px; color: var(--fct-tx-3); }
