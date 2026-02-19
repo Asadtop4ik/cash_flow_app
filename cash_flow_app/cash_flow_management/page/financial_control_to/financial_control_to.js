@@ -31,21 +31,23 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 
 	$(wrapper).find('.page-head').hide();
 
-	$(wrapper).find('.page-container').css('max-width', '100%');
-	$(wrapper).find('.container').css('max-width', '100%');
-	$(wrapper).find('.page-body').css('max-width', '100%');
-	_injectOnce('fct-fullwidth', 'style', {}, `
-		[data-page-container="financial-control-to"] .container,
-		[data-page-container="financial-control-to"] .page-container,
-		[data-page-container="financial-control-to"] .page-body,
-		.page-container[data-page-container="financial-control-to"] {
-			max-width: 100% !important;
-			width: 100% !important;
-			padding-left: 0 !important;
-			padding-right: 0 !important;
+	// ─── Ancestor traversal: walk every DOM node from the mount point up to
+	// document.body and neutralise width constraints via inline important styles.
+	// Inline !important beats any stylesheet !important — no selector guessing,
+	// no specificity wars, Frappe-version-agnostic.
+	function _releaseAncestors(startEl) {
+		let node = startEl.parentElement;
+		while (node && node !== document.body) {
+			node.style.setProperty('max-width',     '100%',       'important');
+			node.style.setProperty('width',         '100%',       'important');
+			node.style.setProperty('padding-left',  '0',          'important');
+			node.style.setProperty('padding-right', '0',          'important');
+			node.style.setProperty('margin-left',   '0',          'important');
+			node.style.setProperty('margin-right',  '0',          'important');
+			node.style.setProperty('box-sizing',    'border-box', 'important');
+			node = node.parentElement;
 		}
-		#fct-mount { width: 100% !important; }
-	`);
+	}
 
 	_injectOnce('fct-font', 'link', {
 		rel: 'stylesheet',
@@ -58,6 +60,7 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 	mountEl.id = 'fct-mount';
 	page.main[0].innerHTML = '';
 	page.main[0].appendChild(mountEl);
+	_releaseAncestors(mountEl); // parentElement chain is established — safe to traverse
 
 	function _initVueApp() {
 		const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
@@ -1007,7 +1010,7 @@ const FCT_STYLES = `
   --fct-sh-float: 0 12px 40px rgba(17,19,24,.12), 0 0 0 1px rgba(17,19,24,.05);
   --fct-radius: 14px; --fct-radius-sm: 10px; --fct-radius-xs: 7px;
   font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: var(--fct-bg-0); color: var(--fct-tx-0); line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  background: var(--fct-bg-0); color: var(--fct-tx-0); line-height: 1.5; -webkit-font-smoothing: antialiased;
 }
 .fct--dark {
   --fct-bg-0: #0b0d14; --fct-bg-1: #12151e; --fct-bg-2: #181b26;
@@ -1022,7 +1025,7 @@ const FCT_STYLES = `
 
 /* HEADER */
 .fct-hd { position: sticky; top: 0; z-index: 80; background: var(--fct-bg-glass); backdrop-filter: blur(20px) saturate(1.3); -webkit-backdrop-filter: blur(20px) saturate(1.3); border-bottom: 1px solid var(--fct-bdr); }
-.fct-hd__inner { max-width: 1600px; margin: 0 auto; padding: 10px 28px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.fct-hd__inner { max-width: 100%; margin: 0; padding: 10px 28px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
 .fct-hd__brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .fct-hd__logo svg { display: block; }
 .fct-hd__title { font-size: clamp(13px, 2vw, 17px); font-weight: 700; letter-spacing: -.025em; color: var(--fct-tx-0); }
@@ -1043,13 +1046,13 @@ const FCT_STYLES = `
 .fct-hd__btn:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ERROR */
-.fct-err { max-width: 1600px; margin: 0 auto; padding: 10px 28px; display: flex; align-items: center; gap: 10px; background: #fef2f2; border-bottom: 1px solid #fecaca; color: #b91c1c; font-size: 13px; }
+.fct-err { max-width: 100%; margin: 0; padding: 10px 28px; display: flex; align-items: center; gap: 10px; background: #fef2f2; border-bottom: 1px solid #fecaca; color: #b91c1c; font-size: 13px; }
 .fct--dark .fct-err { background: #1a0808; border-color: #450a0a; color: #fca5a5; }
 .fct-err__btn { margin-left: auto; padding: 3px 12px; border: 1px solid currentColor; border-radius: var(--fct-radius-xs); background: transparent; color: inherit; font-size: 12px; font-family: inherit; cursor: pointer; }
 .fct-err__x { padding: 2px 8px; border: none; background: transparent; color: inherit; font-size: 18px; cursor: pointer; line-height: 1; }
 
 /* BODY */
-.fct-body { max-width: 1600px; margin: 0 auto; padding: 24px 28px; position: relative; min-height: 65vh; }
+.fct-body { max-width: 100%; width: 100%; margin: 0; padding: 24px 28px; position: relative; min-height: 65vh; box-sizing: border-box; }
 .fct-v { animation: fctFadeUp .35s ease both; }
 
 /* LOADER */
@@ -1118,17 +1121,18 @@ const FCT_STYLES = `
 .fct-contract__meta-row span { color: var(--fct-tx-2); }
 .fct-contract__meta-row strong { font-weight: 700; font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace; }
 .fct-contract__table-wrap { overflow-x: auto; overflow-y: auto; max-height: 320px; padding: 14px 22px; -webkit-overflow-scrolling: touch; min-width: 0; }
-.fct-contract__table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+.fct-contract__table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 12px; table-layout: auto; }
 .fct-contract__table thead th { position: sticky; top: 0; z-index: 1; padding: 8px 10px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--fct-tx-2); background: var(--fct-bg-2); border-bottom: 1px solid var(--fct-bdr); }
-.fct-contract__table thead th:nth-child(2),.fct-contract__table thead th:nth-child(3),.fct-contract__table thead th:nth-child(4) { text-align: right; }
-.fct-contract__table thead th:nth-child(5) { text-align: center; }
+.fct-contract__table thead th:nth-child(1) { min-width: 90px; }
+.fct-contract__table thead th:nth-child(2),.fct-contract__table thead th:nth-child(3),.fct-contract__table thead th:nth-child(4) { text-align: right; min-width: 110px; }
+.fct-contract__table thead th:nth-child(5) { text-align: center; min-width: 95px; }
 .fct-contract__table tbody tr { border-bottom: 1px solid var(--fct-bdr-subtle); transition: background .15s; }
 .fct-contract__table tbody tr:hover { background: var(--fct-bg-2); }
 .fct-contract__table tbody td { padding: 9px 10px; color: var(--fct-tx-1); }
 .fct-contract__td--mono { text-align: right; font-family: 'JetBrains Mono', monospace; }
-.fct-contract__td--status { text-align: center; }
-.fct-contract__td--date { font-size: 12px; color: var(--fct-tx-2); white-space: nowrap; }
-.fct-contract__td--mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; text-align: right; }
+.fct-contract__td--status { text-align: center; min-width: 95px; }
+.fct-contract__td--date { font-size: 12px; color: var(--fct-tx-2); white-space: nowrap; min-width: 90px; }
+.fct-contract__td--mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; text-align: right; min-width: 110px; }
 .fct-contract__status { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 10px; font-weight: 700; white-space: nowrap; }
 /* CONTRACT DROPDOWN */
 .fct-contract__search { position: relative; }
@@ -1284,16 +1288,10 @@ const FCT_STYLES = `
 .fct-roi__donut--large { width: 130px; height: auto; }
 .fct-body { padding: 8px 6px; } .fct-kpis { gap: 8px; } .fct-kpi { padding: 10px 10px 8px; } .fct-kpi__val { font-size: clamp(12px, 3.5vw, 18px); } .fct-dates__presets { gap: 3px; } .fct-dates__pre { padding: 7px 8px; font-size: 11px; } }
 @media (min-width: 1024px) { .fct-duo { grid-template-columns: minmax(320px, 1fr) minmax(0, 2fr); } }
-@media (min-width: 1800px) { .fct-body { max-width: 1920px; padding: 28px 48px; } .fct-kpis { grid-template-columns: repeat(7, 1fr); } .fct-duo { grid-template-columns: minmax(360px, 420px) 1fr; } .fct-charts-duo { grid-template-columns: 1fr 1fr; gap: 22px; } .fct-tier-col__list { max-height: 560px; } }
+@media (min-width: 1800px) { .fct-body { padding: 28px 48px; } .fct-kpis { grid-template-columns: repeat(7, 1fr); } .fct-duo { grid-template-columns: minmax(360px, 420px) 1fr; } .fct-charts-duo { grid-template-columns: 1fr 1fr; gap: 22px; } .fct-tier-col__list { max-height: 560px; } }
 @media print { .fct-hd { position: static; backdrop-filter: none; } .fct-hd__actions, .fct-hd__nav { display: none; } .fct-kpi:hover, .fct-card:hover { transform: none; box-shadow: var(--fct-sh-card); } .fct-body { padding: 0; } }
 
-/* FRAPPE OVERRIDES */
-.page-container[data-page-container] { background: transparent !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; box-sizing: border-box !important; }
-#fct-mount .page-content { padding: 0 !important; margin: 0 !important; box-sizing: border-box !important; }
+/* FRAPPE OVERRIDES — width/margin/padding on all ancestors owned by _releaseAncestors() */
+.page-container[data-page-container] { background: transparent !important; }
 #fct-mount { width: 100% !important; margin: 0 !important; box-sizing: border-box !important; }
-.main-section .container { max-width: 100% !important; width: 100% !important; padding: 0 !important; margin: 0 !important; box-sizing: border-box !important; }
-.main-section .layout-main { max-width: 100% !important; width: 100% !important; margin: 0 !important; box-sizing: border-box !important; }
-.layout-main-section-wrapper { max-width: 100% !important; width: 100% !important; margin: 0 !important; box-sizing: border-box !important; }
-.layout-main-section { max-width: 100% !important; width: 100% !important; margin: 0 !important; box-sizing: border-box !important; }
-.page-body .main-section { max-width: 100% !important; width: 100% !important; margin: 0 !important; box-sizing: border-box !important; }
 `;
