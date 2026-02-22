@@ -1238,8 +1238,8 @@ const FCT_STYLES = `
 .fct-tier-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .fct-tier-col { border-top: 3px solid var(--tier-accent); display: flex; flex-direction: column; min-height: 320px; }
 .fct-tier-col__hd { display: flex; align-items: center; gap: 12px; padding: 16px 18px 12px; }
-.fct-tier-col__search { position: relative; display: flex; align-items: center; padding: 0 18px 12px; }
-.fct-tier__input--full { width: 100%; }
+.fct-tier-col__search { position: relative; display: flex; align-items: center; padding: 0 18px 12px; width: 100%; }
+.fct-tier__input--full { width: 100%; padding-left: 34px; }
 .fct-tier-col__list { flex: 1; overflow-y: auto; max-height: 420px; padding: 0 6px; }
 .fct-cust-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; margin: 0 0 2px; border-radius: var(--fct-radius-xs); transition: background .15s ease; cursor: default; }
 .fct-cust-row:hover { background: var(--fct-bg-2); }
@@ -1253,7 +1253,7 @@ const FCT_STYLES = `
 .fct-tier__info { flex: 1; min-width: 150px; }
 .fct-tier__title { font-size: 14px; font-weight: 700; color: var(--fct-tx-0); }
 .fct-tier__sub { font-size: 12px; color: var(--fct-tx-2); margin-top: 1px; }
-.fct-tier__searchico { position: absolute; left: 14px; color: var(--fct-tx-2); pointer-events: none; }
+.fct-tier__searchico { position: absolute; left: 30px; top: 50%; transform: translateY(-80%); color: var(--fct-tx-2); pointer-events: none; z-index: 1; }
 .fct-tier__input { padding: 8px 12px 8px 36px; border: 1.5px solid var(--fct-tx-3); border-radius: 10px; background: var(--fct-bg-2); color: var(--fct-tx-0); font-size: 12px; font-family: inherit; outline: none; width: 160px; transition: border-color .2s, box-shadow .2s; }
 .fct-tier__input:focus { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,.18); }
 .fct-tier__input::placeholder { color: var(--fct-tx-3); }
@@ -1278,7 +1278,7 @@ const FCT_STYLES = `
 .fct-chart-card { padding-bottom: 18px; }
 .fct-chart__body { padding: 0 18px; overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; }
 .fct-chart__svg { width: 100%; height: auto; min-width: 400px; overflow: visible; }
-.fct-chart__grid { stroke: var(--fct-bdr); stroke-width: .8; stroke-dasharray: 4 4; }
+.fct-chart__grid { stroke: var(--fct-tx-2); stroke-width: 1.2; stroke-dasharray: none; opacity: 0.55; }
 .fct-chart__area { transition: opacity .3s ease; }
 .fct-chart__line { transition: stroke-width .2s ease; }
 .fct-chart__crosshair { stroke: var(--fct-tx-1); stroke-width: 1; stroke-dasharray: 4 3; opacity: .7; pointer-events: none; }
