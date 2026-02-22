@@ -82,7 +82,7 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 				const roi = ref({});
 				const tiers = ref({ A: [], B: [], C: [] });
 
-				const periodic = ref({ monthly_investment: [], collection_efficiency: [], net_profit: [], contract_count: [] });
+				const periodic = ref({ monthly_investment: [], collection_efficiency: [], net_profit: [], contract_count: [], monthly_sales: [], monthly_margin:[] });
 				const dateFrom = ref(_monthsAgo(12));
 				const dateTo = ref(_today());
 
@@ -293,6 +293,8 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 
 				const netProfitChart = computed(() => _singleBarScale(periodic.value.net_profit, 'amount', '#10b981'));
 				const contractCountChart = computed(() => _singleBarScale(periodic.value.contract_count, 'count', '#6366f1'));
+				const salesChart  = computed(() => _scale(periodic.value.monthly_sales, 'amount'));
+				const marginChart = computed(() => _scale(periodic.value.monthly_margin, 'margin_pct'));
 
 				// ═══════════════════════════════════════════════════════════
 				// DATA FETCHING
@@ -324,7 +326,9 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 								monthly_investment: d.monthly_investment || [],
 								collection_efficiency: d.collection_efficiency || [],
 								net_profit: d.net_profit || [],
-								contract_count: d.contract_count || []
+								contract_count: d.contract_count || [],
+								monthly_sales: d.monthly_sales || [],
+								monthly_margin: d.monthly_margin || []
 							};
 						} else { error.value = d?.error || 'Davriy ma\'lumot olishda xatolik'; }
 					} catch (e) { error.value = e.message || 'Tarmoq xatosi'; }
@@ -559,7 +563,7 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 					refresh, fetchPeriodic, applyPreset, switchView, toggleDark,
 					showTip, hideTip, tipInvest, hideInvestTip, tipColl, tipCollBar, tipNetProfit, tipContractCount,
 					fmt, fmtAxis, fmtFull, fmtCount, overdueCls, effCls,
-					contractSearch, fetchSuggestions, onSearchInput, selectContract, closeDropdown, clearSearch, getStatusColor
+					contractSearch, fetchSuggestions, onSearchInput, selectContract, closeDropdown, clearSearch, getStatusColor, salesChart, marginChart
 				};
 			}
 		});
@@ -673,7 +677,7 @@ const PAGE_TEMPLATE = `
           </svg>
         </div>
         <div>
-          <h1 class="fct-hd__title">Moliyaviy Boshqaruv Markazi</h1>
+          <h1 class="fct-hd__title">MacOne Muddatli</h1>
           <div class="fct-hd__meta">
             <span class="fct-hd__pill" v-if="!loading && !loadingPeriodic"><span class="fct-hd__dot fct-hd__dot--live"></span> Jonli</span>
             <span class="fct-hd__pill fct-hd__pill--load" v-else><span class="fct-hd__dot fct-hd__dot--load"></span> Sinxronlanmoqda…</span>
@@ -912,7 +916,7 @@ const PAGE_TEMPLATE = `
       <!-- Charts Row 1: Investment + Collections -->
       <div class="fct-charts-duo">
         <div class="fct-card fct-chart-card">
-          <div class="fct-card__hd"><h2 class="fct-card__title">Oylik Investitsiya</h2><span class="fct-card__badge" style="color:#818cf8; background:rgba(129,140,248,.12)">Sarflangan kapital</span></div>
+          <div class="fct-card__hd"><h2 class="fct-card__title">Savdoga Tikilgan Pul</h2><span class="fct-card__badge" style="color:#818cf8; background:rgba(129,140,248,.12)">Sarflangan kapital</span></div>
           <div class="fct-chart__body">
             <svg v-if="investChart.pts.length" :viewBox="'0 0 ' + CHART_W + ' ' + CHART_H" preserveAspectRatio="xMidYMid meet" class="fct-chart__svg">
               <defs>
@@ -981,6 +985,86 @@ const PAGE_TEMPLATE = `
           </div>
         </div>
       </div>
+      <!-- Charts Row 3: Savdo + Marja -->
+<div class="fct-charts-duo">
+  <div class="fct-card fct-chart-card">
+    <div class="fct-card__hd">
+      <h2 class="fct-card__title">Oylik Savdo</h2>
+      <span class="fct-card__badge" style="color:#38bdf8; background:rgba(56,189,248,.12)">Savdo hajmi</span>
+    </div>
+    <div class="fct-chart__body">
+      <svg v-if="salesChart.pts.length" :viewBox="'0 0 ' + CHART_W + ' ' + CHART_H"
+           preserveAspectRatio="xMidYMid meet" class="fct-chart__svg">
+        <defs>
+          <linearGradient id="fctSalesGr" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="#38bdf8" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.03"/>
+          </linearGradient>
+        </defs>
+        <line v-for="(t,i) in salesChart.yTicks" :key="'sg'+i"
+              :x1="PAD.l" :y1="t.y" :x2="CHART_W-PAD.r" :y2="t.y" class="fct-chart__grid"/>
+        <text v-for="(t,i) in salesChart.yTicks" :key="'sl'+i"
+              :x="PAD.l-8" :y="t.y+3.5" class="fct-chart__ylab">{{ fmtAxis(t.v) }}</text>
+        <text v-for="(p,i) in salesChart.pts" :key="'sx'+i"
+              v-show="i % salesChart.labelSkip === 0"
+              :x="p.x" :y="CHART_H - PAD.b + (salesChart.rotateLabels ? 18 : 16)"
+              class="fct-chart__xlab"
+              :class="{ 'fct-chart__xlab--rotated': salesChart.rotateLabels }"
+              :transform="salesChart.rotateLabels ? 'rotate(-45 '+p.x+' '+(CHART_H-PAD.b+18)+')' : ''">
+          {{ p.label }}
+        </text>
+        <path :d="salesChart.area" fill="url(#fctSalesGr)" class="fct-chart__area"/>
+        <path :d="salesChart.path" fill="none" stroke="#38bdf8"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle v-for="(p,i) in salesChart.pts" :key="'sp'+i"
+                :cx="p.x" :cy="p.y" r="4" fill="#38bdf8"
+                :stroke="isDark ? '#12151e' : '#fff'" stroke-width="2.5"
+                @mouseenter="showTip($event, p.label, [{k:'Savdo', v:fmt(p.val), c:'#38bdf8'}])"
+                @mouseleave="hideTip()" style="cursor:pointer"/>
+      </svg>
+      <div v-else class="fct-chart__empty">Savdo ma'lumoti yo'q</div>
+    </div>
+  </div>
+
+  <div class="fct-card fct-chart-card">
+    <div class="fct-card__hd">
+      <h2 class="fct-card__title">Oylik Marja</h2>
+      <span class="fct-card__badge" style="color:#f59e0b; background:rgba(245,158,11,.12)">Foiz %</span>
+    </div>
+    <div class="fct-chart__body">
+      <svg v-if="marginChart.pts.length" :viewBox="'0 0 ' + CHART_W + ' ' + CHART_H"
+           preserveAspectRatio="xMidYMid meet" class="fct-chart__svg">
+        <defs>
+          <linearGradient id="fctMarginGr" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="#f59e0b" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.03"/>
+          </linearGradient>
+        </defs>
+        <line v-for="(t,i) in marginChart.yTicks" :key="'mg'+i"
+              :x1="PAD.l" :y1="t.y" :x2="CHART_W-PAD.r" :y2="t.y" class="fct-chart__grid"/>
+        <text v-for="(t,i) in marginChart.yTicks" :key="'ml'+i"
+              :x="PAD.l-8" :y="t.y+3.5" class="fct-chart__ylab">{{ t.v.toFixed(1) }}%</text>
+        <text v-for="(p,i) in marginChart.pts" :key="'mx'+i"
+              v-show="i % marginChart.labelSkip === 0"
+              :x="p.x" :y="CHART_H - PAD.b + (marginChart.rotateLabels ? 18 : 16)"
+              class="fct-chart__xlab"
+              :class="{ 'fct-chart__xlab--rotated': marginChart.rotateLabels }"
+              :transform="marginChart.rotateLabels ? 'rotate(-45 '+p.x+' '+(CHART_H-PAD.b+18)+')' : ''">
+          {{ p.label }}
+        </text>
+        <path :d="marginChart.area" fill="url(#fctMarginGr)" class="fct-chart__area"/>
+        <path :d="marginChart.path" fill="none" stroke="#f59e0b"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle v-for="(p,i) in marginChart.pts" :key="'mp'+i"
+                :cx="p.x" :cy="p.y" r="4" fill="#f59e0b"
+                :stroke="isDark ? '#12151e' : '#fff'" stroke-width="2.5"
+                @mouseenter="showTip($event, p.label, [{k:'Marja', v:p.val.toFixed(2)+'%', c:'#f59e0b'}])"
+                @mouseleave="hideTip()" style="cursor:pointer"/>
+      </svg>
+      <div v-else class="fct-chart__empty">Marja ma'lumoti yo'q</div>
+    </div>
+  </div>
+</div>
     </section>
   </main>
 

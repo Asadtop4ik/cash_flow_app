@@ -142,26 +142,24 @@ def _build_and_cache_intelligence():
 
 
 def _build_periodic_result(from_date, to_date):
-    """
-    Computes periodic data for given date range.
-    Separated from caching logic for reuse.
-    """
-    from calendar import month_abbr  # already imported at top
-
-    monthly_investment = _get_monthly_investment(from_date, to_date)
+    monthly_investment    = _get_monthly_investment(from_date, to_date)
     collection_efficiency = _get_collection_efficiency(from_date, to_date)
-    net_profit = _get_monthly_net_profit(from_date, to_date)
-    contract_count = _get_monthly_contract_count(from_date, to_date)
+    net_profit            = _get_monthly_net_profit(from_date, to_date)
+    contract_count        = _get_monthly_contract_count(from_date, to_date)
+    monthly_sales         = _get_monthly_sales(from_date, to_date)
+    monthly_margin        = _get_monthly_margin(from_date, to_date)
 
     return {
         "success": True,
-        "monthly_investment": monthly_investment,
+        "monthly_investment":    monthly_investment,
         "collection_efficiency": collection_efficiency,
-        "net_profit": net_profit,
-        "contract_count": contract_count,
+        "net_profit":            net_profit,
+        "contract_count":        contract_count,
+        "monthly_sales":         monthly_sales,
+        "monthly_margin":        monthly_margin,
         "date_range": {
             "from": str(from_date),
-            "to": str(to_date)
+            "to":   str(to_date)
         }
     }
 
@@ -751,7 +749,68 @@ def _get_monthly_net_profit(from_date, to_date):
         }
         for r in result
     ]
+def _get_monthly_sales(from_date, to_date):
+    """
+    Oylik savdo = SUM(custom_grand_total_with_interest - downpayment_amount)
+    """
+    result = frappe.db.sql("""
+        SELECT
+            YEAR(ia.transaction_date)  AS yr,
+            MONTH(ia.transaction_date) AS mo,
+            COALESCE(SUM(
+                COALESCE(ia.custom_grand_total_with_interest, 0)
+                - COALESCE(ia.downpayment_amount, 0)
+            ), 0) AS sales
+        FROM `tabInstallment Application` ia
+        WHERE ia.docstatus = 1
+          AND DATE(ia.transaction_date) BETWEEN %(from_date)s AND %(to_date)s
+        GROUP BY YEAR(ia.transaction_date), MONTH(ia.transaction_date)
+        ORDER BY yr, mo
+    """, {"from_date": from_date, "to_date": to_date}, as_dict=True)
 
+    return [
+        {
+            "year": r.yr,
+            "month": r.mo,
+            "label": f"{calendar.month_abbr[r.mo]} {r.yr}",
+            "amount": flt(r.sales)
+        }
+        for r in result
+    ]
+
+
+def _get_monthly_margin(from_date, to_date):
+    """
+    Oylik marja % = (custom_total_interest / savdo) * 100
+    savdo = custom_grand_total_with_interest - downpayment_amount
+    """
+    result = frappe.db.sql("""
+        SELECT
+            YEAR(ia.transaction_date)  AS yr,
+            MONTH(ia.transaction_date) AS mo,
+            COALESCE(SUM(ia.custom_total_interest), 0) AS total_interest,
+            COALESCE(SUM(
+                COALESCE(ia.custom_grand_total_with_interest, 0)
+                - COALESCE(ia.downpayment_amount, 0)
+            ), 0) AS sales
+        FROM `tabInstallment Application` ia
+        WHERE ia.docstatus = 1
+          AND DATE(ia.transaction_date) BETWEEN %(from_date)s AND %(to_date)s
+        GROUP BY YEAR(ia.transaction_date), MONTH(ia.transaction_date)
+        ORDER BY yr, mo
+    """, {"from_date": from_date, "to_date": to_date}, as_dict=True)
+
+    return [
+        {
+            "year": r.yr,
+            "month": r.mo,
+            "label": f"{calendar.month_abbr[r.mo]} {r.yr}",
+            "margin_pct": round(
+                (flt(r.total_interest) / flt(r.sales) * 100), 2
+            ) if flt(r.sales) > 0 else 0.0
+        }
+        for r in result
+    ]
 
 def _get_monthly_contract_count(from_date, to_date):
     """
