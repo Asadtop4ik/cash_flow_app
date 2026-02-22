@@ -1088,9 +1088,7 @@ const FCT_STYLES = `
   --fct-bg-0: #f4f5f7; --fct-bg-1: #ffffff; --fct-bg-2: #f8f9fb;
   --fct-bg-glass: rgba(255,255,255,.72);
   --fct-bdr: #e3e5ea; --fct-bdr-subtle: #eef0f4;
-  --fct-tx-0: #111318; --fct-tx-1: #3d4152; --fct-tx-2: #8590a5; --fct-tx-3: #b0b8c9;
-  --fct-sh-card: 0 1px 3px rgba(17,19,24,.04), 0 0 0 1px rgba(17,19,24,.03);
-  --fct-sh-hover: 0 8px 24px rgba(17,19,24,.07), 0 0 0 1px rgba(17,19,24,.04);
+--fct-tx-0: #000000; --fct-tx-1: #000000; --fct-tx-2: #1a1a1a; --fct-tx-3: #333333;
   --fct-sh-float: 0 12px 40px rgba(17,19,24,.12), 0 0 0 1px rgba(17,19,24,.05);
   --fct-radius: 14px; --fct-radius-sm: 10px; --fct-radius-xs: 7px;
   font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -1100,7 +1098,7 @@ const FCT_STYLES = `
   --fct-bg-0: #0b0d14; --fct-bg-1: #12151e; --fct-bg-2: #181b26;
   --fct-bg-glass: rgba(18,21,30,.78);
   --fct-bdr: #1f2330; --fct-bdr-subtle: #1a1d28;
---fct-tx-0: #e8eaef; --fct-tx-1: #a0a7b8; --fct-tx-2: #7a8294; --fct-tx-3: #4d5366;
+ --fct-tx-0: #ffffff; --fct-tx-1: #ffffff; --fct-tx-2: #e0e0e0; --fct-tx-3: #aaaaaa;
   --fct-sh-card: 0 1px 3px rgba(0,0,0,.2), 0 0 0 1px rgba(255,255,255,.03);
   --fct-sh-hover: 0 8px 24px rgba(0,0,0,.3), 0 0 0 1px rgba(255,255,255,.04);
   --fct-sh-float: 0 12px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.06);
