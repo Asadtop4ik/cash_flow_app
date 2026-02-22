@@ -150,7 +150,7 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 					const iLen = (interest / total) * C;
 					return {
 						pct: Math.round(roi.value.roi_percentage || 0),
-						interest: roi.value.total_interest || 0,
+						interest: roi.value.net_profit || 0,
 						principal: roi.value.invested_capital || 0,
 						iDash: `${iLen} ${C - iLen}`,
 						pDash: `${C - iLen} ${iLen}`,
