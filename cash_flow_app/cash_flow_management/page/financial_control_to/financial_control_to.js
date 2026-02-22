@@ -950,7 +950,7 @@ const PAGE_TEMPLATE = `
               <line v-for="(t,i) in collChart.yTicks" :key="'cg'+i" :x1="PAD.l" :y1="t.y" :x2="CHART_W - PAD.r" :y2="t.y" class="fct-chart__grid"/>
               <text v-for="(t,i) in collChart.yTicks" :key="'cl'+i" :x="PAD.l - 8" :y="t.y + 3.5" class="fct-chart__ylab">{{ fmtAxis(t.v) }}</text>
               <text v-for="(l,i) in collChart.labels" :key="'cx'+i" v-show="i % collChart.labelSkip === 0" :x="l.x" :y="CHART_H - PAD.b + (collChart.rotateLabels ? 18 : 16)" class="fct-chart__xlab" :class="{ 'fct-chart__xlab--rotated': collChart.rotateLabels }" :transform="collChart.rotateLabels ? 'rotate(-45 ' + l.x + ' ' + (CHART_H - PAD.b + 18) + ')' : ''">{{ l.label }}</text>
-              <rect v-for="(bar,i) in collChart.bars" :key="'bar'+i" :x="bar.x" :y="bar.y" :width="bar.width" :height="Math.max(0, bar.height)" :fill="bar.color" :opacity="bar.type === 'expected' ? 0.8 : 1" rx="2" class="fct-chart__bar" @mouseenter="tipCollBar($event, bar)" @mouseleave="hideTip()" style="cursor:pointer"/>
+              <rect v-for="(bar,i) in collChart.bars" :key="'bar'+i" :x="bar.x" :y="bar.y" :width="bar.width" :height="Math.max(0, bar.height)" :fill="bar.color" :opacity="1" rx="2" class="fct-chart__bar" @mouseenter="tipCollBar($event, bar)" @mouseleave="hideTip()" style="cursor:pointer"/>
             </svg>
             <div v-else class="fct-chart__empty">Tanlangan davr uchun yig'im ma'lumoti yo'q</div>
           </div>
@@ -1281,8 +1281,8 @@ const FCT_STYLES = `
 .fct-chart__line { transition: stroke-width .2s ease; }
 .fct-chart__crosshair { stroke: var(--fct-tx-1); stroke-width: 1; stroke-dasharray: 4 3; opacity: .7; pointer-events: none; }
 .fct-chart__dot { transition: r .2s cubic-bezier(.4,0,.2,1), filter .2s ease; cursor: crosshair; }
-.fct-chart__bar { transition: opacity .15s ease, filter .15s ease; }
-.fct-chart__bar:hover { opacity: 1 !important; filter: brightness(1.15) saturate(1.1); }
+.fct-chart__bar { transition: opacity .15s ease, filter .15s ease; opacity: 1 !important; }
+.fct-chart__bar:hover { filter: brightness(1.2) saturate(1.15); }
 .fct-chart__ylab { font-size: 10px; fill: var(--fct-tx-1); font-family: 'JetBrains Mono', monospace; text-anchor: end; }
 .fct-chart__xlab { font-size: 10.5px; fill: var(--fct-tx-1); font-family: 'JetBrains Mono', monospace; text-anchor: middle; }
 .fct-chart__xlab--rotated { text-anchor: end; font-size: 9px; }
