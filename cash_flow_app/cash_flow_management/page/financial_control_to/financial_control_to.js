@@ -25,7 +25,6 @@ const API_BASE = 'cash_flow_app.cash_flow_management.api.financial_control_tower
 frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
-		title: '',
 		single_column: true
 	});
 
