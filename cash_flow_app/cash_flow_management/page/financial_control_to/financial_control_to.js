@@ -37,13 +37,13 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 	function _releaseAncestors(startEl) {
 		let node = startEl.parentElement;
 		while (node && node !== document.body) {
-			node.style.setProperty('max-width',     '100%',       'important');
-			node.style.setProperty('width',         '100%',       'important');
-			node.style.setProperty('padding-left',  '0',          'important');
-			node.style.setProperty('padding-right', '0',          'important');
-			node.style.setProperty('margin-left',   '0',          'important');
-			node.style.setProperty('margin-right',  '0',          'important');
-			node.style.setProperty('box-sizing',    'border-box', 'important');
+			node.style.setProperty('max-width', '100%', 'important');
+			node.style.setProperty('width', '100%', 'important');
+			node.style.setProperty('padding-left', '0', 'important');
+			node.style.setProperty('padding-right', '0', 'important');
+			node.style.setProperty('margin-left', '0', 'important');
+			node.style.setProperty('margin-right', '0', 'important');
+			node.style.setProperty('box-sizing', 'border-box', 'important');
 			node = node.parentElement;
 		}
 	}
@@ -81,8 +81,8 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 				const roi = ref({});
 				const tiers = ref({ A: [], B: [], C: [] });
 
-				const periodic = ref({ monthly_investment: [], collection_efficiency: [], net_profit: [], contract_count: [], monthly_sales: [], monthly_margin:[] });
-				const dateFrom = ref(_monthsAgo(12));
+				const periodic = ref({ monthly_investment: [], collection_efficiency: [], net_profit: [], contract_count: [], monthly_sales: [], monthly_margin: [] });
+				const dateFrom = ref('2025-11-01');
 				const dateTo = ref(_today());
 
 				const tip = reactive({ show: false, x: 0, y: 0, title: '', rows: [] });
@@ -128,13 +128,13 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 				const kpiCards = computed(() => {
 					const k = kpis.value;
 					return [
-						{ id: 'invested',  label: 'Tikilgan Pul',          val: k.invested_capital,  icon: 'M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6',  color: '#818cf8', isCount: false },
-						{ id: 'debt',      label: 'Jami Qarzdorlik',       val: k.total_debt,        icon: 'M13 17h8m0 0V9m0 8l-8-8-4 4-6-6',                            color: '#fb7185', isCount: false },
-						{ id: 'debt_a',    label: 'Qarzdorlik A',          val: k.debt_a,            icon: 'M9 12l2 2 4-4',                                              color: '#34d399', isCount: false },
-						{ id: 'debt_b',    label: 'Qarzdorlik B',          val: k.debt_b,            icon: 'M12 9v4m0 4h.01',                                            color: '#fbbf24', isCount: false },
-						{ id: 'debt_c',    label: 'Qarzdorlik C',          val: k.debt_c,            icon: 'M6 18L18 6M6 6l12 12',                                       color: '#f87171', isCount: false },
-						{ id: 'active',    label: 'Aktiv Shartnomalar',    val: k.active_contracts,  icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', color: '#38bdf8', isCount: true },
-						{ id: 'closed',    label: 'Yopilgan Shartnomalar', val: k.closed_contracts,  icon: 'M5 13l4 4L19 7',                                             color: '#a78bfa', isCount: true }
+						{ id: 'invested', label: 'Tikilgan Pul', val: k.invested_capital, icon: 'M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6', color: '#818cf8', isCount: false },
+						{ id: 'debt', label: 'Jami Qarzdorlik', val: k.total_debt, icon: 'M13 17h8m0 0V9m0 8l-8-8-4 4-6-6', color: '#fb7185', isCount: false },
+						{ id: 'debt_a', label: 'Qarzdorlik A', val: k.debt_a, icon: 'M9 12l2 2 4-4', color: '#34d399', isCount: false },
+						{ id: 'debt_b', label: 'Qarzdorlik B', val: k.debt_b, icon: 'M12 9v4m0 4h.01', color: '#fbbf24', isCount: false },
+						{ id: 'debt_c', label: 'Qarzdorlik C', val: k.debt_c, icon: 'M6 18L18 6M6 6l12 12', color: '#f87171', isCount: false },
+						{ id: 'active', label: 'Aktiv Shartnomalar', val: k.active_contracts, icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', color: '#38bdf8', isCount: true },
+						{ id: 'closed', label: 'Yopilgan Shartnomalar', val: k.closed_contracts, icon: 'M5 13l4 4L19 7', color: '#a78bfa', isCount: true }
 					];
 				});
 
@@ -292,7 +292,7 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 
 				const netProfitChart = computed(() => _singleBarScale(periodic.value.net_profit, 'amount', '#10b981'));
 				const contractCountChart = computed(() => _singleBarScale(periodic.value.contract_count, 'count', '#6366f1'));
-				const salesChart  = computed(() => _scale(periodic.value.monthly_sales, 'amount'));
+				const salesChart = computed(() => _scale(periodic.value.monthly_sales, 'amount'));
 				const marginChart = computed(() => _scale(periodic.value.monthly_margin, 'margin_pct'));
 
 				// ═══════════════════════════════════════════════════════════
@@ -337,9 +337,9 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 				// ═══════════════════════════════════════════════════════════
 				// CONTRACT SEARCH (v4.1)
 				// ═══════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════
-			// CONTRACT SELECT (v4.2)
-			// ═══════════════════════════════════════════════════════════
+				// ═══════════════════════════════════════════════════════════
+				// CONTRACT SELECT (v4.2)
+				// ═══════════════════════════════════════════════════════════
 
 				async function fetchSuggestions() {
 					if (!contractSearch.query || contractSearch.query.trim().length < 2) {
@@ -484,7 +484,7 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 				// ═══════════════════════════════════════════════════════════
 				function toggleDark() {
 					isDark.value = !isDark.value;
-					try { localStorage.setItem('fct_dark', isDark.value ? '1' : '0'); } catch(e) {}
+					try { localStorage.setItem('fct_dark', isDark.value ? '1' : '0'); } catch (e) { }
 				}
 
 				// ═══════════════════════════════════════════════════════════
@@ -516,7 +516,7 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 				// ═══════════════════════════════════════════════════════════
 				onMounted(() => {
 					const frappeTheme = document.documentElement.getAttribute('data-theme');
-					const stored = (() => { try { return localStorage.getItem('fct_dark'); } catch(e) { return null; } })();
+					const stored = (() => { try { return localStorage.getItem('fct_dark'); } catch (e) { return null; } })();
 					if (stored !== null) isDark.value = stored === '1';
 					else isDark.value = frappeTheme === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches;
 
@@ -612,7 +612,7 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 		const vueScript = document.createElement('script');
 		vueScript.src = 'https://unpkg.com/vue@3.4.21/dist/vue.global.prod.js';
 		vueScript.crossOrigin = 'anonymous';
-		vueScript.onload = function() {
+		vueScript.onload = function () {
 			console.log('✅ FCT: Vue loaded from CDN');
 			window.Vue = window.Vue || Vue;
 			try {
@@ -622,13 +622,13 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 				page.main[0].innerHTML = '<div style="padding:2rem;color:#f87171;font-family:sans-serif;"><h3>Vue xatosi</h3><p>' + e.message + '</p></div>';
 			}
 		};
-		vueScript.onerror = function(e) {
+		vueScript.onerror = function (e) {
 			console.error('❌ FCT: CDN load failed:', e);
 			// Last resort: try to use any Vue that might be available
 			if (typeof Vue !== 'undefined' && Vue.createApp) {
 				console.log('🔄 FCT: Retrying with available Vue...');
 				window.Vue = Vue;
-				try { _initVueApp(); } catch(err) {
+				try { _initVueApp(); } catch (err) {
 					page.main[0].innerHTML = '<div style="padding:2rem;color:#f87171;font-family:sans-serif;"><h3>Vue yuklanmadi</h3><p>Tarmoqni tekshiring yoki sahifani yangilang.</p><button onclick="location.reload()" style="margin-top:10px;padding:8px 16px;background:#6366f1;color:white;border:none;border-radius:6px;cursor:pointer;">Sahifani yangilash</button></div>';
 				}
 			} else {
@@ -642,8 +642,8 @@ frappe.pages['financial-control-to'].on_page_load = function (wrapper) {
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-function _today() { return new Date().toISOString().slice(0, 10); }
-function _monthsAgo(n) { const d = new Date(); d.setMonth(d.getMonth() - n); return d.toISOString().slice(0, 10); }
+function _today() { return frappe.datetime.get_today(); }
+function _monthsAgo(n) { return frappe.datetime.add_months(frappe.datetime.get_today(), -n); }
 function _injectOnce(id, tag, attrs, content) {
 	if (document.getElementById(id)) return;
 	const el = document.createElement(tag); el.id = id;
@@ -900,8 +900,8 @@ const PAGE_TEMPLATE = `
 
       <div class="fct-dates">
         <div class="fct-dates__fields">
-          <div class="fct-dates__f"><label>Boshlanish</label><input type="date" v-model="dateFrom" class="fct-dates__input"/></div>
-          <div class="fct-dates__f"><label>Tugash</label><input type="date" v-model="dateTo" class="fct-dates__input"/></div>
+          <div class="fct-dates__f"><label>Boshlanish</label><input type="date" id="fct-date-from" name="date-from" v-model="dateFrom" class="fct-dates__input"/></div>
+          <div class="fct-dates__f"><label>Tugash</label><input type="date" id="fct-date-to" name="date-to" v-model="dateTo" class="fct-dates__input"/></div>
           <button class="fct-dates__go" @click="fetchPeriodic()" :disabled="loadingPeriodic">
             <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd"/></svg>
             Qo'llash

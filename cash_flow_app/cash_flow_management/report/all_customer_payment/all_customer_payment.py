@@ -1,6 +1,6 @@
 # cash_flow_app/reports/customer_payment_report.py
 # ✅ PROFESSIONAL FIX - Excel va Report uchun optimal yechim
-# To'lov kuni kelmaganlar uchun bo'sh, to'langanlar uchun "To'landi", qarzlar uchun son
+# To'lov kuni kelmaganlar uchun bo'sh, to'langanlar uchun 0 (number), qarzlar uchun float son
 
 import frappe
 from frappe.utils import getdate, add_months, flt
@@ -98,7 +98,7 @@ def get_columns(filters):
 		}
 	]
 
-	# Add period columns - Data type for mixed content (text + numbers)
+	# Add period columns - ✅ FIX: Currency type for pure numeric output (Excel-compatible)
 	from_date = getdate(filters.get("from_date"))
 	to_date = getdate(filters.get("to_date"))
 	report_type = filters.get("report_type", "Monthly")
@@ -110,7 +110,7 @@ def get_columns(filters):
 			columns.append({
 				"fieldname": f"month_{current_date.strftime('%Y_%m')}",
 				"label": month_year,
-				"fieldtype": "Data",  # Mixed content: "To'landi" (text) and numbers
+				"fieldtype": "Currency",  # ✅ FIX: Data → Currency (Excel'ga son bo'lib tushadi)
 				"width": 120
 			})
 			current_date += relativedelta(months=1)
@@ -121,7 +121,7 @@ def get_columns(filters):
 			columns.append({
 				"fieldname": f"day_{current_date.strftime('%Y_%m_%d')}",
 				"label": day_str,
-				"fieldtype": "Data",  # Mixed content: "To'landi" (text) and numbers
+				"fieldtype": "Currency",  # ✅ FIX: Data → Currency (Excel'ga son bo'lib tushadi)
 				"width": 100
 			})
 			current_date += timedelta(days=1)
@@ -252,33 +252,27 @@ def get_data(filters):
 
 		# Add period data (showing expected vs paid)
 		if report_type == "Monthly":
-			period_data = get_monthly_payment_status(schedule, contract_payments, from_date,
-													 to_date)
+			period_data = get_monthly_payment_status(schedule, contract_payments, from_date, to_date)
 			row.update(period_data)
 
-			# ACCUMULATE PERIOD TOTALS - only numeric values (skip "To'landi" and empty)
+			# ✅ FIX: Akkumulyatsiya — endi val float yoki "" (bo'sh string)
+			# Python: if val — 0.0 False, "" False → ikkalasi ham to'g'ri o'tkazib yuboriladi
+			# Faqat musbat raqamlarni yig'amiz
 			for key, val in period_data.items():
 				if key not in period_totals:
-					period_totals[key] = 0
-				# Only add if it's a number (not "To'landi" or empty)
-				if val and val != "To'landi":
-					try:
-						period_totals[key] += flt(val)
-					except:
-						pass  # Skip non-numeric values
+					period_totals[key] = 0.0
+				if val != "" and val is not None:
+					period_totals[key] += flt(val)
 		else:
 			period_data = get_daily_payment_status(schedule, contract_payments, from_date, to_date)
 			row.update(period_data)
 
-			# ACCUMULATE PERIOD TOTALS - only numeric values
+			# ✅ FIX: Xuddi yuqoridagi kabi
 			for key, val in period_data.items():
 				if key not in period_totals:
-					period_totals[key] = 0
-				if val and val != "To'landi":
-					try:
-						period_totals[key] += flt(val)
-					except:
-						pass  # Skip non-numeric values
+					period_totals[key] = 0.0
+				if val != "" and val is not None:
+					period_totals[key] += flt(val)
 
 		data.append(row)
 
@@ -297,12 +291,12 @@ def get_data(filters):
 			"remaining": grand_remaining
 		}
 
-		# Add period totals - format as string for consistency
+		# ✅ FIX: Grand total period qiymatlari ham float — Excel'ga son bo'lib tushadi
 		for key, val in period_totals.items():
 			if val > 0:
-				grand_total_row[key] = f"{val:.0f}"
+				grand_total_row[key] = flt(val)
 			else:
-				grand_total_row[key] = ""
+				grand_total_row[key] = None  # ✅ None = bo'sh hujayra (Currency fieldda ""=$0.00 muammo)
 
 		data.append(grand_total_row)
 
@@ -415,11 +409,10 @@ def get_all_contract_payments(contracts):
 
 def get_monthly_payment_status(schedule, payments, from_date, to_date):
 	"""
-	✅ PROFESSIONAL SOLUTION:
-	Returns:
-	- Empty string: to'lov muddati kelmagan (schedule yo'q)
-	- "To'landi": to'lov muddati kelgan va to'liq to'langan
-	- Numeric string: to'lov muddati kelgan, lekin to'lanmagan/qisman to'langan (qolgan qarz)
+	✅ PROFESSIONAL FIX — Barcha qiymatlar float (Excel-compatible):
+	- ""    : to'lov muddati kelmagan (jadval yo'q) — bo'sh hujayra
+	- 0.0   : to'lov muddati kelgan VA to'liq to'langan (avvalgi "To'landi")
+	- float : to'lov muddati kelgan, lekin to'lanmagan/qisman to'langan — qolgan qarz summasi
 	"""
 	data = {}
 
@@ -476,17 +469,17 @@ def get_monthly_payment_status(schedule, payments, from_date, to_date):
 		expected = month_data["expected"]
 
 		if remaining_payment >= expected:
-			# Fully paid
-			allocation[month_key] = "To'landi"
+			# ✅ FIX: "To'landi" string → 0.0 float (to'liq to'langan = 0 qarz)
+			allocation[month_key] = 0.0
 			remaining_payment -= expected
 		elif remaining_payment > 0:
-			# Partially paid - show remaining debt
+			# ✅ FIX: f"{remaining_debt:.0f}" string → flt(remaining_debt) float
 			remaining_debt = expected - remaining_payment
-			allocation[month_key] = f"{remaining_debt:.0f}"
+			allocation[month_key] = flt(remaining_debt)
 			remaining_payment = 0
 		else:
-			# Not paid - show expected amount as debt
-			allocation[month_key] = f"{expected:.0f}"
+			# ✅ FIX: f"{expected:.0f}" string → flt(expected) float
+			allocation[month_key] = flt(expected)
 
 	# Now filter to report's from_date/to_date window
 	start_filter = getdate(from_date).replace(day=1)
@@ -502,7 +495,7 @@ def get_monthly_payment_status(schedule, payments, from_date, to_date):
 		if month_key in allocation:
 			data[month_key] = allocation[month_key]
 		else:
-			data[month_key] = ""  # No schedule for this month
+			data[month_key] = None  # ✅ FIX: "" → None (Currency fieldda None = bo'sh hujayra, "" = $0.00)
 
 		current_report_month += relativedelta(months=1)
 
@@ -511,11 +504,10 @@ def get_monthly_payment_status(schedule, payments, from_date, to_date):
 
 def get_daily_payment_status(schedule, payments, from_date, to_date):
 	"""
-	✅ PROFESSIONAL SOLUTION:
-	Returns:
-	- Empty string: to'lov muddati kelmagan (schedule yo'q)
-	- "To'landi": to'lov muddati kelgan va to'liq to'langan
-	- Numeric string: to'lov muddati kelgan, lekin to'lanmagan/qisman to'langan (qolgan qarz)
+	✅ PROFESSIONAL FIX — Barcha qiymatlar float (Excel-compatible):
+	- ""    : to'lov muddati kelmagan (jadval yo'q) — bo'sh hujayra
+	- 0.0   : to'lov muddati kelgan VA to'liq to'langan (avvalgi "To'landi")
+	- float : to'lov muddati kelgan, lekin to'lanmagan/qisman to'langan — qolgan qarz summasi
 	"""
 	data = {}
 
@@ -566,17 +558,17 @@ def get_daily_payment_status(schedule, payments, from_date, to_date):
 		expected = day_data["expected"]
 
 		if remaining_payment >= expected:
-			# Fully paid
-			allocation[day_key] = "To'landi"
+			# ✅ FIX: "To'landi" string → 0.0 float (to'liq to'langan = 0 qarz)
+			allocation[day_key] = 0.0
 			remaining_payment -= expected
 		elif remaining_payment > 0:
-			# Partially paid - show remaining debt
+			# ✅ FIX: f"{remaining_debt:.0f}" string → flt(remaining_debt) float
 			remaining_debt = expected - remaining_payment
-			allocation[day_key] = f"{remaining_debt:.0f}"
+			allocation[day_key] = flt(remaining_debt)
 			remaining_payment = 0
 		else:
-			# Not paid - show expected amount as debt
-			allocation[day_key] = f"{expected:.0f}"
+			# ✅ FIX: f"{expected:.0f}" string → flt(expected) float
+			allocation[day_key] = flt(expected)
 
 	# Now filter to report's from_date/to_date window
 	start_filter = getdate(from_date)
@@ -592,7 +584,7 @@ def get_daily_payment_status(schedule, payments, from_date, to_date):
 		if day_key in allocation:
 			data[day_key] = allocation[day_key]
 		else:
-			data[day_key] = ""  # No schedule for this day
+			data[day_key] = None  # ✅ FIX: "" → None (Currency fieldda None = bo'sh hujayra, "" = $0.00)
 
 		current_report_day += timedelta(days=1)
 
