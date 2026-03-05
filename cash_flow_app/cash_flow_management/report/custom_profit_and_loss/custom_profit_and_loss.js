@@ -7,12 +7,20 @@ frappe.query_reports["Custom Profit and Loss"] = {
 
         // Birinchi ustun (account) emas bo'lsa - raqamli formatlaymiz
         if (column.fieldname !== "account" && data) {
+
+            // ✅ FIX: Shartnomalar soni - bu pul emas, son. $ belgisi qo'shilmasin.
+            if (data.account === "Shartnomalar soni") {
+                let numValue = parseInt(String(value).replace(/[^0-9.-]/g, ''), 10);
+                if (isNaN(numValue)) return default_formatter(value, row, column, data);
+                return String(numValue);
+            }
+
             // Identify if the row should be treated as a percentage
             const isPercentage = data.account?.includes("Rentabillik");
 
             // Qiymatni raqamga aylantirish
             let numValue = parseFloat(String(value).replace(/[^0-9.-]/g, ''));
-            
+
             if (isNaN(numValue)) {
                 return default_formatter(value, row, column, data);
             }
@@ -24,7 +32,7 @@ frappe.query_reports["Custom Profit and Loss"] = {
 
             // 1. Round to integer
             let roundedValue = Math.round(numValue);
-            
+
             // 2. Format with spaces using ru-RU and FORCE replace non-breaking spaces with standard spaces
             let formattedNumber = new Intl.NumberFormat('ru-RU').format(Math.abs(roundedValue)).replace(/\u00a0/g, ' ');
 
