@@ -31,7 +31,8 @@
   },
   {
    "role": "System Manager"
-  }
+  },
+    {"role": "Business Owner"}
  ],
  "timeout": 300
 }

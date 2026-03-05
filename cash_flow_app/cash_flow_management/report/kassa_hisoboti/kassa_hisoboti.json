@@ -29,6 +29,7 @@
   },
   {
    "role": "System Manager"
-  }
+  },
+    {"role": "Business Owner"}
  ]
 }

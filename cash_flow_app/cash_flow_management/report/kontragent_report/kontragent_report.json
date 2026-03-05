@@ -127,7 +127,8 @@
   },
   {
    "role": "Operator"
-  }
+  },
+    {"role": "Business Owner"}
  ],
  "timeout": 0
 }

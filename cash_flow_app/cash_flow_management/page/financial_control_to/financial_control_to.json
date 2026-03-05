@@ -10,7 +10,18 @@
  "name": "financial-control-to",
  "owner": "Administrator",
  "page_name": "financial-control-to",
- "roles": [],
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Administrator"
+  },
+  {
+   "role": "Operator"
+  },
+    {"role": "Business Owner"}
+ ],
  "script": null,
  "standard": "Yes",
  "style": null,
