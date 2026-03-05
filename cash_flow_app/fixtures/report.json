@@ -11,7 +11,7 @@
   "javascript": null,
   "json": null,
   "letter_head": null,
-  "modified": "2026-01-06 15:40:01.331368",
+  "modified": "2026-03-05 20:31:11.181457",
   "module": "Cash Flow Management",
   "name": "Operational Balance Sheet",
   "prepared_report": 0,
@@ -33,6 +33,12 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "System Manager"
+   },
+   {
+    "parent": "Operational Balance Sheet",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
    }
   ],
   "timeout": 0
@@ -49,7 +55,7 @@
   "javascript": null,
   "json": null,
   "letter_head": null,
-  "modified": "2025-12-30 23:58:05.971569",
+  "modified": "2026-03-05 20:31:23.841742",
   "module": "Cash Flow Management",
   "name": "Savdo va Foyda",
   "prepared_report": 0,
@@ -71,6 +77,12 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "System Manager"
+   },
+   {
+    "parent": "Savdo va Foyda",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
    }
   ],
   "timeout": 0
@@ -87,7 +99,7 @@
   "javascript": null,
   "json": "{}",
   "letter_head": null,
-  "modified": "2025-12-23 21:23:51.547354",
+  "modified": "2026-03-05 20:31:42.932550",
   "module": "Cash Flow Management",
   "name": "Sharnoma Hisoboti",
   "prepared_report": 0,
@@ -109,6 +121,12 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "System Manager"
+   },
+   {
+    "parent": "Sharnoma Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
    }
   ],
   "timeout": 0
@@ -125,7 +143,7 @@
   "javascript": null,
   "json": "{}",
   "letter_head": null,
-  "modified": "2025-12-15 16:59:16.728644",
+  "modified": "2026-03-05 20:32:18.554038",
   "module": "Cash Flow Management",
   "name": "Eslatmalar",
   "prepared_report": 0,
@@ -147,6 +165,12 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "System Manager"
+   },
+   {
+    "parent": "Eslatmalar",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
    }
   ],
   "timeout": 0
@@ -163,7 +187,7 @@
   "javascript": null,
   "json": null,
   "letter_head": null,
-  "modified": "2025-11-18 21:48:17.352479",
+  "modified": "2026-03-05 20:32:52.205158",
   "module": "Cash Flow Management",
   "name": "Customer Hisoboti",
   "prepared_report": 0,
@@ -221,6 +245,12 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "Accounts Manager"
+   },
+   {
+    "parent": "Customer Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
    }
   ],
   "timeout": 0
@@ -237,7 +267,7 @@
   "javascript": null,
   "json": null,
   "letter_head": null,
-  "modified": "2025-11-10 13:55:52.821703",
+  "modified": "2026-03-05 20:33:20.918212",
   "module": "Cash Flow Management",
   "name": "Net Balance",
   "prepared_report": 0,
@@ -265,6 +295,12 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "Accounts Manager"
+   },
+   {
+    "parent": "Net Balance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
    }
   ],
   "timeout": 0
@@ -281,7 +317,7 @@
   "javascript": null,
   "json": null,
   "letter_head": null,
-  "modified": "2025-11-09 01:20:43.689615",
+  "modified": "2026-03-05 20:34:08.478252",
   "module": "Cash Flow Management",
   "name": "Daily Cash Flow",
   "prepared_report": 0,
@@ -315,6 +351,12 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "System Manager"
+   },
+   {
+    "parent": "Daily Cash Flow",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
    }
   ],
   "timeout": 0
@@ -487,7 +529,7 @@
   "javascript": null,
   "json": "{}",
   "letter_head": null,
-  "modified": "2025-11-09 01:20:43.689615",
+  "modified": "2026-03-05 20:34:22.770256",
   "module": "Cash Flow Management",
   "name": "Overdue Payments",
   "prepared_report": 0,
@@ -515,6 +557,12 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "System Manager"
+   },
+   {
+    "parent": "Overdue Payments",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
    }
   ],
   "timeout": 0
@@ -575,7 +623,7 @@
   "javascript": null,
   "json": null,
   "letter_head": null,
-  "modified": "2025-11-15 12:08:51.697648",
+  "modified": "2026-03-05 20:33:07.072609",
   "module": "Cash Flow Management",
   "name": "IMEI Qidiruv",
   "prepared_report": 0,
@@ -597,6 +645,12 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "System Manager"
+   },
+   {
+    "parent": "IMEI Qidiruv",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
    }
   ],
   "timeout": 0
@@ -626,7 +680,7 @@
   "javascript": null,
   "json": null,
   "letter_head": null,
-  "modified": "2025-11-09 01:20:43.689615",
+  "modified": "2026-03-05 20:35:19.115047",
   "module": "Cash Flow Management",
   "name": "All Customer Payment",
   "prepared_report": 0,
@@ -648,9 +702,251 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "System Manager"
+   },
+   {
+    "parent": "All Customer Payment",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
    }
   ],
   "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2026-03-05 20:32:37.929783",
+  "module": "Cash Flow Management",
+  "name": "Klient Sverka",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Customer",
+  "reference_report": null,
+  "report_name": "Klient Sverka",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Klient Sverka",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Operator"
+   },
+   {
+    "parent": "Klient Sverka",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Sales User"
+   },
+   {
+    "parent": "Klient Sverka",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Sales Manager"
+   },
+   {
+    "parent": "Klient Sverka",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Sales Master Manager"
+   },
+   {
+    "parent": "Klient Sverka",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Stock User"
+   },
+   {
+    "parent": "Klient Sverka",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Stock Manager"
+   },
+   {
+    "parent": "Klient Sverka",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "Klient Sverka",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "Klient Sverka",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2026-03-05 20:30:54.553992",
+  "module": "Cash Flow Management",
+  "name": "Custom Profit and Loss",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Installment Application",
+  "reference_report": null,
+  "report_name": "Custom Profit and Loss",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Custom Profit and Loss",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Operator"
+   },
+   {
+    "parent": "Custom Profit and Loss",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "Custom Profit and Loss",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 1,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2026-03-05 20:33:55.400474",
+  "module": "Cash Flow Management",
+  "name": "Kassa Hisoboti",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Payment Entry",
+  "reference_report": null,
+  "report_name": "Kassa Hisoboti",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Operator"
+   },
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "Kassa Hisoboti",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2026-03-05 20:35:33.441616",
+  "module": "Cash Flow Management",
+  "name": "Supplier Debt Analysis",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Supplier",
+  "reference_report": null,
+  "report_name": "Supplier Debt Analysis",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Supplier Debt Analysis",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "Supplier Debt Analysis",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "Supplier Debt Analysis",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Operator"
+   },
+   {
+    "parent": "Supplier Debt Analysis",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "Supplier Debt Analysis",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
+   }
+  ],
+  "timeout": 300
  },
  {
   "add_total_row": 0,
@@ -794,7 +1090,7 @@
   "javascript": null,
   "json": null,
   "letter_head": "",
-  "modified": "2025-11-09 01:20:43.689615",
+  "modified": "2026-03-05 20:34:52.523464",
   "module": "Cash Flow Management",
   "name": "Kontragent Report",
   "prepared_report": 0,
@@ -822,6 +1118,12 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "Operator"
+   },
+   {
+    "parent": "Kontragent Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
    }
   ],
   "timeout": 0
@@ -838,7 +1140,7 @@
   "javascript": null,
   "json": null,
   "letter_head": null,
-  "modified": "2025-11-10 13:22:54.699430",
+  "modified": "2026-03-05 20:33:34.922609",
   "module": "Cash Flow Management",
   "name": "Qoldiq Summa",
   "prepared_report": 0,
@@ -866,220 +1168,14 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "Accounts Manager"
+   },
+   {
+    "parent": "Qoldiq Summa",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
    }
   ],
   "timeout": 0
- },
- {
-  "add_total_row": 0,
-  "add_translate_data": 0,
-  "columns": [],
-  "disabled": 0,
-  "docstatus": 0,
-  "doctype": "Report",
-  "filters": [],
-  "is_standard": "Yes",
-  "javascript": null,
-  "json": null,
-  "letter_head": null,
-  "modified": "2025-11-19 00:13:42.936337",
-  "module": "Cash Flow Management",
-  "name": "Klient Sverka",
-  "prepared_report": 0,
-  "query": null,
-  "ref_doctype": "Customer",
-  "reference_report": null,
-  "report_name": "Klient Sverka",
-  "report_script": null,
-  "report_type": "Script Report",
-  "roles": [
-   {
-    "parent": "Klient Sverka",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Operator"
-   },
-   {
-    "parent": "Klient Sverka",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Sales User"
-   },
-   {
-    "parent": "Klient Sverka",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Sales Manager"
-   },
-   {
-    "parent": "Klient Sverka",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Sales Master Manager"
-   },
-   {
-    "parent": "Klient Sverka",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Stock User"
-   },
-   {
-    "parent": "Klient Sverka",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Stock Manager"
-   },
-   {
-    "parent": "Klient Sverka",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Accounts User"
-   },
-   {
-    "parent": "Klient Sverka",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Accounts Manager"
-   }
-  ],
-  "timeout": 0
- },
- {
-  "add_total_row": 0,
-  "add_translate_data": 0,
-  "columns": [],
-  "disabled": 0,
-  "docstatus": 0,
-  "doctype": "Report",
-  "filters": [],
-  "is_standard": "Yes",
-  "javascript": null,
-  "json": null,
-  "letter_head": null,
-  "modified": "2025-12-21 23:07:32.230548",
-  "module": "Cash Flow Management",
-  "name": "Custom Profit and Loss",
-  "prepared_report": 0,
-  "query": null,
-  "ref_doctype": "Installment Application",
-  "reference_report": null,
-  "report_name": "Custom Profit and Loss",
-  "report_script": null,
-  "report_type": "Script Report",
-  "roles": [
-   {
-    "parent": "Custom Profit and Loss",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Operator"
-   },
-   {
-    "parent": "Custom Profit and Loss",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "System Manager"
-   }
-  ],
-  "timeout": 0
- },
- {
-  "add_total_row": 1,
-  "add_translate_data": 0,
-  "columns": [],
-  "disabled": 0,
-  "docstatus": 0,
-  "doctype": "Report",
-  "filters": [],
-  "is_standard": "Yes",
-  "javascript": null,
-  "json": null,
-  "letter_head": null,
-  "modified": "2025-11-09 01:20:43.689615",
-  "module": "Cash Flow Management",
-  "name": "Kassa Hisoboti",
-  "prepared_report": 0,
-  "query": null,
-  "ref_doctype": "Payment Entry",
-  "reference_report": null,
-  "report_name": "Kassa Hisoboti",
-  "report_script": null,
-  "report_type": "Script Report",
-  "roles": [
-   {
-    "parent": "Kassa Hisoboti",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Accounts Manager"
-   },
-   {
-    "parent": "Kassa Hisoboti",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Accounts User"
-   },
-   {
-    "parent": "Kassa Hisoboti",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Operator"
-   },
-   {
-    "parent": "Kassa Hisoboti",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "System Manager"
-   }
-  ],
-  "timeout": 0
- },
- {
-  "add_total_row": 0,
-  "add_translate_data": 0,
-  "columns": [],
-  "disabled": 0,
-  "docstatus": 0,
-  "doctype": "Report",
-  "filters": [],
-  "is_standard": "Yes",
-  "javascript": null,
-  "json": null,
-  "letter_head": null,
-  "modified": "2025-11-09 01:20:43.689615",
-  "module": "Cash Flow Management",
-  "name": "Supplier Debt Analysis",
-  "prepared_report": 0,
-  "query": null,
-  "ref_doctype": "Supplier",
-  "reference_report": null,
-  "report_name": "Supplier Debt Analysis",
-  "report_script": null,
-  "report_type": "Script Report",
-  "roles": [
-   {
-    "parent": "Supplier Debt Analysis",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Accounts Manager"
-   },
-   {
-    "parent": "Supplier Debt Analysis",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Accounts User"
-   },
-   {
-    "parent": "Supplier Debt Analysis",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Operator"
-   },
-   {
-    "parent": "Supplier Debt Analysis",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "System Manager"
-   }
-  ],
-  "timeout": 300
  }
 ]
