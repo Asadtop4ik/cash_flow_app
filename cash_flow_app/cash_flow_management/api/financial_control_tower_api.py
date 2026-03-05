@@ -722,22 +722,60 @@ def _get_collection_efficiency(from_date, to_date):
 
 def _get_monthly_net_profit(from_date, to_date):
     """
-    Monthly Net Profit = Σ(custom_grand_total_with_interest - total_amount) per month.
-    Based on Submitted (docstatus: 1) Installment Applications.
-    Returns list of {month, year, label, amount}.
+    Monthly Net Profit = Monthly Revenue - Monthly Expenses, per month.
+
+    Revenue  = SUM(custom_total_interest) from submitted Installment Applications
+               grouped by transaction_date month.
+
+    Expenses = SUM(paid_amount) from submitted Payment Entry rows where
+               party_type='Employee', party_name='Xarajat', and the linked
+               CounterpartyCategory has custom_expense_type='Xarajat',
+               grouped by posting_date month.
+
+    A single LEFT JOIN on (yr, mo) ensures months with revenue but zero
+    expenses still appear, and the subtraction is done entirely in SQL via
+    SUM + GROUP BY — no Python loops, no second round-trip.
+
+    Returns list of {year, month, label, amount}.
     """
     result = frappe.db.sql("""
         SELECT
-            YEAR(ia.transaction_date) AS yr,
-            MONTH(ia.transaction_date) AS mo,
-            COALESCE(SUM(
-                COALESCE(ia.custom_grand_total_with_interest, 0) - COALESCE(ia.total_amount, 0)
-            ), 0) AS net_profit
-        FROM `tabInstallment Application` ia
-        WHERE ia.docstatus = 1
-          AND DATE(ia.transaction_date) BETWEEN %(from_date)s AND %(to_date)s
-        GROUP BY YEAR(ia.transaction_date), MONTH(ia.transaction_date)
-        ORDER BY yr, mo
+            rev.yr                                              AS yr,
+            rev.mo                                             AS mo,
+            COALESCE(rev.monthly_interest, 0)
+                - COALESCE(exp.monthly_expenses, 0)            AS net_profit
+        FROM (
+            SELECT
+                YEAR(ia.transaction_date)          AS yr,
+                MONTH(ia.transaction_date)         AS mo,
+                SUM(COALESCE(ia.custom_total_interest, 0)) AS monthly_interest
+            FROM `tabInstallment Application` ia
+            WHERE ia.docstatus = 1
+              AND DATE(ia.transaction_date) BETWEEN %(from_date)s AND %(to_date)s
+            GROUP BY YEAR(ia.transaction_date), MONTH(ia.transaction_date)
+        ) rev
+        LEFT JOIN (
+            SELECT
+                YEAR(pe.posting_date)              AS yr,
+                MONTH(pe.posting_date)             AS mo,
+                SUM(
+                    CASE
+                        WHEN pe.payment_type = 'Pay'     THEN pe.paid_amount
+                        WHEN pe.payment_type = 'Receive' THEN -pe.received_amount
+                        ELSE 0
+                    END
+                )                                  AS monthly_expenses
+            FROM `tabPayment Entry` pe
+            INNER JOIN `tabCounterparty Category` cc
+                ON pe.custom_counterparty_category = cc.name
+            WHERE pe.docstatus = 1
+              AND cc.custom_expense_type = 'Xarajat'
+              AND pe.party_type = 'Employee'
+              AND pe.party_name = 'Xarajat'
+              AND DATE(pe.posting_date) BETWEEN %(from_date)s AND %(to_date)s
+            GROUP BY YEAR(pe.posting_date), MONTH(pe.posting_date)
+        ) exp ON rev.yr = exp.yr AND rev.mo = exp.mo
+        ORDER BY rev.yr, rev.mo
     """, {"from_date": from_date, "to_date": to_date}, as_dict=True)
 
     return [
