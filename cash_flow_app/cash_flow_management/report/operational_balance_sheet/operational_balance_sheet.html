@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<title>Operatsion Balans Hisoboti</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   EXACT COLORS EXTRACTED FROM: Armada_reporting_-_Баланс.pdf
+   ───────────────────────────────────────────────────────────────
+   #434343  → THEAD + BALANS neutral row
+   #CC4125  → Level 0 root (AKTIVLAR / PASSIVLAR)
+   #FFD966  → Level 1 sections  (Pul, Debitorka…)
+   #D9D9D9  → Level 2 subsections
+   #B4A7D6  → Level 3 groups
+   #FFFFFF  → Leaf row (odd)
+   #F3F3F3  → Leaf row (even / zebra)
+   #D9EAD3  → BALANS balanced  (difference = 0)
+   #E06666  → BALANS unbalanced (difference ≠ 0)
+   #FF0000  → Negative number text
+   #999999  → Borders
+═══════════════════════════════════════════════════════════════ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+  font-size: 9pt;
+  color: #1a1a1a;
+  background: #ffffff;
+}
+
+@page {
+  size: A3 landscape;
+  margin: 12mm 10mm 12mm 10mm;
+}
+
+@media print {
+  body { background: #ffffff; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+}
+
+.page-wrapper {
+  background: #ffffff;
+  padding: 14px 16px 20px 16px;
+  max-width: 100%;
+}
+
+/* ── PAGE HEADER ──────────────────────────────────────────── */
+.page-header {
+  width: 100%;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #CC4125;
+  display: table;
+  table-layout: fixed;
+}
+.page-header-left  { display: table-cell; vertical-align: bottom; width: 60%; }
+.page-header-right { display: table-cell; vertical-align: bottom; width: 40%; text-align: right; }
+.company-name  { font-size: 15pt; font-weight: bold; color: #434343; letter-spacing: 0.5px; text-transform: uppercase; }
+.report-title  { font-size: 10.5pt; color: #CC4125; font-weight: bold; margin-top: 3px; }
+.report-meta   { font-size: 8pt; color: #666666; margin-top: 4px; }
+.report-date   { font-size: 8.5pt; color: #434343; font-weight: bold; }
+
+/* ── TABLE ────────────────────────────────────────────────── */
+table.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  border: 1px solid #999999;
+}
+col.col-account { width: 260px; }
+col.col-period  { width: 115px; }
+
+/* THEAD — PDF #434343 */
+table.report-table thead tr th {
+  background-color: #434343;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 8.5pt;
+  text-align: center;
+  padding: 7px 6px;
+  border: 1px solid #2a2a2a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+table.report-table thead tr th.th-account {
+  text-align: left;
+  padding-left: 10px;
+}
+
+/* ── LEVEL 0 — AKTIVLAR / PASSIVLAR — PDF #CC4125 ──────── */
+tr.row_header td {
+  background-color: #CC4125;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 10pt;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 7px 6px;
+  border-top: 2px solid #a33520;
+  border-bottom: 2px solid #a33520;
+  border-right: 1px solid rgba(255,255,255,0.18);
+}
+
+/* ── LEVEL 1 — Pul, Debitorka, Kreditorka… — PDF #FFD966 ── */
+tr.row_section td {
+  background-color: #FFD966;
+  color: #1a1a1a;
+  font-weight: bold;
+  font-size: 9.5pt;
+  padding: 6px 6px;
+  border-top: 1px solid #e6c200;
+  border-bottom: 1px solid #e6c200;
+  border-right: 1px solid rgba(0,0,0,0.10);
+}
+
+/* ── LEVEL 2 — Subsections — PDF #D9D9D9 ───────────────── */
+tr.row_subsection td {
+  background-color: #D9D9D9;
+  color: #1a1a1a;
+  font-weight: bold;
+  font-size: 9pt;
+  padding: 5px 6px;
+  border-top: 1px solid #b8b8b8;
+  border-bottom: 1px solid #b8b8b8;
+  border-right: 1px solid rgba(0,0,0,0.08);
+}
+
+/* ── LEVEL 3 — Groups — PDF #B4A7D6 ────────────────────── */
+tr.row_group td {
+  background-color: #B4A7D6;
+  color: #1a1a1a;
+  font-weight: bold;
+  font-size: 8.5pt;
+  padding: 4px 6px;
+  border-top: 1px solid #9b8dc4;
+  border-bottom: 1px solid #9b8dc4;
+  border-right: 1px solid rgba(0,0,0,0.08);
+}
+
+/* ── LEAF ROWS — PDF #FFFFFF / #F3F3F3 ─────────────────── */
+tr.row_leaf td {
+  background-color: #ffffff;
+  color: #2c2c2c;
+  font-size: 8.5pt;
+  padding: 3px 6px;
+  border-bottom: 1px solid #d9d9d9;
+  border-right: 1px solid #e8e8e8;
+}
+tr.row_leaf.even td {
+  background-color: #F3F3F3;
+}
+
+/* ── BALANS ROW ─────────────────────────────────────────── */
+tr.row_balans td {
+  background-color: #434343;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 10.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 6px;
+  border-top: 3px solid #2a2a2a;
+  border-bottom: 3px solid #2a2a2a;
+  border-right: 1px solid rgba(255,255,255,0.15);
+}
+/* PDF #D9EAD3 — balanced */
+tr.row_balans.balanced td {
+  background-color: #D9EAD3;
+  color: #1a1a1a;
+  border-top-color: #a8c8a0;
+  border-bottom-color: #a8c8a0;
+}
+/* PDF #E06666 — unbalanced */
+tr.row_balans.unbalanced td {
+  background-color: #E06666;
+  color: #ffffff;
+  border-top-color: #c04040;
+  border-bottom-color: #c04040;
+}
+
+/* ── VALUE CELL CLASSES ─────────────────────────────────── */
+td.td-account {
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+td.td-value {
+  text-align: right;
+  white-space: nowrap;
+  padding-right: 10px;
+}
+/* PDF #FF0000 — negative numbers */
+td.td-value.negative { color: #FF0000; }
+td.td-value.zero     { color: #b0b0b0; }
+
+/* Dark-row zero/negative overrides */
+tr.row_header     td.td-value.zero     { color: rgba(255,255,255,0.40); }
+tr.row_header     td.td-value.negative { color: #ffcccc; }
+tr.row_section    td.td-value.zero     { color: rgba(0,0,0,0.30); }
+tr.row_section    td.td-value.negative { color: #CC4125; }
+tr.row_subsection td.td-value.zero     { color: rgba(0,0,0,0.28); }
+tr.row_group      td.td-value.zero     { color: rgba(0,0,0,0.28); }
+tr.row_balans     td.td-value.zero     { color: rgba(255,255,255,0.40); }
+tr.row_balans     td.td-value.negative { color: #ffcccc; }
+tr.row_balans.balanced   td.td-value.zero     { color: rgba(0,0,0,0.30); }
+tr.row_balans.balanced   td.td-value.negative { color: #CC4125; }
+
+/* ── LEGEND ─────────────────────────────────────────────── */
+.legend {
+  margin-top: 10px;
+  font-size: 7.5pt;
+  color: #555555;
+}
+.legend-item {
+  display: inline-block;
+  margin-right: 14px;
+  vertical-align: middle;
+}
+.legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 4px;
+  border: 1px solid rgba(0,0,0,0.20);
+}
+
+/* ── FOOTER ─────────────────────────────────────────────── */
+.page-footer {
+  margin-top: 12px;
+  border-top: 1px solid #999999;
+  padding-top: 6px;
+  display: table;
+  width: 100%;
+  font-size: 7.5pt;
+  color: #888888;
+}
+.page-footer-left  { display: table-cell; }
+.page-footer-right { display: table-cell; text-align: right; }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div class="page-header-left">
+    <div class="company-name">MacOne</div>
+    <div class="report-title">Operatsion Balans Hisoboti</div>
+    <div class="report-meta">
+      Davr: {{ period_label }}
+      &nbsp;|&nbsp;
+      Periodiklik: {{ filters.get("periodicity", "Monthly") }}
+    </div>
+  </div>
+  <div class="page-header-right">
+    <div class="report-date">Sana: {{ frappe.utils.formatdate(frappe.utils.today()) }}</div>
+  </div>
+</div>
+
+<!-- REPORT TABLE -->
+<table class="report-table">
+  <colgroup>
+    <col class="col-account">
+    {% for col in value_columns %}<col class="col-period">{% endfor %}
+  </colgroup>
+
+  <thead>
+    <tr>
+      <th class="th-account">Hisob / Account</th>
+      {% for col in value_columns %}
+      <th>{{ col.label }}</th>
+      {% endfor %}
+    </tr>
+  </thead>
+
+  <tbody>
+    {%- set leaf_counter = namespace(n=0) -%}
+    {% for row in data %}
+
+    {%- if row.css_class == 'row_leaf' -%}
+      {%- set leaf_counter.n = leaf_counter.n + 1 -%}
+      {%- set zebra = 'even' if leaf_counter.n % 2 == 0 else 'odd' -%}
+    {%- else -%}
+      {%- set zebra = '' -%}
+    {%- endif -%}
+
+    <tr class="{{ row.css_class -}}
+               {%- if row.css_class == 'row_balans' %} {% if row.is_balanced %}balanced{% else %}unbalanced{% endif -%}
+               {%- elif row.css_class == 'row_leaf' %} {{ zebra }}{% endif %}">
+
+      <td class="td-account" style="padding-left: {{ row.indent_px + 8 }}px;">
+        {{ row.account }}
+      </td>
+
+      {% for cell in row.cells %}
+      <td class="td-value{% if cell.negative %} negative{% elif cell.zero %} zero{% endif %}">
+        {{ cell.value }}
+      </td>
+      {% endfor %}
+
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- LEGEND -->
+<div class="legend">
+  <span class="legend-item"><span class="legend-swatch" style="background:#CC4125;"></span>AKTIVLAR / PASSIVLAR</span>
+  <span class="legend-item"><span class="legend-swatch" style="background:#FFD966; border-color:#e6c200;"></span>Sektsiya (L1)</span>
+  <span class="legend-item"><span class="legend-swatch" style="background:#D9D9D9;"></span>Kichik sektsiya (L2)</span>
+  <span class="legend-item"><span class="legend-swatch" style="background:#B4A7D6;"></span>Guruh (L3)</span>
+  <span class="legend-item"><span class="legend-swatch" style="background:#F3F3F3;"></span>Qator (zebra)</span>
+  <span class="legend-item"><span class="legend-swatch" style="background:#D9EAD3; border-color:#a8c8a0;"></span>BALANS = 0 ✓</span>
+  <span class="legend-item"><span class="legend-swatch" style="background:#E06666; border-color:#c04040;"></span>BALANS ≠ 0 ✗</span>
+  <span class="legend-item"><span style="color:#FF0000; font-weight:bold; font-size:9pt;">−123</span>&nbsp;Manfiy qiymat</span>
+</div>
+
+<!-- PAGE FOOTER -->
+<div class="page-footer">
+  <div class="page-footer-left">MacOne — Operatsion Balans Hisoboti &nbsp;|&nbsp; {{ period_label }}</div>
+  <div class="page-footer-right">Chop etildi: {{ frappe.utils.formatdate(frappe.utils.today()) }}</div>
+</div>
+
+</div>
+</body>
+</html>

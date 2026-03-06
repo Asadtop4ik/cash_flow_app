@@ -2,10 +2,113 @@
 # For license information, please see license.txt
 
 import frappe
+import json
+import os
 from frappe import _
 from frappe.utils import flt, getdate, add_days, get_last_day, get_first_day
 from datetime import datetime
 from collections import defaultdict
+
+
+@frappe.whitelist()
+def get_print_html(filters=None):
+	"""Render the Jinja2 HTML template server-side and return complete HTML string."""
+	if isinstance(filters, str):
+		filters = json.loads(filters)
+	if not filters:
+		filters = {}
+
+	columns, data = execute(filters)
+
+	# Build value columns (all except the first 'account' column)
+	value_columns = [c for c in columns if c.get("fieldname") != "account"]
+
+	# Pre-compute display values for every cell so Jinja stays logic-free
+	def fmt(val):
+		"""Format a number: integer with space thousands separator, no decimals."""
+		try:
+			v = round(float(val or 0))
+		except (TypeError, ValueError):
+			return "—"
+		if v == 0:
+			return "—"
+		sign = "-\u00a0" if v < 0 else ""
+		abs_str = "{:,}".format(abs(v)).replace(",", "\u00a0")
+		return sign + abs_str
+
+	def css_class(row):
+		"""Derive CSS class from css_class field or fallback to indent+is_group logic."""
+		if row.get("css_class"):
+			return row["css_class"]
+		indent = row.get("indent", 0)
+		is_group = row.get("is_group", False)
+		name = (row.get("account") or "").upper()
+		if indent == 0:
+			if name == "BALANS":
+				return "row_balans"
+			return "row_header"
+		if indent == 1 and is_group:
+			return "row_section"
+		if indent == 2 and is_group:
+			return "row_subsection"
+		if indent == 3 and is_group:
+			return "row_group"
+		return "row_leaf"
+
+	# Enrich rows with pre-computed values
+	enriched = []
+	for row in data:
+		cls = css_class(row)
+		cells = []
+		for col in value_columns:
+			raw = row.get(col["fieldname"], 0)
+			try:
+				v = round(float(raw or 0))
+			except (TypeError, ValueError):
+				v = 0
+			cells.append({
+				"value": fmt(raw),
+				"negative": v < 0,
+				"zero": v == 0,
+			})
+		# BALANS row: check if balanced
+		is_balanced = False
+		if cls == "row_balans" and value_columns:
+			first_val = row.get(value_columns[0]["fieldname"], 0)
+			try:
+				is_balanced = abs(round(float(first_val or 0))) < 1
+			except Exception:
+				is_balanced = False
+
+		indent_px = (row.get("indent", 0)) * 14
+		enriched.append({
+			"account": row.get("account", ""),
+			"css_class": cls,
+			"indent_px": indent_px,
+			"cells": cells,
+			"is_balanced": is_balanced,
+		})
+
+	# Period label for header
+	from_label = filters.get("from_date", "")
+	to_label   = filters.get("to_date", "")
+	period_label = "{} — {}".format(from_label, to_label)
+
+	# Read and render the Jinja2 template
+	html_path = os.path.join(os.path.dirname(__file__), "operational_balance_sheet.html")
+	with open(html_path, "r", encoding="utf-8") as f:
+		template_str = f.read()
+
+	context = {
+		"columns":      columns,
+		"value_columns": value_columns,
+		"data":         enriched,
+		"filters":      filters,
+		"period_label": period_label,
+	}
+
+	rendered = frappe.render_template(template_str, context)
+	return rendered
 
 
 def execute(filters=None):
@@ -296,9 +399,48 @@ def build_tree_structure(raw_data, filters):
 	periods = get_periods(filters)
 	data = []
 
+	# ============================================================
+	# CSS CLASS MAPPING (Presentation Layer Only)
+	# Rules derived from indent + is_group — zero business logic.
+	# ============================================================
+	#
+	# indent=0, is_group=True  → "row_header"    (AKTIVLAR, PASSIVLAR, BALANS)
+	# indent=1, is_group=True  → "row_section"   (Pul, Debitorka, Kreditorka…)
+	# indent=2, is_group=True  → "row_subsection"(Mijozlar, Yetkazib beruvchilar…)
+	# indent=3, is_group=True  → "row_group"     (Customer Group, Supplier Group)
+	# everything else          → "row_leaf"       (individual accounts / detail lines)
+	#
+	# Special override: account == "BALANS" → "row_balans"
+	# This override is safe here because it is a display-only label, not a value.
+	# ============================================================
+
+	_CSS_MAP = {
+		(0, True):  "row_header",
+		(1, True):  "row_section",
+		(2, True):  "row_subsection",
+		(3, True):  "row_group",
+	}
+
 	def create_row(account, indent=0, is_group=False, **kwargs):
-		"""Helper to create row with all period columns initialized"""
-		row = {"account": account, "indent": indent, "is_group": is_group}
+		"""Helper to create row with all period columns initialized.
+
+		PRESENTATION LAYER CHANGE:
+		  - Added 'css_class' key to each row dictionary.
+		  - Derived purely from (indent, is_group) — no value touched.
+		  - Special case: account name "BALANS" always gets "row_balans".
+		"""
+		# --- ONLY CHANGE: css_class injection (presentation layer) ---
+		css_class = _CSS_MAP.get((indent, is_group), "row_leaf")
+		if account == "BALANS":
+			css_class = "row_balans"
+		# --- END CHANGE ---
+
+		row = {
+			"account":   account,
+			"indent":    indent,
+			"is_group":  is_group,
+			"css_class": css_class,   # <-- new key; no existing key renamed or removed
+		}
 		for period in periods:
 			row[period["key"]] = 0
 		row.update(kwargs)
@@ -346,10 +488,6 @@ def build_tree_structure(raw_data, filters):
 	data.append(debitorka_row)
 
 	# 1.2.1 Mijozlar (Customer Receivables) - CUMULATIVE
-	# Logika: Kontragent reportdagi kabi
-	# Debit = Sales Order + Payment Pay (biz qaytargan)
-	# Credit = Payment Receive (klient to'lagan)
-	# Balance = Debit - Credit
 	debitorka_mijozlar_row = create_row("Mijozlar", indent=2, is_group=True)
 	data.append(debitorka_mijozlar_row)
 
@@ -364,7 +502,7 @@ def build_tree_structure(raw_data, filters):
 			"amount": flt(so["grand_total"])
 		})
 
-	# Supplier Payables initialization (ishlatiladi Debitorka va Kreditorka'da)
+	# Supplier Payables initialization
 	supplier_payables = defaultdict(lambda: defaultdict(lambda: {"credit": [], "debit": []}))
 
 	# Installment Application Items - CREDIT
@@ -380,14 +518,12 @@ def build_tree_structure(raw_data, filters):
 		if pe["party_type"] == "Customer":
 			group = pe.get("group_name") or "Boshqa"
 			if pe["payment_type"] == "Pay":
-				# Biz klientga qaytargan - DEBIT
 				customer_groups[group][pe["party"]]["debit"].append({
 					"type": "payment_pay",
 					"date": pe["posting_date"],
 					"amount": flt(pe["paid_amount"])
 				})
 			elif pe["payment_type"] == "Receive":
-				# Klient bizga to'lagan - CREDIT
 				customer_groups[group][pe["party"]]["credit"].append({
 					"type": "payment_receive",
 					"date": pe["posting_date"],
@@ -396,14 +532,12 @@ def build_tree_structure(raw_data, filters):
 		elif pe["party_type"] == "Supplier":
 			group = pe.get("group_name") or "Boshqa"
 			if pe["payment_type"] == "Pay":
-				# Biz supplierga to'ladik - DEBIT
 				supplier_payables[group][pe["party"]]["debit"].append({
 					"type": "payment_pay",
 					"date": pe["posting_date"],
 					"amount": flt(pe["paid_amount"])
 				})
 			elif pe["payment_type"] == "Receive":
-				# Supplier bizga qaytardi - CREDIT
 				supplier_payables[group][pe["party"]]["credit"].append({
 					"type": "payment_receive",
 					"date": pe["posting_date"],
@@ -420,24 +554,15 @@ def build_tree_structure(raw_data, filters):
 			credit_transactions = customer_groups[group_name][customer]["credit"]
 
 			for period in periods:
-				# CUMULATIVE: Biznes boshidan period oxirigacha
-				# Debit = Sales Order + Pay
 				total_debit = sum(
 					t["amount"] for t in debit_transactions
 					if getdate(t["date"]) <= period["to_date"]
 				)
-				# Credit = Receive
 				total_credit = sum(
 					t["amount"] for t in credit_transactions
 					if getdate(t["date"]) <= period["to_date"]
 				)
-
-				# Balance = Debit - Credit
-				# Agar musbat -> klient bizdan qarz (Debitorka)
-				# Agar manfiy -> biz klientdan qarz (bu kreditorka bo'ladi)
 				balance = total_debit - total_credit
-
-				# Faqat musbat balanslar Debitorka'da ko'rsatiladi
 				if balance > 0:
 					customer_row[period["key"]] = balance
 					group_row[period["key"]] += balance
@@ -449,14 +574,10 @@ def build_tree_structure(raw_data, filters):
 
 			data.append(customer_row)
 	# 1.2.2 Yetkazib beruvchilar (Supplier Advances) - CUMULATIVE
-	# Manfiy balanslar (biz supplier'ga avans berdik)
-	# Bu yerda Credit - Debit < 0 bo'lgan supplierlar ko'rsatiladi
 	debitorka_suppliers_row = create_row("Yetkazib beruvchilar (Avanslar)", indent=2,
 										 is_group=True)
 	data.append(debitorka_suppliers_row)
 
-	# Yuqorida supplier_payables to'ldirilgan
-	# Endi faqat manfiy balanslarni (biz avans berdik) ko'rsatamiz
 	for group_name in sorted(supplier_payables.keys()):
 		group_row = create_row(group_name, indent=3, is_group=True)
 		group_has_data = False
@@ -468,23 +589,16 @@ def build_tree_structure(raw_data, filters):
 			has_negative = False
 
 			for period in periods:
-				# CUMULATIVE: Biznes boshidan period oxirigacha
 				total_credit = sum(
 					t["amount"] for t in credit_transactions
 					if getdate(t["date"]) <= period["to_date"]
 				)
-
 				total_debit = sum(
 					t["amount"] for t in debit_transactions
 					if getdate(t["date"]) <= period["to_date"]
 				)
-
-				# Balance = Credit - Debit
-				# Agar manfiy -> biz supplierga avans berdik (Debitorka)
 				balance = total_credit - total_debit
-
 				if balance < 0:
-					# Manfiy balans - avans (musbat qilib ko'rsatamiz)
 					supplier_row[period["key"]] = abs(balance)
 					group_row[period["key"]] += abs(balance)
 					debitorka_suppliers_row[period["key"]] += abs(balance)
@@ -513,13 +627,9 @@ def build_tree_structure(raw_data, filters):
 	data.append(kreditorka_subsection_row)
 
 	# 2.1.1 Mijozlar (Customer Advances) - CUMULATIVE
-	# Manfiy balanslar (klient avans bergan)
-	# Bu yerda Debit - Credit < 0 bo'lgan mijozlar ko'rsatiladi
 	kreditorka_mijozlar_row = create_row("Mijozlar (Avanslar)", indent=2, is_group=True)
 	data.append(kreditorka_mijozlar_row)
 
-	# Yuqorida allaqachon customer_groups to'ldirilgan
-	# Endi faqat manfiy balanslarni ko'rsatamiz
 	for group_name in sorted(customer_groups.keys()):
 		group_row = create_row(group_name, indent=3, is_group=True)
 		group_has_data = False
@@ -531,23 +641,16 @@ def build_tree_structure(raw_data, filters):
 			has_negative = False
 
 			for period in periods:
-				# CUMULATIVE: Biznes boshidan period oxirigacha
 				total_debit = sum(
 					t["amount"] for t in debit_transactions
 					if getdate(t["date"]) <= period["to_date"]
 				)
-
 				total_credit = sum(
 					t["amount"] for t in credit_transactions
 					if getdate(t["date"]) <= period["to_date"]
 				)
-
-				# Balance = Debit - Credit
-				# Agar manfiy -> biz klientdan qarz (Kreditorka)
 				balance = total_debit - total_credit
-
 				if balance < 0:
-					# Manfiy balans - avans (musbat qilib ko'rsatamiz)
 					customer_row[period["key"]] = abs(balance)
 					group_row[period["key"]] += abs(balance)
 					kreditorka_mijozlar_row[period["key"]] += abs(balance)
@@ -565,15 +668,9 @@ def build_tree_structure(raw_data, filters):
 			data.extend(temp_customers)
 
 	# 2.1.2 Yetkazib beruvchilar (Supplier Payables) - CUMULATIVE
-	# Logika: Kontragent reportdagi kabi
-	# Credit = Installment Application + Payment Receive (biz qarz oldik)
-	# Debit = Payment Pay (biz to'ladik)
-	# Balance = Credit - Debit
 	kreditorka_suppliers_row = create_row("Yetkazib beruvchilar (Qarzlar)", indent=2,
 										  is_group=True)
 	data.append(kreditorka_suppliers_row)
-
-	# supplier_payables allaqachon yuqorida to'ldirilgan
 
 	for group_name in sorted(supplier_payables.keys()):
 		group_row = create_row(group_name, indent=3, is_group=True)
@@ -585,22 +682,15 @@ def build_tree_structure(raw_data, filters):
 			debit_transactions = supplier_payables[group_name][supplier]["debit"]
 
 			for period in periods:
-				# CUMULATIVE: Biznes boshidan period oxirigacha
-				# Credit = Installment + Receive
 				total_credit = sum(
 					t["amount"] for t in credit_transactions
 					if getdate(t["date"]) <= period["to_date"]
 				)
-				# Debit = Pay
 				total_debit = sum(
 					t["amount"] for t in debit_transactions
 					if getdate(t["date"]) <= period["to_date"]
 				)
-
-				# Balance = Credit - Debit
-				# Agar musbat -> biz supplierdan qarz (Kreditorka)
 				balance = total_credit - total_debit
-
 				if balance > 0:
 					supplier_row[period["key"]] = balance
 					group_row[period["key"]] += balance
@@ -612,11 +702,9 @@ def build_tree_structure(raw_data, filters):
 			data.append(supplier_row)
 
 	# 2.2 USTAV KAPITALI (Share Capital) - CUMULATIVE
-	# Filter by Shareholder.custom_category = "Ustav Kapitali"
 	ustav_row = create_row("Ustav Kapitali", indent=1, is_group=True)
 	data.append(ustav_row)
 
-	# Group by shareholder
 	ustav_shareholders = defaultdict(list)
 	for pe in raw_data["payment_entries"]:
 		if (pe["party_type"] == "Shareholder"
@@ -624,14 +712,12 @@ def build_tree_structure(raw_data, filters):
 			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Ustav Kapitali"):
 			ustav_shareholders[pe["party"]].append(pe)
 
-	# Display each shareholder
 	for shareholder in sorted(ustav_shareholders.keys()):
 		shareholder_name = shareholder_dict.get(shareholder, {}).get("title") or shareholder
 		shareholder_row = create_row(shareholder_name, indent=2)
 		payments = ustav_shareholders[shareholder]
 
 		for period in periods:
-			# CUMULATIVE: From beginning to period end
 			receive = sum(
 				flt(pe["received_amount"]) for pe in payments
 				if pe["payment_type"] == "Receive"
@@ -642,7 +728,6 @@ def build_tree_structure(raw_data, filters):
 				if pe["payment_type"] == "Pay"
 				and getdate(pe["posting_date"]) <= period["to_date"]
 			)
-			# Receive adds to capital, Pay reduces capital
 			balance = receive - pay
 			shareholder_row[period["key"]] = balance
 			ustav_row[period["key"]] += balance
@@ -650,28 +735,14 @@ def build_tree_structure(raw_data, filters):
 		data.append(shareholder_row)
 
 	# ============================================================
-	# 2.3 SOF FOYDA (NET PROFIT) - PROFESSIONAL STRUCTURE
-	# Parent: Sof Foyda (Net Profit)
-	# Children: Taqsimlangan, Joriy, Dividends
-	# Formula: Parent = Taqsimlangan + Joriy - Dividends
+	# 2.3 SOF FOYDA (NET PROFIT)
 	# ============================================================
 
-	# Parent row: Sof Foyda (Net Profit after Dividends)
 	net_profit_parent_row = create_row("Sof Foyda", indent=1, is_group=True)
-
-	# Child 1: Taqsimlangan Sof Foyda (Retained Earnings from previous periods)
-	# Biznes boshlanganidan o'tgan oyning oxirigacha
 	retained_earnings_row = create_row("Taqsimlangan Sof Foyda", indent=2)
+	current_profit_row    = create_row("Joriy Sof Foyda", indent=2)
+	dividends_row         = create_row("Dividends", indent=2)
 
-	# Child 2: Joriy Sof Foyda (Current Period Profit)
-	# Faqat shu oy ichidagi foyda
-	current_profit_row = create_row("Joriy Sof Foyda", indent=2)
-
-	# Child 3: Dividends (Manfiy - kapitaldan chiqarilgan)
-	# Biznes boshlanganidan shu oyning oxirigacha
-	dividends_row = create_row("Dividends", indent=2)
-
-	# Shareholder dividends detail rows (indent=3)
 	shareholder_dividends = defaultdict(list)
 	for pe in raw_data["payment_entries"]:
 		if (pe["party_type"] == "Shareholder"
@@ -681,56 +752,38 @@ def build_tree_structure(raw_data, filters):
 			shareholder_dividends[pe["party"]].append(pe)
 
 	for i, period in enumerate(periods):
-		# ============================================================
-		# 1. JORIY SOF FOYDA (Current Period Profit)
-		# Faqat shu oy: from_date to to_date
-		# ============================================================
 		current_interest = sum(
 			flt(ia["custom_total_interest"]) for ia in raw_data["installment_applications"]
 			if period["from_date"] <= getdate(ia["transaction_date"]) <= period["to_date"]
 		)
-
 		current_expenses = 0
 		for pe in raw_data["payment_entries"]:
 			if (period["from_date"] <= getdate(pe["posting_date"]) <= period["to_date"]
 				and pe.get("custom_counterparty_category")):
-
 				category = category_dict.get(pe["custom_counterparty_category"])
-
 				if (category
 					and category.get("custom_expense_type") == "Xarajat"
 					and pe.get("party_type") == "Employee"
 					and pe.get("party_name") == "Xarajat"):
 					amount = flt(pe["paid_amount"])
-
 					if category.get("category_type") == "Income":
 						amount = -amount
-
 					current_expenses += amount
 
 		current_period_profit = current_interest - current_expenses
 		current_profit_row[period["key"]] = current_period_profit
-		# ============================================================
-		# 2. TAQSIMLANGAN SOF FOYDA (Retained Earnings)
-		# O'tgan davrlarning to'plangan foydasi
-		# ============================================================
 
 		if i == 0:
-			# Birinchi period uchun: period boshlanishidan OLDINGI foydalar
 			prev_date = add_days(period["from_date"], -1)
-
-			# O'tgan davr foydasi
 			prev_interest = sum(
 				flt(ia["custom_total_interest"]) for ia in raw_data["installment_applications"]
 				if getdate(ia["transaction_date"]) <= prev_date
 			)
-
 			prev_expenses = 0
 			for pe in raw_data["payment_entries"]:
 				if (getdate(pe["posting_date"]) <= prev_date
 					and pe.get("custom_counterparty_category")):
 					category = category_dict.get(pe["custom_counterparty_category"])
-
 					if (category
 						and category.get("custom_expense_type") == "Xarajat"
 						and pe.get("party_type") == "Employee"
@@ -739,10 +792,7 @@ def build_tree_structure(raw_data, filters):
 						if category.get("category_type") == "Income":
 							amount = -amount
 						prev_expenses += amount
-
 			prev_total_profit = prev_interest - prev_expenses
-
-			# O'tgan davr dividendlari
 			prev_dividends = sum(
 				flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
 				if pe["party_type"] == "Shareholder"
@@ -751,19 +801,13 @@ def build_tree_structure(raw_data, filters):
 				and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Dividends"
 				and getdate(pe["posting_date"]) <= prev_date
 			)
-
 			retained = prev_total_profit - prev_dividends
 		else:
-			# Keyingi periodlar: o'tgan period Sof Foyda (Parent)
 			prev_period_key = periods[i-1]["key"]
 			retained = net_profit_parent_row[prev_period_key]
 
 		retained_earnings_row[period["key"]] = retained
 
-		# ============================================================
-		# 3. DIVIDENDS (Cumulative, Negative)
-		# Biznes boshlanganidan shu oyning oxirigacha
-		# ============================================================
 		total_dividends_cumulative = sum(
 			flt(pe["paid_amount"]) for pe in raw_data["payment_entries"]
 			if pe["party_type"] == "Shareholder"
@@ -772,60 +816,41 @@ def build_tree_structure(raw_data, filters):
 			and shareholder_dict.get(pe["party"], {}).get("custom_category") == "Dividends"
 			and getdate(pe["posting_date"]) <= period["to_date"]
 		)
-
-		# Manfiy ko'rsatiladi (kapitaldan chiqarilgan)
 		dividends_row[period["key"]] = -total_dividends_cumulative
 
-		# ============================================================
-		# 4. SOF FOYDA (Parent) = Retained + Current - Dividends
-		# ============================================================
 		net_profit_parent_row[period["key"]] = (
 			retained +
 			current_period_profit -
 			total_dividends_cumulative
 		)
 
-	# Add rows to data
 	data.append(net_profit_parent_row)
 	data.append(retained_earnings_row)
 	data.append(current_profit_row)
 	data.append(dividends_row)
-	# Add shareholder detail rows under Dividends (indent=3)
+
 	for shareholder in sorted(shareholder_dividends.keys()):
 		shareholder_name = shareholder_dict.get(shareholder, {}).get("title") or shareholder
 		shareholder_row = create_row(shareholder_name, indent=3)
-
 		for period in periods:
-			# CUMULATIVE: Biznes boshlanganidan period oxirigacha
 			paid_amount = sum(
 				flt(pe["paid_amount"]) for pe in shareholder_dividends[shareholder]
 				if pe["payment_type"] == "Pay"
 				and getdate(pe["posting_date"]) <= period["to_date"]
 			)
-
-			# Manfiy ko'rsatiladi
 			shareholder_row[period["key"]] = -paid_amount
-
 		data.append(shareholder_row)
 
-	# ============================================================
 	# JAMI KREDITORKA CALCULATION
-	# Formula: Kreditorka + Ustav Kapitali + Sof Foyda (includes Dividends)
-	# ============================================================
 	for period in periods:
 		jami_kreditorka_row[period["key"]] = (
 			kreditorka_subsection_row[period["key"]] +
 			ustav_row[period["key"]] +
 			net_profit_parent_row[period["key"]]
-			# Note: Dividends already included in net_profit_parent_row
 		)
 
-	# ============================================================
 	# SECTION 3: BALANS (Balance Check)
-	# ============================================================
-
 	balans_row = create_row("BALANS", indent=0, is_group=True)
-
 	for period in periods:
 		difference = aktivlar_row[period["key"]] - jami_kreditorka_row[period["key"]]
 		balans_row[period["key"]] = difference

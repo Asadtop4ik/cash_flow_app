@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<title>Foyda va Zarar Hisoboti</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   EXACT COLORS FROM: Armada_reporting_-_P_L.pdf
+   ───────────────────────────────────────────────────────────────────
+   #434343  → THEAD title bar + company header
+   #999999  → Year/Month sub-header band
+   #CC4125  → Key rows: Savdo, Tannarx, Yalpi foyda, Sof foyda, Operatsion foyda
+   #FFD966  → Section: Jami harajatlar / Operatsion xarajatlar
+   #FFF1CC  → Sub-section: Administrativ, Tijorat, Boshqa daromad
+   #F3F3F3  → Leaf rows (zebra-even)
+   #FFFFFF  → Leaf rows (zebra-odd)
+   #FF0000  → Negative number text
+═══════════════════════════════════════════════════════════════════ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+  font-size: 9pt;
+  color: #1a1a1a;
+  background: #ffffff;
+}
+
+@page {
+  size: A3 landscape;
+  margin: 12mm 10mm 12mm 10mm;
+}
+
+@media print {
+  body { background: #ffffff; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+}
+
+/* ── PAGE WRAPPER ─────────────────────────────────────────────── */
+.page-wrapper {
+  background: #ffffff;
+  padding: 14px 16px 20px 16px;
+  max-width: 100%;
+}
+
+/* ── PAGE HEADER ──────────────────────────────────────────────── */
+.page-header {
+  width: 100%;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #CC4125;
+  display: table;
+  table-layout: fixed;
+}
+.page-header-left  { display: table-cell; vertical-align: bottom; width: 60%; }
+.page-header-right { display: table-cell; vertical-align: bottom; width: 40%; text-align: right; }
+.company-name { font-size: 15pt; font-weight: bold; color: #434343; letter-spacing: 0.5px; text-transform: uppercase; }
+.report-title { font-size: 10.5pt; color: #CC4125; font-weight: bold; margin-top: 3px; }
+.report-meta  { font-size: 8pt; color: #666666; margin-top: 4px; }
+.report-date  { font-size: 8.5pt; color: #434343; font-weight: bold; }
+
+/* ── TABLE ────────────────────────────────────────────────────── */
+table.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  border: 1px solid #999999;
+}
+col.col-account { width: 240px; }
+col.col-period  { width: 105px; }
+col.col-total   { width: 115px; }
+
+/* ── THEAD — PDF #434343 ──────────────────────────────────────── */
+table.report-table thead tr.thead-title th {
+  background-color: #434343;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 8.5pt;
+  text-align: center;
+  padding: 7px 6px;
+  border: 1px solid #2a2a2a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+table.report-table thead tr.thead-title th.th-account {
+  text-align: left;
+  padding-left: 10px;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ROW TYPES — P&L PDF exact colors
+════════════════════════════════════════════════════════════════ */
+
+/* COUNT ROW — Shartnomalar soni (plain, no $ sign) */
+tr.row_count td {
+  background-color: #ffffff;
+  color: #434343;
+  font-size: 8.5pt;
+  font-weight: normal;
+  padding: 4px 6px;
+  border-bottom: 1px solid #d9d9d9;
+  border-right: 1px solid #e8e8e8;
+}
+
+/* KEY METRIC ROWS — PDF #CC4125
+   Savdo, Tannarx, Yalpi foyda, Sof foyda, Operatsion foyda */
+tr.row_key td {
+  background-color: #CC4125;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 10pt;
+  padding: 7px 6px;
+  border-top: 2px solid #a33520;
+  border-bottom: 2px solid #a33520;
+  border-right: 1px solid rgba(255,255,255,0.18);
+  letter-spacing: 0.2px;
+}
+
+/* PERCENT / ITALIC ROWS — Rentabillik, Sof Rentabillik */
+tr.row_percent td {
+  background-color: #ffffff;
+  color: #666666;
+  font-style: italic;
+  font-size: 8.5pt;
+  padding: 3px 6px;
+  border-bottom: 1px solid #e0e0e0;
+  border-right: 1px solid #e8e8e8;
+}
+
+/* SECTION ROW — Jami harajatlar — PDF #FFD966 */
+tr.row_section td {
+  background-color: #FFD966;
+  color: #1a1a1a;
+  font-weight: bold;
+  font-size: 9.5pt;
+  padding: 6px 6px;
+  border-top: 1px solid #e6c200;
+  border-bottom: 1px solid #e6c200;
+  border-right: 1px solid rgba(0,0,0,0.10);
+}
+
+/* SUB-SECTION ROW — Administrativ, Tijorat — PDF #FFF1CC */
+tr.row_subsection td {
+  background-color: #FFF1CC;
+  color: #1a1a1a;
+  font-weight: bold;
+  font-size: 9pt;
+  padding: 5px 6px;
+  border-top: 1px solid #e8d89a;
+  border-bottom: 1px solid #e8d89a;
+  border-right: 1px solid rgba(0,0,0,0.08);
+}
+
+/* SUBTOTAL ROW — Itogo / Jami (subsection totals) — PDF #FFF1CC darker */
+tr.row_subtotal td {
+  background-color: #FFE599;
+  color: #1a1a1a;
+  font-weight: bold;
+  font-size: 8.5pt;
+  padding: 5px 6px;
+  border-top: 1px solid #cca800;
+  border-bottom: 1px solid #cca800;
+  border-right: 1px solid rgba(0,0,0,0.10);
+}
+
+/* LEAF ROWS — detail items — PDF #FFFFFF / #F3F3F3 */
+tr.row_leaf td {
+  background-color: #ffffff;
+  color: #2c2c2c;
+  font-size: 8.5pt;
+  padding: 3px 6px;
+  border-bottom: 1px solid #d9d9d9;
+  border-right: 1px solid #e8e8e8;
+}
+tr.row_leaf.even td {
+  background-color: #F3F3F3;
+}
+
+/* CHECK ROW — P&L vs Balance Sheet reconciliation */
+tr.row_check td {
+  background-color: #434343;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 8.5pt;
+  padding: 5px 6px;
+  border-top: 2px solid #2a2a2a;
+  border-bottom: 2px solid #2a2a2a;
+  border-right: 1px solid rgba(255,255,255,0.15);
+}
+tr.row_check.zero td     { background-color: #D9EAD3; color: #1a1a1a; }
+tr.row_check.nonzero td  { background-color: #E06666; color: #ffffff; }
+
+/* ── VALUE CELLS ─────────────────────────────────────────────── */
+td.td-account {
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+td.td-value {
+  text-align: right;
+  white-space: nowrap;
+  padding-right: 10px;
+}
+
+/* PDF #FF0000 — negative numbers */
+td.td-value.negative { color: #FF0000; }
+td.td-value.zero     { color: #b0b0b0; }
+
+/* Dark row overrides */
+tr.row_key   td.td-value.negative { color: #ffcccc; }
+tr.row_key   td.td-value.zero     { color: rgba(255,255,255,0.40); }
+tr.row_check td.td-value.zero     { color: rgba(255,255,255,0.40); }
+tr.row_check td.td-value.negative { color: #ffcccc; }
+tr.row_check.zero    td.td-value.zero     { color: rgba(0,0,0,0.30); }
+tr.row_check.nonzero td.td-value.negative { color: #ffeeee; }
+tr.row_count td.td-value.zero     { color: #b0b0b0; }
+
+/* Italic for percent cells on non-percent rows */
+td.td-value.is_percent { font-style: italic; color: #555555; }
+tr.row_percent td.td-value { font-style: italic; }
+
+/* TOTAL column — slight visual emphasis */
+td.td-total {
+  text-align: right;
+  white-space: nowrap;
+  padding-right: 10px;
+  font-weight: bold;
+}
+tr.row_leaf   td.td-total { font-weight: normal; }
+tr.row_percent td.td-total { font-style: italic; font-weight: normal; }
+tr.row_count  td.td-total { font-weight: normal; }
+
+/* ── LEGEND ──────────────────────────────────────────────────── */
+.legend {
+  margin-top: 10px;
+  font-size: 7.5pt;
+  color: #555555;
+}
+.legend-item {
+  display: inline-block;
+  margin-right: 14px;
+  vertical-align: middle;
+}
+.legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 4px;
+  border: 1px solid rgba(0,0,0,0.20);
+}
+
+/* ── FOOTER ──────────────────────────────────────────────────── */
+.page-footer {
+  margin-top: 12px;
+  border-top: 1px solid #999999;
+  padding-top: 6px;
+  display: table;
+  width: 100%;
+  font-size: 7.5pt;
+  color: #888888;
+}
+.page-footer-left  { display: table-cell; }
+.page-footer-right { display: table-cell; text-align: right; }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div class="page-header-left">
+    <div class="company-name">MacOne</div>
+    <div class="report-title">Foyda va Zarar Hisoboti (P&amp;L)</div>
+    <div class="report-meta">
+      Davr: {{ period_label }}
+      &nbsp;|&nbsp;
+      Periodiklik: {{ filters.get("periodicity", "Monthly") }}
+    </div>
+  </div>
+  <div class="page-header-right">
+    <div class="report-date">Sana: {{ frappe.utils.formatdate(frappe.utils.today()) }}</div>
+  </div>
+</div>
+
+<!-- REPORT TABLE -->
+<table class="report-table">
+  <colgroup>
+    <col class="col-account">
+    {% for col in value_columns %}<col class="col-period">{% endfor %}
+    <col class="col-total">
+  </colgroup>
+
+  <thead>
+    <tr class="thead-title">
+      <th class="th-account">Ko'rsatkich</th>
+      {% for col in value_columns %}
+      <th>{{ col.label }}</th>
+      {% endfor %}
+      <th>Jami</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {%- set leaf_counter = namespace(n=0) -%}
+    {% for row in data %}
+
+    {%- if row.css_class == 'row_leaf' -%}
+      {%- set leaf_counter.n = leaf_counter.n + 1 -%}
+      {%- set zebra = 'even' if leaf_counter.n % 2 == 0 else 'odd' -%}
+    {%- else -%}
+      {%- set zebra = '' -%}
+    {%- endif -%}
+
+    <tr class="{{ row.css_class }}
+               {%- if row.css_class == 'row_check' %} {{ row.check_class }}
+               {%- elif row.css_class == 'row_leaf' %} {{ zebra }}{% endif %}">
+
+      <td class="td-account" style="padding-left: {{ row.indent_px + 8 }}px;">
+        {{ row.account }}
+      </td>
+
+      {% for cell in row.cells %}
+      <td class="{{ 'td-value' if not cell.is_total else 'td-total' }}
+                 {%- if cell.negative %} negative
+                 {%- elif cell.zero %} zero
+                 {%- endif %}
+                 {%- if cell.is_percent %} is_percent{% endif %}">
+        {{ cell.value }}
+      </td>
+      {% endfor %}
+
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- LEGEND -->
+<div class="legend">
+  <span class="legend-item"><span class="legend-swatch" style="background:#CC4125;"></span>Asosiy ko'rsatkichlar</span>
+  <span class="legend-item"><span class="legend-swatch" style="background:#FFD966; border-color:#e6c200;"></span>Xarajat sektsiyasi</span>
+  <span class="legend-item"><span class="legend-swatch" style="background:#FFF1CC; border-color:#e8d89a;"></span>Kichik sektsiya</span>
+  <span class="legend-item"><span class="legend-swatch" style="background:#F3F3F3;"></span>Tafsilot qatori</span>
+  <span class="legend-item"><span class="legend-swatch" style="background:#D9EAD3; border-color:#a8c8a0;"></span>Check = 0 ✓</span>
+  <span class="legend-item"><span class="legend-swatch" style="background:#E06666; border-color:#c04040;"></span>Check ≠ 0 ✗</span>
+  <span class="legend-item"><span style="color:#FF0000; font-weight:bold; font-size:9pt;">−123</span>&nbsp;Manfiy qiymat</span>
+</div>
+
+<!-- PAGE FOOTER -->
+<div class="page-footer">
+  <div class="page-footer-left">MacOne — Foyda va Zarar Hisoboti &nbsp;|&nbsp; {{ period_label }}</div>
+  <div class="page-footer-right">Chop etildi: {{ frappe.utils.formatdate(frappe.utils.today()) }}</div>
+</div>
+
+</div>
+</body>
+</html>

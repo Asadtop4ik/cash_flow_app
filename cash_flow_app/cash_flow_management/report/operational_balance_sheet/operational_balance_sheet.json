@@ -18,6 +18,7 @@
  "prepared_report": 0,
  "ref_doctype": "Installment Application",
  "report_name": "Operational Balance Sheet",
+ "html_format": "operational_balance_sheet.html",
  "report_type": "Script Report",
  "roles": [
   {

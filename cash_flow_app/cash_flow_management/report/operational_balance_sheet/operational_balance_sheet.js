@@ -96,6 +96,34 @@ frappe.query_reports["Operational Balance Sheet"] = {
 	"initial_depth": 2,
 
 	onload: function(report) {
+		// Print button — server renders full HTML, opens in new window, triggers print
+		report.page.add_inner_button(__("Chop etish"), function() {
+			var filters = report.get_values();
+			if (!filters) return;
+
+			frappe.show_alert({ message: __("Chop etish tayyorlanmoqda..."), indicator: "blue" }, 3);
+
+			frappe.call({
+				method: "cash_flow_app.cash_flow_management.report.operational_balance_sheet.operational_balance_sheet.get_print_html",
+				args: { filters: filters },
+				callback: function(r) {
+					if (!r.message) {
+						frappe.msgprint(__("HTML render xatosi. Konsolni tekshiring."));
+						return;
+					}
+					var w = window.open("", "_blank");
+					if (!w) {
+						frappe.msgprint(__("Pop-up bloklandi. Brauzer sozlamalarida pop-up ga ruxsat bering."));
+						return;
+					}
+					w.document.write(r.message);
+					w.document.close();
+					// Delay so browser renders DOM before print dialog opens
+					setTimeout(function() { w.print(); }, 800);
+				}
+			});
+		});
+
 		// Refresh button
 		report.page.add_inner_button(__("Yangilash"), function() {
 			report.refresh();
