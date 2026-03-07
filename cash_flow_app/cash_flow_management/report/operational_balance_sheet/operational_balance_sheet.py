@@ -23,7 +23,6 @@ def get_print_html(filters=None):
 	# Build value columns (all except the first 'account' column)
 	value_columns = [c for c in columns if c.get("fieldname") != "account"]
 
-	# Pre-compute display values for every cell so Jinja stays logic-free
 	def fmt(val):
 		"""Format a number: integer with space thousands separator, no decimals."""
 		try:
@@ -55,9 +54,16 @@ def get_print_html(filters=None):
 			return "row_group"
 		return "row_leaf"
 
+	# ─────────────────────────────────────────────────────────────────
+	# PRINT FILTER: indent=4 qatorlar (individual mijoz/yetkazib beruvchi)
+	# print da ko'rsatilmaydi — faqat guruhlar (indent=3) ko'rsatiladi.
+	# Hisob-kitob logikasi o'zgarmaydi, faqat render dan chiqarib tashlanadi.
+	# ─────────────────────────────────────────────────────────────────
+	print_data = [row for row in data if row.get("indent", 0) < 4]
+
 	# Enrich rows with pre-computed values
 	enriched = []
-	for row in data:
+	for row in print_data:
 		cls = css_class(row)
 		cells = []
 		for col in value_columns:
@@ -82,16 +88,16 @@ def get_print_html(filters=None):
 
 		indent_px = (row.get("indent", 0)) * 14
 		enriched.append({
-			"account": row.get("account", ""),
-			"css_class": cls,
-			"indent_px": indent_px,
-			"cells": cells,
+			"account":     row.get("account", ""),
+			"css_class":   cls,
+			"indent_px":   indent_px,
+			"cells":       cells,
 			"is_balanced": is_balanced,
 		})
 
 	# Period label for header
-	from_label = filters.get("from_date", "")
-	to_label   = filters.get("to_date", "")
+	from_label   = filters.get("from_date", "")
+	to_label     = filters.get("to_date", "")
 	period_label = "{} — {}".format(from_label, to_label)
 
 	# Read and render the Jinja2 template
@@ -100,11 +106,11 @@ def get_print_html(filters=None):
 		template_str = f.read()
 
 	context = {
-		"columns":      columns,
+		"columns":       columns,
 		"value_columns": value_columns,
-		"data":         enriched,
-		"filters":      filters,
-		"period_label": period_label,
+		"data":          enriched,
+		"filters":       filters,
+		"period_label":  period_label,
 	}
 
 	rendered = frappe.render_template(template_str, context)

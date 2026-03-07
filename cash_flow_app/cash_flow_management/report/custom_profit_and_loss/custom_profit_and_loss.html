@@ -67,18 +67,16 @@ table.report-table {
   table-layout: fixed;
   border: 1px solid #999999;
 }
-col.col-account { width: 240px; }
-col.col-period  { width: 105px; }
-col.col-total   { width: 115px; }
+/* col widths handled inline in colgroup */
 
 /* ── THEAD — PDF #434343 ──────────────────────────────────────── */
 table.report-table thead tr.thead-title th {
   background-color: #434343;
   color: #ffffff;
   font-weight: bold;
-  font-size: 8.5pt;
+  font-size: 7.5pt;
   text-align: center;
-  padding: 7px 6px;
+  padding: 5px 3px;
   border: 1px solid #2a2a2a;
   white-space: nowrap;
   overflow: hidden;
@@ -86,7 +84,7 @@ table.report-table thead tr.thead-title th {
 }
 table.report-table thead tr.thead-title th.th-account {
   text-align: left;
-  padding-left: 10px;
+  padding-left: 7px;
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -97,9 +95,9 @@ table.report-table thead tr.thead-title th.th-account {
 tr.row_count td {
   background-color: #ffffff;
   color: #434343;
-  font-size: 8.5pt;
+  font-size: 7.5pt;
   font-weight: normal;
-  padding: 4px 6px;
+  padding: 2px 4px;
   border-bottom: 1px solid #d9d9d9;
   border-right: 1px solid #e8e8e8;
 }
@@ -107,13 +105,13 @@ tr.row_count td {
 /* KEY METRIC ROWS — PDF #CC4125
    Savdo, Tannarx, Yalpi foyda, Sof foyda, Operatsion foyda */
 tr.row_key td {
-  background-color: #CC4125;
+  background-color: #D8705B;
   color: #ffffff;
   font-weight: bold;
-  font-size: 10pt;
-  padding: 7px 6px;
-  border-top: 2px solid #a33520;
-  border-bottom: 2px solid #a33520;
+  font-size: 8.5pt;
+  padding: 5px 4px;
+  border-top: 2px solid #b85a47;
+  border-bottom: 2px solid #b85a47;
   border-right: 1px solid rgba(255,255,255,0.18);
   letter-spacing: 0.2px;
 }
@@ -123,8 +121,8 @@ tr.row_percent td {
   background-color: #ffffff;
   color: #666666;
   font-style: italic;
-  font-size: 8.5pt;
-  padding: 3px 6px;
+  font-size: 7.5pt;
+  padding: 2px 4px;
   border-bottom: 1px solid #e0e0e0;
   border-right: 1px solid #e8e8e8;
 }
@@ -134,8 +132,8 @@ tr.row_section td {
   background-color: #FFD966;
   color: #1a1a1a;
   font-weight: bold;
-  font-size: 9.5pt;
-  padding: 6px 6px;
+  font-size: 8.5pt;
+  padding: 5px 4px;
   border-top: 1px solid #e6c200;
   border-bottom: 1px solid #e6c200;
   border-right: 1px solid rgba(0,0,0,0.10);
@@ -146,8 +144,8 @@ tr.row_subsection td {
   background-color: #FFF1CC;
   color: #1a1a1a;
   font-weight: bold;
-  font-size: 9pt;
-  padding: 5px 6px;
+  font-size: 8pt;
+  padding: 3px 4px;
   border-top: 1px solid #e8d89a;
   border-bottom: 1px solid #e8d89a;
   border-right: 1px solid rgba(0,0,0,0.08);
@@ -158,8 +156,8 @@ tr.row_subtotal td {
   background-color: #FFE599;
   color: #1a1a1a;
   font-weight: bold;
-  font-size: 8.5pt;
-  padding: 5px 6px;
+  font-size: 8pt;
+  padding: 3px 4px;
   border-top: 1px solid #cca800;
   border-bottom: 1px solid #cca800;
   border-right: 1px solid rgba(0,0,0,0.10);
@@ -169,8 +167,8 @@ tr.row_subtotal td {
 tr.row_leaf td {
   background-color: #ffffff;
   color: #2c2c2c;
-  font-size: 8.5pt;
-  padding: 3px 6px;
+  font-size: 7.5pt;
+  padding: 2px 4px;
   border-bottom: 1px solid #d9d9d9;
   border-right: 1px solid #e8e8e8;
 }
@@ -180,13 +178,13 @@ tr.row_leaf.even td {
 
 /* CHECK ROW — P&L vs Balance Sheet reconciliation */
 tr.row_check td {
-  background-color: #434343;
+  background-color: #666666;
   color: #ffffff;
   font-weight: bold;
-  font-size: 8.5pt;
-  padding: 5px 6px;
-  border-top: 2px solid #2a2a2a;
-  border-bottom: 2px solid #2a2a2a;
+  font-size: 8pt;
+  padding: 4px 4px;
+  border-top: 2px solid #444444;
+  border-bottom: 2px solid #444444;
   border-right: 1px solid rgba(255,255,255,0.15);
 }
 tr.row_check.zero td     { background-color: #D9EAD3; color: #1a1a1a; }
@@ -202,7 +200,7 @@ td.td-account {
 td.td-value {
   text-align: right;
   white-space: nowrap;
-  padding-right: 10px;
+  padding: 0 6px 0 4px;
 }
 
 /* PDF #FF0000 — negative numbers */
@@ -226,7 +224,7 @@ tr.row_percent td.td-value { font-style: italic; }
 td.td-total {
   text-align: right;
   white-space: nowrap;
-  padding-right: 10px;
+  padding: 0 6px 0 4px;
   font-weight: bold;
 }
 tr.row_leaf   td.td-total { font-weight: normal; }
@@ -290,9 +288,11 @@ tr.row_count  td.td-total { font-weight: normal; }
 <!-- REPORT TABLE -->
 <table class="report-table">
   <colgroup>
-    <col class="col-account">
-    {% for col in value_columns %}<col class="col-period">{% endfor %}
-    <col class="col-total">
+    {%- set n_cols = value_columns|length + 1 -%}
+    {%- set val_pct = (72.0 / n_cols)|round(2) -%}
+    <col style="width: 28%;">
+    {% for col in value_columns %}<col style="width: {{ val_pct }}%;">{% endfor %}
+    <col style="width: {{ val_pct }}%;">
   </colgroup>
 
   <thead>
