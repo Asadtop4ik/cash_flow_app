@@ -21,7 +21,7 @@
 
 body {
   font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
-  font-size: 9pt;
+  font-size: 8pt;
   color: #1a1a1a;
   background: #ffffff;
 }
@@ -56,18 +56,21 @@ body {
 .page-header-left  { display: table-cell; vertical-align: bottom; width: 60%; }
 .page-header-right { display: table-cell; vertical-align: bottom; width: 40%; text-align: right; }
 .company-name { font-size: 15pt; font-weight: bold; color: #434343; letter-spacing: 0.5px; text-transform: uppercase; }
-.report-title { font-size: 10.5pt; color: #CC4125; font-weight: bold; margin-top: 3px; }
+.report-title { font-size: 8.5pt; color: #CC4125; font-weight: bold; margin-top: 3px; }
 .report-meta  { font-size: 8pt; color: #666666; margin-top: 4px; }
 .report-date  { font-size: 8.5pt; color: #434343; font-weight: bold; }
 
 /* ── TABLE ────────────────────────────────────────────────────── */
 table.report-table {
-  width: 100%;
+  width: auto;
+  max-width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
   border: 1px solid #999999;
 }
-/* col widths handled inline in colgroup */
+col.col-account { width: 200px; }
+col.col-period  { width: 85px; }
+col.col-total   { width: 85px; }
 
 /* ── THEAD — PDF #434343 ──────────────────────────────────────── */
 table.report-table thead tr.thead-title th {
@@ -76,7 +79,7 @@ table.report-table thead tr.thead-title th {
   font-weight: bold;
   font-size: 7.5pt;
   text-align: center;
-  padding: 5px 3px;
+  padding: 4px 3px;
   border: 1px solid #2a2a2a;
   white-space: nowrap;
   overflow: hidden;
@@ -97,7 +100,7 @@ tr.row_count td {
   color: #434343;
   font-size: 7.5pt;
   font-weight: normal;
-  padding: 2px 4px;
+  padding: 1px 4px;
   border-bottom: 1px solid #d9d9d9;
   border-right: 1px solid #e8e8e8;
 }
@@ -109,7 +112,7 @@ tr.row_key td {
   color: #ffffff;
   font-weight: bold;
   font-size: 8.5pt;
-  padding: 5px 4px;
+  padding: 4px 4px;
   border-top: 2px solid #b85a47;
   border-bottom: 2px solid #b85a47;
   border-right: 1px solid rgba(255,255,255,0.18);
@@ -145,7 +148,7 @@ tr.row_subsection td {
   color: #1a1a1a;
   font-weight: bold;
   font-size: 8pt;
-  padding: 3px 4px;
+  padding: 2px 4px;
   border-top: 1px solid #e8d89a;
   border-bottom: 1px solid #e8d89a;
   border-right: 1px solid rgba(0,0,0,0.08);
@@ -157,7 +160,7 @@ tr.row_subtotal td {
   color: #1a1a1a;
   font-weight: bold;
   font-size: 8pt;
-  padding: 3px 4px;
+  padding: 2px 4px;
   border-top: 1px solid #cca800;
   border-bottom: 1px solid #cca800;
   border-right: 1px solid rgba(0,0,0,0.10);
@@ -168,7 +171,7 @@ tr.row_leaf td {
   background-color: #ffffff;
   color: #2c2c2c;
   font-size: 7.5pt;
-  padding: 2px 4px;
+  padding: 1px 4px;
   border-bottom: 1px solid #d9d9d9;
   border-right: 1px solid #e8e8e8;
 }
@@ -182,7 +185,7 @@ tr.row_check td {
   color: #ffffff;
   font-weight: bold;
   font-size: 8pt;
-  padding: 4px 4px;
+  padding: 3px 4px;
   border-top: 2px solid #444444;
   border-bottom: 2px solid #444444;
   border-right: 1px solid rgba(255,255,255,0.15);
@@ -200,7 +203,7 @@ td.td-account {
 td.td-value {
   text-align: right;
   white-space: nowrap;
-  padding: 0 6px 0 4px;
+  padding: 0 5px 0 3px;
 }
 
 /* PDF #FF0000 — negative numbers */
@@ -224,7 +227,7 @@ tr.row_percent td.td-value { font-style: italic; }
 td.td-total {
   text-align: right;
   white-space: nowrap;
-  padding: 0 6px 0 4px;
+  padding: 0 5px 0 3px;
   font-weight: bold;
 }
 tr.row_leaf   td.td-total { font-weight: normal; }
@@ -288,11 +291,9 @@ tr.row_count  td.td-total { font-weight: normal; }
 <!-- REPORT TABLE -->
 <table class="report-table">
   <colgroup>
-    {%- set n_cols = value_columns|length + 1 -%}
-    {%- set val_pct = (72.0 / n_cols)|round(2) -%}
-    <col style="width: 28%;">
-    {% for col in value_columns %}<col style="width: {{ val_pct }}%;">{% endfor %}
-    <col style="width: {{ val_pct }}%;">
+    <col class="col-account">
+    {% for col in value_columns %}<col class="col-period">{% endfor %}
+    <col class="col-total">
   </colgroup>
 
   <thead>
