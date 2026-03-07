@@ -1,0 +1,194 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"IPgf8Uh7QV\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Finance Reports</span>\",\"col\":12}},{\"id\":\"-Gq1v8kvQV\",\"type\":\"card\",\"data\":{\"card_name\":\"Moliyaviy Hisobotlar\",\"col\":4}},{\"id\":\"xX3HwNG_7s\",\"type\":\"card\",\"data\":{\"card_name\":\"Operator Hisobotlari\",\"col\":4}},{\"id\":\"Fyb77o2QC7\",\"type\":\"card\",\"data\":{\"card_name\":\"Page\",\"col\":4}}]",
+ "creation": "2026-03-06 22:13:12.227433",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "unhide",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Finance Reports",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Moliyaviy Hisobotlar",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Profit & Loss",
+   "link_count": 0,
+   "link_to": "Custom Profit and Loss",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Foyda va Zarar",
+   "link_count": 0,
+   "link_to": "Savdo va Foyda",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Balance Sheet",
+   "link_count": 0,
+   "link_to": "Operational Balance Sheet",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Page",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Dashbord Moliyaviy Boshqaruv ",
+   "link_count": 0,
+   "link_to": "financial-control-to",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operator Hisobotlari",
+   "link_count": 9,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Kontragent Hisoboti",
+   "link_count": 0,
+   "link_to": "Kontragent Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "To'lov Kalendari",
+   "link_count": 0,
+   "link_to": "All Customer Payment",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Pastavchik Hisoboti",
+   "link_count": 0,
+   "link_to": "Supplier Debt Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Kassa Hisoboti",
+   "link_count": 0,
+   "link_to": "Kassa Hisoboti",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Kassa Qoldiq",
+   "link_count": 0,
+   "link_to": "Qoldiq Summa",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "IMEI Qidiruv",
+   "link_count": 0,
+   "link_to": "IMEI Qidiruv",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Klient Sverk",
+   "link_count": 0,
+   "link_to": "Klient Sverka",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Eslatmalar",
+   "link_count": 0,
+   "link_to": "Eslatmalar",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Shartnoma Sverka",
+   "link_count": 0,
+   "link_to": "Shartnoma Sverka",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-03-06 22:40:44.204477",
+ "modified_by": "Administrator",
+ "module": "Cash Flow Management",
+ "name": "Finance Reports",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Administrator"
+  },
+  {
+   "role": "Business Owner"
+  }
+ ],
+ "sequence_id": 2.0,
+ "shortcuts": [],
+ "title": "Finance Reports"
+}
