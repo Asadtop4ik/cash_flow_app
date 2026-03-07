@@ -75,8 +75,20 @@ def get_data():
             so.transaction_date                    AS transaction_date,
             so.grand_total                         AS grand_total,
             so.currency                            AS currency,
-            SUM(pe.paid_amount)                    AS total_paid,
-            SUM(pe.paid_amount) - so.grand_total   AS overpaid_amount,
+            SUM(
+                CASE
+                    WHEN pe.payment_type = 'Receive' THEN  pe.paid_amount
+                    WHEN pe.payment_type = 'Pay'     THEN -pe.paid_amount
+                    ELSE 0
+                END
+            )                                      AS total_paid,
+            SUM(
+                CASE
+                    WHEN pe.payment_type = 'Receive' THEN  pe.paid_amount
+                    WHEN pe.payment_type = 'Pay'     THEN -pe.paid_amount
+                    ELSE 0
+                END
+            ) - so.grand_total                     AS overpaid_amount,
             COUNT(pe.name)                         AS payment_count
         FROM
             `tabSales Order` so
@@ -93,7 +105,13 @@ def get_data():
             so.grand_total,
             so.currency
         HAVING
-            SUM(pe.paid_amount) > so.grand_total
+            SUM(
+                CASE
+                    WHEN pe.payment_type = 'Receive' THEN  pe.paid_amount
+                    WHEN pe.payment_type = 'Pay'     THEN -pe.paid_amount
+                    ELSE 0
+                END
+            ) > so.grand_total
         ORDER BY
             overpaid_amount DESC
         """,
