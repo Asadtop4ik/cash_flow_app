@@ -314,10 +314,6 @@ def _compute_kpis():
             FROM `tabPayment Entry` pe
             WHERE pe.docstatus = 1
               AND pe.party_type = 'Customer'
-              AND (
-                  pe.custom_contract_reference IS NOT NULL
-                  AND pe.custom_contract_reference != ''
-              )
         ) pe_agg ON 1=1
         WHERE ia.docstatus = 1
     """, as_dict=True)[0]
@@ -434,8 +430,6 @@ def _compute_tier_debts():
                 FROM `tabPayment Entry` pe
                 WHERE pe.docstatus = 1
                   AND pe.party_type = 'Customer'
-                  AND pe.custom_contract_reference IS NOT NULL
-                  AND pe.custom_contract_reference != ''
                 GROUP BY pe.party
             ) pe_agg ON pe_agg.customer_ref = ia.customer
             WHERE ia.docstatus = 1
@@ -481,10 +475,10 @@ def _compute_customer_tiers():
     rows = frappe.db.sql("""
         SELECT
             ia.customer,
-            ia.customer_name,
-            COALESCE(cust.customer_classification, '') AS classification,
+            MAX(ia.customer_name)                        AS customer_name,
+            COALESCE(MAX(cust.customer_classification), '') AS classification,
 
-            /* ── Billed: sum of all submitted IA grand totals ────────── */
+            /* ── Billed: sum of ALL submitted IA grand totals ───────── */
             COALESCE(SUM(ia.custom_grand_total_with_interest), 0) AS total_billed,
 
             /* ── Net Paid: Receive minus Pay (refunds) ───────────────── */
@@ -521,14 +515,15 @@ def _compute_customer_tiers():
             FROM `tabPayment Entry` pe
             WHERE pe.docstatus = 1
               AND pe.party_type = 'Customer'
-              AND pe.custom_contract_reference IS NOT NULL
-              AND pe.custom_contract_reference != ''
             GROUP BY pe.party
         ) pe_agg ON pe_agg.customer_ref = ia.customer
 
         WHERE ia.docstatus = 1
 
-        GROUP BY ia.customer, ia.customer_name, cust.customer_classification
+        /* GROUP BY only customer ID — never by customer_name or classification
+           because customer_name can differ between IA records (renamed/typo)
+           and that would create phantom duplicate groups */
+        GROUP BY ia.customer
 
         /* Only customers with positive remaining debt */
         HAVING total_debt > 0
