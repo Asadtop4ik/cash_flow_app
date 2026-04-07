@@ -579,50 +579,6 @@
   "javascript": null,
   "json": null,
   "letter_head": null,
-  "modified": "2026-03-05 20:33:07.072609",
-  "module": "Cash Flow Management",
-  "name": "IMEI Qidiruv",
-  "prepared_report": 0,
-  "query": null,
-  "ref_doctype": "Installment Application",
-  "reference_report": null,
-  "report_name": "IMEI Qidiruv",
-  "report_script": null,
-  "report_type": "Script Report",
-  "roles": [
-   {
-    "parent": "IMEI Qidiruv",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Operator"
-   },
-   {
-    "parent": "IMEI Qidiruv",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "System Manager"
-   },
-   {
-    "parent": "IMEI Qidiruv",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Business Owner"
-   }
-  ],
-  "timeout": 0
- },
- {
-  "add_total_row": 0,
-  "add_translate_data": 0,
-  "columns": [],
-  "disabled": 0,
-  "docstatus": 0,
-  "doctype": "Report",
-  "filters": [],
-  "is_standard": "Yes",
-  "javascript": null,
-  "json": null,
-  "letter_head": null,
   "modified": "2026-03-05 20:30:54.553992",
   "module": "Cash Flow Management",
   "name": "Custom Profit and Loss",
@@ -1001,6 +957,98 @@
   "filters": [],
   "is_standard": "Yes",
   "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2026-04-07 09:49:07.818422",
+  "module": "Cash Flow Management",
+  "name": "Sotuv Donasi",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Item",
+  "reference_report": null,
+  "report_name": "Sotuv Donasi",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Sotuv Donasi",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Sales User"
+   },
+   {
+    "parent": "Sotuv Donasi",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Purchase User"
+   },
+   {
+    "parent": "Sotuv Donasi",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Stock Manager"
+   },
+   {
+    "parent": "Sotuv Donasi",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Item Manager"
+   },
+   {
+    "parent": "Sotuv Donasi",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Accounts User"
+   },
+   {
+    "parent": "Sotuv Donasi",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Maintenance User"
+   },
+   {
+    "parent": "Sotuv Donasi",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Stock User"
+   },
+   {
+    "parent": "Sotuv Donasi",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Desk User"
+   },
+   {
+    "parent": "Sotuv Donasi",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Manufacturing User"
+   },
+   {
+    "parent": "Sotuv Donasi",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Operator"
+   },
+   {
+    "parent": "Sotuv Donasi",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
   "json": "{}",
   "letter_head": null,
   "modified": "2026-03-05 20:32:18.554038",
@@ -1028,6 +1076,50 @@
    },
    {
     "parent": "Eslatmalar",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Business Owner"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2026-03-05 20:33:07.072609",
+  "module": "Cash Flow Management",
+  "name": "IMEI Qidiruv",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Installment Application",
+  "reference_report": null,
+  "report_name": "IMEI Qidiruv",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "IMEI Qidiruv",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Operator"
+   },
+   {
+    "parent": "IMEI Qidiruv",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "IMEI Qidiruv",
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "Business Owner"
