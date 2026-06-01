@@ -57,7 +57,7 @@ def get_columns():
         },
         {
             "fieldname": "net_profit",
-            "label": _("Sof Foyda"),
+            "label": _("Toza Savdo"),
             "fieldtype": "Currency",
             "width": 105
         },
