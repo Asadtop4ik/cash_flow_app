@@ -36,24 +36,32 @@ def get_columns():
 			"options": "Payment Entry",
 			"width": 150
 		},
+		# ✅ NEW: Installment Application (index 2 / 3rd column)
+		{
+			"fieldname": "installment_application",
+			"label": _("Installment Application"),
+			"fieldtype": "Link",
+			"options": "Installment Application",
+			"width": 170
+		},
 		{
 			"fieldname": "payment_type",
 			"label": _("Type"),
 			"fieldtype": "Data",
-			"width": 100
+			"width": 70
 		},
 		{
 			"fieldname": "mode_of_payment",
 			"label": _("Mode of Payment"),
 			"fieldtype": "Link",
 			"options": "Mode of Payment",
-			"width": 120
+			"width": 70
 		},
 		{
 			"fieldname": "counterparty_category",
 			"label": _("Category"),
 			"fieldtype": "Data",
-			"width": 150
+			"width": 100
 		},
 		{
 			"fieldname": "party",
@@ -93,6 +101,10 @@ def get_data(filters):
 	conditions = get_conditions(filters)
 	cash_account = filters.get("cash_account")
 
+	# NOTE: pe.custom_contract_reference is selected as a *helper* field.
+	# It carries the Sales Order name used to bridge to Installment
+	# Application in post-processing. It has no column in get_columns(),
+	# so Frappe simply ignores the extra dict key during rendering.
 	query = f"""
 		SELECT
 			pe.posting_date,
@@ -100,6 +112,7 @@ def get_data(filters):
 			pe.payment_type,
 			pe.mode_of_payment,
 			pe.custom_counterparty_category AS counterparty_category,
+			pe.custom_contract_reference AS custom_contract_reference,
 			CASE
 				WHEN pe.party_type IN ('Customer', 'Supplier', 'Employee') THEN pe.party_name
 				WHEN pe.payment_type = 'Internal Transfer' THEN
@@ -176,9 +189,76 @@ def get_data(filters):
 			else:
 				expanded_data.append(row)
 
-		return expanded_data
+		result_data = expanded_data
+	else:
+		result_data = data
 
-	return data
+	# ✅ Enrich AFTER expansion so split Internal Transfer lines
+	# (which retain custom_contract_reference via the shallow copy)
+	# get stamped too. This never changes the row count.
+	attach_installment_applications(result_data)
+
+	return result_data
+
+
+# ============================================================
+# ✅ INSTALLMENT APPLICATION MAPPING (Python post-processing)
+# ============================================================
+
+def attach_installment_applications(rows):
+	"""
+	Bridge each row to an Installment Application via the shared
+	Sales Order:  Payment Entry.custom_contract_reference == Installment
+	Application.sales_order.
+
+	Strategy: collect distinct contract references, run ONE batched
+	IN-query, build a {sales_order: installment_application} map, then
+	stamp every row in memory.
+
+	- No SQL JOIN  => no row fan-out, financial aggregates stay correct.
+	- One deduplicated query => far cheaper than a per-row subquery.
+	- Missing / NULL references => row.get() yields None, cell renders
+	  blank, and NO record is ever dropped.
+	"""
+	if not rows:
+		return
+
+	# 1) Distinct, truthy Sales Order references (skip None / "").
+	contract_refs = {
+		row.get("custom_contract_reference")
+		for row in rows
+		if row.get("custom_contract_reference")
+	}
+
+	if not contract_refs:
+		# Nothing to map; make sure the key exists so the column renders.
+		for row in rows:
+			row.setdefault("installment_application", None)
+		return
+
+	# 2) ONE batched fetch. Ordered so the latest (by creation) wins the
+	#    tie-break when a Sales Order has multiple Installment Applications.
+	#    docstatus < 2 excludes cancelled docs; harmless for non-submittable.
+	applications = frappe.get_all(
+		"Installment Application",
+		filters={
+			"sales_order": ["in", list(contract_refs)],
+			"docstatus": ["<", 2],
+		},
+		fields=["name", "sales_order"],
+		order_by="creation desc",
+	)
+
+	# 3) Build {sales_order: installment_application}. With creation DESC
+	#    ordering, setdefault keeps the most recent application per SO.
+	app_map = {}
+	for app in applications:
+		app_map.setdefault(app.get("sales_order"), app.get("name"))
+
+	# 4) Stamp every row (including expanded Internal Transfer lines).
+	for row in rows:
+		ref = row.get("custom_contract_reference")
+		row["installment_application"] = app_map.get(ref) if ref else None
 
 
 # ============================================================
