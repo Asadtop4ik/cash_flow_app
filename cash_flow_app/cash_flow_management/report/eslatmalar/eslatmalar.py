@@ -223,6 +223,24 @@ def get_data(filters):
                 groups["overdue_2weeks"].append(row)
             else:
                 groups["overdue_1week"].append(row)
+
+            # Eski qarz overdue guruhda turadi, lekin shu bilan birga bugungi/
+            # yaqin kunlardagi navbatdagi installment ham eslatilishi kerak —
+            # aks holda qarzdor klientning yangi oy to'lovi ro'yxatda ko'rinmaydi.
+            upcoming = _find_upcoming_installment(schedule, today)
+            if upcoming:
+                up_days = (getdate(upcoming["due_date"]) - today).days
+                if up_days <= 14:
+                    up_row = dict(row)
+                    up_row["current_month_payment"] = upcoming["schedule_amount"]
+                    up_row["due_amount"]            = upcoming["due_amount"]
+                    up_row["overdue_days"]          = None
+                    if up_days == 0:
+                        groups["today"].append(up_row)
+                    elif up_days <= 7:
+                        groups["due_1week"].append(up_row)
+                    else:
+                        groups["due_2weeks"].append(up_row)
         elif days_diff == 0:
             groups["today"].append(row)
         elif days_diff <= 7:
@@ -273,6 +291,25 @@ def _find_active_installment(schedule, total_paid):
         "schedule_amount": flt(last.payment_amount),
         "due_amount":      0.0,
     }
+
+
+def _find_upcoming_installment(schedule, today):
+    """
+    Bugun yoki kelajakdagi birinchi installmentni topadi.
+
+    FIFO waterfall bo'yicha aktiv (eng eski to'lanmagan) installment o'tmishda
+    qolgan holatda chaqiriladi — demak bugundan boshlab barcha installmentlar
+    hali umuman to'lanmagan, due_amount = to'liq summa.
+    """
+    for item in schedule:
+        if getdate(item.due_date) >= today:
+            amount = flt(item.payment_amount)
+            return {
+                "due_date":        item.due_date,
+                "schedule_amount": amount,
+                "due_amount":      amount,
+            }
+    return None
 
 
 def _build_output(groups):
