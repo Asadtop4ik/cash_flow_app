@@ -1,0 +1,24 @@
+{
+ "content": null,
+ "creation": "2026-10-07 10:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-10-07 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cash Flow Management",
+ "name": "eslatmalar-crm",
+ "owner": "Administrator",
+ "page_name": "eslatmalar-crm",
+ "roles": [
+  {"role": "Operator"},
+  {"role": "System Manager"},
+  {"role": "Accounts Manager"},
+  {"role": "Business Owner"}
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Eslatmalar CRM"
+}

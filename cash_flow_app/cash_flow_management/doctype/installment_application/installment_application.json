@@ -39,6 +39,12 @@
   "section_break_status",
   "sales_order",
   "status",
+  "section_break_collection",
+  "collection_operator",
+  "collection_stage",
+  "column_break_collection",
+  "last_contact_date",
+  "next_action_date",
   "amended_from"
  ],
  "fields": [
@@ -254,6 +260,49 @@
    "read_only": 1
   },
   {
+   "fieldname": "section_break_collection",
+   "fieldtype": "Section Break",
+   "label": "Qarz Yig'ish (Collection)",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "collection_operator",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Mas'ul Operator",
+   "allow_on_submit": 1,
+   "search_index": 1,
+   "description": "Bu shartnoma bo'yicha qo'ng'iroq qiladigan operator"
+  },
+  {
+   "fieldname": "collection_stage",
+   "fieldtype": "Select",
+   "label": "Collection Bosqichi",
+   "options": "Yangi\nAloqada\nVa'da berdi\nBuzilgan va'da\nEskalatsiya\nYuridik\nYopilgan",
+   "default": "Yangi",
+   "allow_on_submit": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_collection",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_contact_date",
+   "fieldtype": "Date",
+   "label": "Oxirgi Aloqa Sanasi",
+   "read_only": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "next_action_date",
+   "fieldtype": "Date",
+   "label": "Keyingi Harakat Sanasi",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "search_index": 1
+  },
+  {
    "fieldname": "amended_from",
    "fieldtype": "Link",
    "label": "Amended From",
@@ -276,36 +325,36 @@
  "owner": "Administrator",
  "permissions": [
   {
-      "create": 1,
-      "delete": 1,
-      "email": 1,
-      "export": 1,
-      "print": 1,
-      "read": 1,
-      "report": 1,
-      "role": "Operator",
-      "share": 1,
-      "submit": 1,
-      "write": 1,
-      "permlevel": 0
-    },
-    {
-      "amend": 1,
-      "cancel": 1,
-      "create": 1,
-      "delete": 1,
-      "email": 1,
-      "export": 1,
-      "print": 1,
-      "read": 1,
-      "report": 1,
-      "role": "System Manager",
-      "share": 1,
-      "submit": 1,
-      "write": 1,
-      "permlevel": 0
-    }
-  ],
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Operator",
+   "share": 1,
+   "submit": 1,
+   "write": 1,
+   "permlevel": 0
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1,
+   "permlevel": 0
+  }
+ ],
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",

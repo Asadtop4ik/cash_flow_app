@@ -67,7 +67,9 @@ doc_events = {
             "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification",
             "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_notification_v2",
 			"cash_flow_app.cash_flow_management.api.financial_control_tower_api.on_document_change",
-            "cash_flow_app.utils.customer_debt.update_customer_debt_on_payment_submit"
+            "cash_flow_app.utils.customer_debt.update_customer_debt_on_payment_submit",
+            # To'lov tushdi — ochiq va'dalarni qayta baholash (Kept/Partially Kept)
+            "cash_flow_app.cash_flow_management.api.eslatmalar_crm_api.on_payment_submit_evaluate"
         ],
         "on_cancel": [
             "cash_flow_app.cash_flow_management.overrides.payment_entry_linkage.on_cancel_payment_entry",
@@ -94,7 +96,9 @@ scheduler_events = {
     "daily": [
         "cash_flow_app.cash_flow_management.api.payment_entry.update_all_customers_classification",
         "cash_flow_app.cash_flow_management.api.telegram_bot_api.send_payment_reminders",
-        "cash_flow_app.scheduled_tasks.daily_export_to_google_sheets"
+        "cash_flow_app.scheduled_tasks.daily_export_to_google_sheets",
+        # Va'da muddati o'tgan Promise To Pay yozuvlarini Broken deb belgilash
+        "cash_flow_app.cash_flow_management.api.eslatmalar_crm_api.evaluate_promises"
     ],
     "cron": {
         "59 23 * * *": [

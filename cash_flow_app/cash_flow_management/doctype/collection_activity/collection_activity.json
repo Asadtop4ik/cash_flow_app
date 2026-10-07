@@ -125,7 +125,7 @@
    "fieldname": "promise",
    "fieldtype": "Link",
    "label": "Va'da",
-   "options": "Promise to Pay",
+   "options": "Promise To Pay",
    "read_only": 1
   },
   {
