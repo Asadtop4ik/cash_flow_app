@@ -211,6 +211,9 @@ def get_data(filters):
             "note_date":             note.get("note_date", "")     if note else "",
             "indent":                1,
             "bold":                  0,
+            # Yashirin sort kaliti: due_date - today (kun).
+            # Manfiy = kechikkan. Eng manfiy (eng kech qolgan) guruh boshida turadi.
+            "_sort_days":            days_diff,
         }
 
         # ── Guruh tanlash mantiq ──────────────────────────────────────────────────
@@ -235,6 +238,7 @@ def get_data(filters):
                     up_row["current_month_payment"] = upcoming["schedule_amount"]
                     up_row["due_amount"]            = upcoming["due_amount"]
                     up_row["overdue_days"]          = None
+                    up_row["_sort_days"]            = up_days
                     if up_days == 0:
                         groups["today"].append(up_row)
                     elif up_days <= 7:
@@ -333,6 +337,21 @@ def _build_output(groups):
         items = groups.get(group_key, [])
         if not items:
             continue
+
+        # ── Guruh ichida tartiblash ───────────────────────────────────────────
+        # _sort_days = due_date - today. Kechikkanlar manfiy bo'ladi, shuning
+        # uchun o'sish tartibida saralash eng kech qolganni tepaga chiqaradi:
+        #   -7 kun → -4 kun → -3 kun → -1 kun → bugun (0) → +1 ...
+        # Teng kechikishda qarzi kattasi oldin — operator avval yirik qarzni
+        # qo'ng'iroq qiladi.
+        items = sorted(
+            items,
+            key=lambda r: (
+                flt(r.get("_sort_days") or 0),
+                -flt(r.get("due_amount") or 0),
+                -flt(r.get("remaining_debt") or 0),
+            )
+        )
 
         # Guruh sarlavhasi
         data.append({

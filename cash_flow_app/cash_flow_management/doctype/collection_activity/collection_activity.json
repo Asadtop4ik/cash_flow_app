@@ -1,0 +1,211 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "CA-.YYYY.-.#####",
+ "creation": "2026-10-07 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "contract_reference",
+  "customer",
+  "customer_name",
+  "column_break_main",
+  "operator",
+  "activity_datetime",
+  "channel",
+  "section_break_outcome",
+  "disposition",
+  "outcome_note",
+  "column_break_outcome",
+  "next_action_date",
+  "next_action_time",
+  "promise",
+  "section_break_snapshot",
+  "overdue_days_at_contact",
+  "outstanding_at_contact",
+  "column_break_snapshot",
+  "phone_called",
+  "is_important"
+ ],
+ "fields": [
+  {
+   "fieldname": "contract_reference",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Shartnoma",
+   "options": "Installment Application",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "contract_reference.customer",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Klient",
+   "options": "Customer",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "contract_reference.customer_name",
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "label": "Klient Nomi",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "operator",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Operator",
+   "options": "User"
+  },
+  {
+   "default": "Now",
+   "fieldname": "activity_datetime",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Aloqa Vaqti",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "default": "Telefon",
+   "fieldname": "channel",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Kanal",
+   "options": "Telefon\nTelegram\nSMS\nUchrashuv\nBoshqa"
+  },
+  {
+   "fieldname": "section_break_outcome",
+   "fieldtype": "Section Break",
+   "label": "Natija"
+  },
+  {
+   "fieldname": "disposition",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Natija Kodi",
+   "options": "Va'da berdi\nTo'ladi\nRad etdi\nNizo / Pretenziya\nJavob bermadi\nBand\nTelefon o'chiq\nNoto'g'ri raqam\nQarindoshi javob berdi\nKeyinroq qo'ng'iroq so'radi\nBoshqa",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "outcome_note",
+   "fieldtype": "Small Text",
+   "label": "Izoh"
+  },
+  {
+   "fieldname": "column_break_outcome",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "next_action_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Keyingi Harakat Sanasi",
+   "search_index": 1
+  },
+  {
+   "fieldname": "next_action_time",
+   "fieldtype": "Time",
+   "label": "Keyingi Harakat Vaqti"
+  },
+  {
+   "fieldname": "promise",
+   "fieldtype": "Link",
+   "label": "Va'da",
+   "options": "Promise to Pay",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_snapshot",
+   "fieldtype": "Section Break",
+   "label": "Aloqa Paytidagi Holat"
+  },
+  {
+   "fieldname": "overdue_days_at_contact",
+   "fieldtype": "Int",
+   "label": "Kechikish (kun)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "outstanding_at_contact",
+   "fieldtype": "Currency",
+   "label": "Qarz (USD)",
+   "options": "USD",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_snapshot",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "phone_called",
+   "fieldtype": "Data",
+   "label": "Qo'ng'iroq Qilingan Raqam",
+   "options": "Phone"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_important",
+   "fieldtype": "Check",
+   "label": "Muhim"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-07 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cash Flow Management",
+ "name": "Collection Activity",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Operator",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Business Owner"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "activity_datetime",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "customer_name",
+ "track_changes": 1
+}

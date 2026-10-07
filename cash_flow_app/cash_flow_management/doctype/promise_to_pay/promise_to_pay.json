@@ -1,0 +1,191 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "PTP-.YYYY.-.#####",
+ "creation": "2026-10-07 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "contract_reference",
+  "customer",
+  "customer_name",
+  "column_break_main",
+  "operator",
+  "status",
+  "section_break_promise",
+  "promised_date",
+  "promised_amount",
+  "grace_days",
+  "column_break_promise",
+  "paid_amount",
+  "settled_on",
+  "broken_on",
+  "section_break_meta",
+  "created_from_activity",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "contract_reference",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Shartnoma",
+   "options": "Installment Application",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "contract_reference.customer",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Klient",
+   "options": "Customer",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "contract_reference.customer_name",
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "label": "Klient Nomi",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "operator",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Operator",
+   "options": "User"
+  },
+  {
+   "default": "Open",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Holati",
+   "options": "Open\nKept\nPartially Kept\nBroken\nCancelled",
+   "search_index": 1
+  },
+  {
+   "fieldname": "section_break_promise",
+   "fieldtype": "Section Break",
+   "label": "Va'da"
+  },
+  {
+   "fieldname": "promised_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Va'da Sanasi",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "promised_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Va'da Summasi (USD)",
+   "options": "USD",
+   "reqd": 1
+  },
+  {
+   "default": "3",
+   "description": "Va'da sanasidan keyin necha kun kutiladi, keyin va'da buzilgan deb belgilanadi",
+   "fieldname": "grace_days",
+   "fieldtype": "Int",
+   "label": "Kutish Muddati (kun)"
+  },
+  {
+   "fieldname": "column_break_promise",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "paid_amount",
+   "fieldtype": "Currency",
+   "label": "Va'dadan Keyin To'landi (USD)",
+   "options": "USD",
+   "read_only": 1
+  },
+  {
+   "fieldname": "settled_on",
+   "fieldtype": "Date",
+   "label": "Bajarilgan Sana",
+   "read_only": 1
+  },
+  {
+   "fieldname": "broken_on",
+   "fieldtype": "Date",
+   "label": "Buzilgan Sana",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_meta",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "created_from_activity",
+   "fieldtype": "Link",
+   "label": "Aloqa Yozuvi",
+   "options": "Collection Activity",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Izoh"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-07 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cash Flow Management",
+ "name": "Promise to Pay",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Operator",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Business Owner"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "promised_date",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "customer_name",
+ "track_changes": 1
+}
